@@ -36,8 +36,10 @@
 
 ```bash
 pnpm --filter @dentalops/api add @nestjs/swagger cookie-parser class-validator class-transformer
-pnpm --filter @dentalops/api add -D @types/cookie-parser
+pnpm --filter @dentalops/api add -D @types/cookie-parser @types/express
 ```
+
+`@types/express` is needed as a direct dev dependency: several files from here on `import type { Request, Response } from "express"`, and under pnpm's strict `node_modules` the transitive types from `@nestjs/platform-express` are not visible to the api package.
 
 - [ ] **Step 2: Add the error contract to `packages/contracts`**
 
@@ -457,6 +459,8 @@ export const tenantExtension = Prisma.defineExtension({
 })
 ```
 
+The `async () => await fn()` wrapper in the test helper below is load-bearing, not style. `PrismaPromise` is lazy: the extension's `$allOperations` hook fires when `.then` is called, not when the call expression is evaluated. `tenantContext.run(store, fn)` invokes `fn` synchronously, receives an unstarted promise, and returns — so an `await` at the *call site* runs `.then` after the store is already gone. The await must happen inside the callback. The request middleware is unaffected, because the controller and service awaits all occur within the chain `run` started.
+
 Two deliberate choices worth understanding before writing them:
 - **Missing context throws** rather than silently returning unscoped data. A request that reaches a tenant-scoped query without a tenant is a programming error and must explode in tests, not leak in production.
 - The auth module and the seed script use the **raw** client precisely because they operate before or across tenant boundaries.
@@ -491,7 +495,7 @@ import { tenantContext } from "../src/tenant/tenant-context"
 const prisma = new PrismaService()
 
 const asTenant = <T>(tenantId: string, fn: () => Promise<T>) =>
-  tenantContext.run({ tenantId, userId: "test-user", role: "owner" }, fn)
+  tenantContext.run({ tenantId, userId: "test-user", role: "owner" }, async () => await fn())
 
 describe("tenant extension", () => {
   let tenantA: string

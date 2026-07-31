@@ -1,5 +1,9 @@
 module.exports = {
   preset: "ts-jest",
   testEnvironment: "node",
-  testMatch: ["<rootDir>/test/**/*.e2e-spec.ts", "<rootDir>/src/**/*.spec.ts"]
+  testMatch: [
+    "<rootDir>/test/**/*.e2e-spec.ts",
+    "<rootDir>/test/**/*.spec.ts",
+    "<rootDir>/src/**/*.spec.ts"
+  ]
 }

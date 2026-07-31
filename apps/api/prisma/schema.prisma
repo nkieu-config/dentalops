@@ -30,6 +30,10 @@ model Tenant {
   requirements   ServiceEquipmentRequirement[]
   patients       Patient[]
 
+  shiftSeries ShiftSeries[]
+  shifts      Shift[]
+  timeBlocks  TimeBlock[]
+
   @@map("tenants")
 }
 
@@ -153,4 +157,69 @@ model Patient {
   @@unique([tenantId, phone, email])
   @@index([tenantId])
   @@map("patients")
+}
+
+enum RecurrenceFreq {
+  weekly
+  monthly_date
+}
+
+model ShiftSeries {
+  id          String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId    String         @map("tenant_id") @db.Uuid
+  staffId     String         @map("staff_id") @db.Uuid
+  branchId    String         @map("branch_id") @db.Uuid
+  freq        RecurrenceFreq
+  interval    Int            @default(1)
+  byWeekday   Int[]          @map("by_weekday")
+  timeStart   String         @map("time_start")
+  durationMin Int            @map("duration_min")
+  startsOn    DateTime       @map("starts_on") @db.Date
+  endsOn      DateTime?      @map("ends_on") @db.Date
+  createdAt   DateTime       @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt   DateTime       @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  tenant Tenant  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  shifts Shift[]
+
+  @@index([tenantId, staffId])
+  @@map("shift_series")
+}
+
+model Shift {
+  id        String                   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId  String                   @map("tenant_id") @db.Uuid
+  staffId   String                   @map("staff_id") @db.Uuid
+  branchId  String                   @map("branch_id") @db.Uuid
+  seriesId  String?                  @map("series_id") @db.Uuid
+  startsAt  DateTime                 @map("starts_at") @db.Timestamptz(3)
+  endsAt    DateTime                 @map("ends_at") @db.Timestamptz(3)
+  during    Unsupported("tstzrange")?
+  detached  Boolean                  @default(false)
+  createdAt DateTime                 @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime                 @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  tenant Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  series ShiftSeries? @relation(fields: [seriesId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, branchId, startsAt])
+  @@index([tenantId, staffId, startsAt])
+  @@map("shifts")
+}
+
+model TimeBlock {
+  id        String                   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId  String                   @map("tenant_id") @db.Uuid
+  staffId   String?                  @map("staff_id") @db.Uuid
+  branchId  String?                  @map("branch_id") @db.Uuid
+  reason    String
+  startsAt  DateTime                 @map("starts_at") @db.Timestamptz(3)
+  endsAt    DateTime                 @map("ends_at") @db.Timestamptz(3)
+  during    Unsupported("tstzrange")?
+  createdAt DateTime                 @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, staffId, startsAt])
+  @@map("time_blocks")
 }

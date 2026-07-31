@@ -34,6 +34,10 @@ model Tenant {
   shifts      Shift[]
   timeBlocks  TimeBlock[]
 
+  appointmentSeries AppointmentSeries[]
+  appointments      Appointment[]
+  resourceClaims    ResourceClaim[]
+
   @@map("tenants")
 }
 
@@ -222,4 +226,76 @@ model TimeBlock {
 
   @@index([tenantId, staffId, startsAt])
   @@map("time_blocks")
+}
+
+enum AppointmentStatus {
+  confirmed
+  completed
+  cancelled
+  no_show
+}
+
+enum ClaimStatus {
+  active
+  released
+}
+
+model AppointmentSeries {
+  id          String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId    String         @map("tenant_id") @db.Uuid
+  freq        RecurrenceFreq
+  interval    Int            @default(1)
+  byWeekday   Int[]          @map("by_weekday")
+  count       Int
+  createdAt   DateTime       @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  tenant       Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  appointments Appointment[]
+
+  @@index([tenantId])
+  @@map("appointment_series")
+}
+
+model Appointment {
+  id        String                   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId  String                   @map("tenant_id") @db.Uuid
+  branchId  String                   @map("branch_id") @db.Uuid
+  seriesId  String?                  @map("series_id") @db.Uuid
+  serviceId String                   @map("service_id") @db.Uuid
+  dentistId String                   @map("dentist_id") @db.Uuid
+  patientId String                   @map("patient_id") @db.Uuid
+  startsAt  DateTime                 @map("starts_at") @db.Timestamptz(3)
+  endsAt    DateTime                 @map("ends_at") @db.Timestamptz(3)
+  during    Unsupported("tstzrange")?
+  status    AppointmentStatus        @default(confirmed)
+  version   Int                      @default(0)
+  detached  Boolean                  @default(false)
+  createdBy String?                  @map("created_by") @db.Uuid
+  createdAt DateTime                 @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime                 @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  tenant  Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  series  AppointmentSeries? @relation(fields: [seriesId], references: [id], onDelete: Cascade)
+  claims  ResourceClaim[]
+
+  @@index([tenantId, branchId, startsAt])
+  @@index([tenantId, dentistId, startsAt])
+  @@map("appointments")
+}
+
+model ResourceClaim {
+  id            String                   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId      String                   @map("tenant_id") @db.Uuid
+  appointmentId String                   @map("appointment_id") @db.Uuid
+  resourceId    String                   @map("resource_id") @db.Uuid
+  startsAt      DateTime                 @map("starts_at") @db.Timestamptz(3)
+  endsAt        DateTime                 @map("ends_at") @db.Timestamptz(3)
+  during        Unsupported("tstzrange")?
+  status        ClaimStatus              @default(active)
+
+  tenant      Tenant      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  appointment Appointment @relation(fields: [appointmentId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, resourceId, startsAt])
+  @@map("resource_claims")
 }

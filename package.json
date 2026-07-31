@@ -1,0 +1,18 @@
+{
+  "name": "dentalops",
+  "private": true,
+  "packageManager": "pnpm@10.4.1",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "dev": "turbo run dev",
+    "build": "turbo run build",
+    "typecheck": "turbo run typecheck",
+    "test": "turbo run test",
+    "lint": "eslint ."
+  },
+  "devDependencies": {
+    "turbo": "^2.10.8"
+  }
+}

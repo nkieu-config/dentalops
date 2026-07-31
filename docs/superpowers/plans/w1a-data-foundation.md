@@ -762,7 +762,7 @@ Run: `pnpm --filter @dentalops/api exec prisma migrate dev --name appointments -
 
 - [ ] **Step 3: Hand-edit the generated SQL**
 
-Delete the two `"during" tstzrange` column definitions Prisma emitted, then append:
+Delete the two `"during" tstzrange` column definitions Prisma emitted. Prisma will also have injected drift-fixup statements against the Task 3 tables (`DROP INDEX "shifts_during_idx"`, `DROP INDEX "time_blocks_during_idx"`, `ALTER COLUMN "during" DROP DEFAULT` ×2) — delete those too; they would destroy the existing GiST indexes and fail against a generated column. Then append:
 
 ```sql
 ALTER TABLE "appointments"

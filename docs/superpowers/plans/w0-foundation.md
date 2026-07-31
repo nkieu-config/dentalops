@@ -987,16 +987,34 @@ sentry.io free tier → create org → project `dentalops-api` (Node) and `denta
 
 - [ ] **Step 2: Install and wire the api**
 
-Run: `pnpm --filter @dentalops/api add @sentry/node`
+Run: `pnpm --filter @dentalops/api add @sentry/nestjs`
+
+Use `@sentry/nestjs`, not `@sentry/node`. Nest's exception layer handles controller throws before they reach Express, so a plain `@sentry/node` init captures process-level crashes but silently misses every HTTP 500 from a controller. Registering `SentryGlobalFilter` as `APP_FILTER` is what actually reports them — `SentryModule.forRoot()` alone is not sufficient.
 
 `apps/api/src/instrument.ts`:
 
 ```ts
-import * as Sentry from "@sentry/node"
+import * as Sentry from "@sentry/nestjs"
 
 if (process.env.SENTRY_DSN) {
   Sentry.init({ dsn: process.env.SENTRY_DSN, tracesSampleRate: 0.1 })
 }
+```
+
+`apps/api/src/app.module.ts`:
+
+```ts
+import { Module } from "@nestjs/common"
+import { APP_FILTER } from "@nestjs/core"
+import { SentryGlobalFilter, SentryModule } from "@sentry/nestjs/setup"
+import { HealthController } from "./health/health.controller"
+
+@Module({
+  imports: [SentryModule.forRoot()],
+  controllers: [HealthController],
+  providers: [{ provide: APP_FILTER, useClass: SentryGlobalFilter }]
+})
+export class AppModule {}
 ```
 
 Modify `apps/api/src/main.ts` — add as the first line:

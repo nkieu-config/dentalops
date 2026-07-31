@@ -23,6 +23,13 @@ model Tenant {
 
   users User[]
 
+  branches       Branch[]
+  services       Service[]
+  equipmentTypes EquipmentType[]
+  resources      Resource[]
+  requirements   ServiceEquipmentRequirement[]
+  patients       Patient[]
+
   @@map("tenants")
 }
 
@@ -42,4 +49,108 @@ model User {
   @@unique([tenantId, email])
   @@index([tenantId])
   @@map("users")
+}
+
+enum ResourceType {
+  chair
+  equipment
+}
+
+model Branch {
+  id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId     String   @map("tenant_id") @db.Uuid
+  name         String
+  timezone     String   @default("Asia/Bangkok")
+  openingHours Json     @map("opening_hours")
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt    DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  tenant    Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  resources Resource[]
+
+  @@index([tenantId])
+  @@map("branches")
+}
+
+model Service {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId    String   @map("tenant_id") @db.Uuid
+  name        String
+  durationMin Int      @map("duration_min")
+  bufferMin   Int      @default(0) @map("buffer_min")
+  colorIndex  Int      @default(0) @map("color_index")
+  isActive    Boolean  @default(true) @map("is_active")
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  tenant       Tenant                        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  requirements ServiceEquipmentRequirement[]
+
+  @@index([tenantId])
+  @@map("services")
+}
+
+model EquipmentType {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId  String   @map("tenant_id") @db.Uuid
+  name      String
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  tenant       Tenant                        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  resources    Resource[]
+  requirements ServiceEquipmentRequirement[]
+
+  @@index([tenantId])
+  @@map("equipment_types")
+}
+
+model Resource {
+  id              String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId        String       @map("tenant_id") @db.Uuid
+  branchId        String       @map("branch_id") @db.Uuid
+  equipmentTypeId String?      @map("equipment_type_id") @db.Uuid
+  type            ResourceType
+  name            String
+  isActive        Boolean      @default(true) @map("is_active")
+  createdAt       DateTime     @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt       DateTime     @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  tenant        Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  branch        Branch         @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  equipmentType EquipmentType? @relation(fields: [equipmentTypeId], references: [id])
+
+  @@index([tenantId, branchId])
+  @@map("resources")
+}
+
+model ServiceEquipmentRequirement {
+  id              String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId        String @map("tenant_id") @db.Uuid
+  serviceId       String @map("service_id") @db.Uuid
+  equipmentTypeId String @map("equipment_type_id") @db.Uuid
+  quantity        Int    @default(1)
+
+  tenant        Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  service       Service       @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+  equipmentType EquipmentType @relation(fields: [equipmentTypeId], references: [id], onDelete: Cascade)
+
+  @@unique([serviceId, equipmentTypeId])
+  @@map("service_equipment_requirements")
+}
+
+model Patient {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId  String   @map("tenant_id") @db.Uuid
+  name      String
+  phone     String
+  email     String
+  notes     String?
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, phone, email])
+  @@index([tenantId])
+  @@map("patients")
 }

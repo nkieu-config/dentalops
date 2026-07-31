@@ -645,10 +645,21 @@ process.env.JWT_SECRET ??= "test-secret"
 process.env.JWT_REFRESH_SECRET ??= "test-refresh-secret"
 ```
 
-`apps/api/jest.config.cjs` — add:
+`apps/api/test/global-setup.cjs` — the demo tenant must exist before any suite runs. Without this, `auth.spec.ts`'s demo-login test silently depends on `seed.spec.ts` having run first, and Jest's parallel workers order suites nondeterministically: it passes locally (where you seeded by hand) and fails in CI. Plain CommonJS so no transform is needed.
+
+```js
+const { execSync } = require("node:child_process")
+
+module.exports = () => {
+  execSync("pnpm db:seed", { cwd: `${__dirname}/..`, stdio: "pipe" })
+}
+```
+
+`apps/api/jest.config.cjs` — add both:
 
 ```js
   setupFiles: ["<rootDir>/test/setup-env.ts"],
+  globalSetup: "<rootDir>/test/global-setup.cjs",
 ```
 
 - [ ] **Step 3: Shared tenant defaults**
@@ -1017,7 +1028,7 @@ export class TenantContextMiddleware implements NestMiddleware {
 `apps/api/src/auth/auth.controller.ts`:
 
 ```ts
-import { Body, Controller, Get, Post, Req, Res, UseGuards } from "@nestjs/common"
+import { Body, Controller, Get, HttpCode, Post, Req, Res, UseGuards } from "@nestjs/common"
 import { ApiBearerAuth, ApiTags } from "@nestjs/swagger"
 import type { Request, Response } from "express"
 import { AuthService } from "./auth.service"
@@ -1060,21 +1071,25 @@ export class AuthController {
   }
 
   @Post("signup")
+  @HttpCode(200)
   async signup(@Body() dto: SignupDto, @Res() res: Response) {
     return this.respond(res, await this.auth.signup(dto))
   }
 
   @Post("login")
+  @HttpCode(200)
   async login(@Body() dto: LoginDto, @Res() res: Response) {
     return this.respond(res, await this.auth.login(dto))
   }
 
   @Post("demo-login")
+  @HttpCode(200)
   async demoLogin(@Body() dto: DemoLoginDto, @Res() res: Response) {
     return this.respond(res, await this.auth.demoLogin(dto))
   }
 
   @Post("refresh")
+  @HttpCode(200)
   async refresh(@Req() req: Request, @Res() res: Response) {
     const token = (req.cookies as Record<string, string> | undefined)?.[REFRESH_COOKIE]
     return this.respond(res, await this.auth.refresh(token))

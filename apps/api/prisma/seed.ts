@@ -1,16 +1,8 @@
 import { PrismaClient } from "@prisma/client"
+import * as argon2 from "argon2"
+import { DEFAULT_OPENING_HOURS, DEFAULT_SERVICES } from "../src/tenant/defaults"
 
 const prisma = new PrismaClient()
-
-const OPENING_HOURS = {
-  mon: [["09:00", "20:00"]],
-  tue: [["09:00", "20:00"]],
-  wed: [["09:00", "20:00"]],
-  thu: [["09:00", "20:00"]],
-  fri: [["09:00", "20:00"]],
-  sat: [["09:00", "17:00"]],
-  sun: []
-}
 
 async function main() {
   await prisma.tenant.deleteMany({ where: { slug: "demo-clinic" } })
@@ -20,11 +12,11 @@ async function main() {
   })
 
   const sukhumvit = await prisma.branch.create({
-    data: { tenantId: tenant.id, name: "Sukhumvit", openingHours: OPENING_HOURS }
+    data: { tenantId: tenant.id, name: "Sukhumvit", openingHours: DEFAULT_OPENING_HOURS }
   })
 
   const ladprao = await prisma.branch.create({
-    data: { tenantId: tenant.id, name: "Ladprao", openingHours: OPENING_HOURS }
+    data: { tenantId: tenant.id, name: "Ladprao", openingHours: DEFAULT_OPENING_HOURS }
   })
 
   const xray = await prisma.equipmentType.create({
@@ -32,14 +24,7 @@ async function main() {
   })
 
   const services = await Promise.all(
-    [
-      { name: "Cleaning", durationMin: 45, colorIndex: 0 },
-      { name: "Filling", durationMin: 60, colorIndex: 1 },
-      { name: "Root canal", durationMin: 90, colorIndex: 2 },
-      { name: "Ortho adjustment", durationMin: 30, colorIndex: 3 },
-      { name: "Extraction", durationMin: 60, colorIndex: 4 },
-      { name: "Whitening", durationMin: 75, colorIndex: 5 }
-    ].map((s) =>
+    DEFAULT_SERVICES.map((s) =>
       prisma.service.create({ data: { tenantId: tenant.id, bufferMin: 10, ...s } })
     )
   )
@@ -73,21 +58,23 @@ async function main() {
     })
   }
 
+  const passwordHash = await argon2.hash("demo1234")
+
   const staff = [
-    { name: "Anong Prasert", role: "owner" as const },
-    { name: "Somchai Wattana", role: "dentist" as const },
-    { name: "Ploy Siriwan", role: "dentist" as const },
-    { name: "Nid Kanjana", role: "dentist" as const },
-    { name: "Kiat Thongchai", role: "dentist" as const },
-    { name: "Malee Suksan", role: "receptionist" as const }
+    { email: "owner@demo-clinic.local", name: "Anong Prasert", role: "owner" as const },
+    { email: "receptionist@demo-clinic.local", name: "Malee Suksan", role: "receptionist" as const },
+    { email: "dentist1@demo-clinic.local", name: "Somchai Wattana", role: "dentist" as const },
+    { email: "dentist2@demo-clinic.local", name: "Ploy Siriwan", role: "dentist" as const },
+    { email: "dentist3@demo-clinic.local", name: "Nid Kanjana", role: "dentist" as const },
+    { email: "dentist4@demo-clinic.local", name: "Kiat Thongchai", role: "dentist" as const }
   ]
 
-  for (const [i, person] of staff.entries()) {
+  for (const person of staff) {
     await prisma.user.create({
       data: {
         tenantId: tenant.id,
-        email: `${person.role}${i}@demo-clinic.local`,
-        passwordHash: "seeded-placeholder",
+        email: person.email,
+        passwordHash,
         name: person.name,
         role: person.role
       }

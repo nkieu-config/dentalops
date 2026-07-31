@@ -234,12 +234,14 @@ jobs:
 
 - [ ] **Step 8: Make the generated client reachable everywhere it is built**
 
-pnpm 10 blocks postinstall scripts by default, and Prisma generates its client from a postinstall. Add to the root `package.json`, above `devDependencies`:
+pnpm 10 blocks postinstall scripts by default, and Prisma generates its client from a postinstall. pnpm 10 also no longer reads the `pnpm` field in `package.json` — settings live in `pnpm-workspace.yaml` now. Append there:
 
-```json
-  "pnpm": {
-    "onlyBuiltDependencies": ["@prisma/client", "@prisma/engines", "esbuild", "prisma"]
-  },
+```yaml
+onlyBuiltDependencies:
+  - "@prisma/client"
+  - "@prisma/engines"
+  - esbuild
+  - prisma
 ```
 
 That is necessary but **not sufficient**. Prisma's postinstall runs from its own directory inside `node_modules/.pnpm/`, cannot find a schema that lives at `apps/api/prisma/schema.prisma`, and quietly emits a client stub containing none of our models. Anything that builds this repo from a clean checkout must therefore run `prisma generate` explicitly — CI already does (Step 7), and the deploy needs it too.

@@ -36,9 +36,11 @@
 Run:
 
 ```bash
-pnpm --filter @dentalops/api add @prisma/client
-pnpm --filter @dentalops/api add -D prisma
+pnpm --filter @dentalops/api add @prisma/client@^6
+pnpm --filter @dentalops/api add -D prisma@^6
 ```
+
+The major version is pinned deliberately. Prisma 7 rejects `url` and `directUrl` inside the `datasource` block — they move to a separate `prisma.config.ts` — so every schema snippet in this plan assumes Prisma 6. Keep the pin for the remaining tasks.
 
 - [ ] **Step 2: Create the schema with the first two models**
 
@@ -178,7 +180,15 @@ export class AppModule {}
 
 - [ ] **Step 7: Give CI a database**
 
-Replace `.github/workflows/ci.yml` with:
+Two changes are needed, not one. Turborepo runs tasks in a sanitised environment and passes through only the variables a task declares, so setting `DATABASE_URL` at the workflow level is not enough on its own — Jest would still see nothing. It works locally only because `apps/api/.env` exists on disk for Prisma to read.
+
+First, declare the variables on the `test` task in `turbo.json`:
+
+```json
+"test": { "dependsOn": ["^build"], "env": ["DATABASE_URL", "DIRECT_URL"] },
+```
+
+Then replace `.github/workflows/ci.yml` with:
 
 ```yaml
 name: CI

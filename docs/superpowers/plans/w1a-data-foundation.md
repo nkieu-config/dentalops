@@ -232,10 +232,34 @@ jobs:
       - run: pnpm build
 ```
 
-- [ ] **Step 8: Verify the whole pipeline locally**
+- [ ] **Step 8: Make the generated client reachable everywhere it is built**
 
-Run: `pnpm --filter @dentalops/api exec prisma generate && pnpm lint && pnpm typecheck && pnpm test && pnpm build`
-Expected: all green. (`prisma generate` must run before typecheck — the generated client is what `PrismaService` extends.)
+pnpm 10 blocks postinstall scripts by default, and Prisma generates its client from a postinstall. Add to the root `package.json`, above `devDependencies`:
+
+```json
+  "pnpm": {
+    "onlyBuiltDependencies": ["@prisma/client", "@prisma/engines", "esbuild", "prisma"]
+  },
+```
+
+That is necessary but **not sufficient**. Prisma's postinstall runs from its own directory inside `node_modules/.pnpm/`, cannot find a schema that lives at `apps/api/prisma/schema.prisma`, and quietly emits a client stub containing none of our models. Anything that builds this repo from a clean checkout must therefore run `prisma generate` explicitly — CI already does (Step 7), and the deploy needs it too.
+
+Update the `buildCommand` in `render.yaml` to generate the client and apply migrations before building:
+
+```yaml
+    buildCommand: npm i -g pnpm@10.4.1 && pnpm install --frozen-lockfile && pnpm --filter @dentalops/api exec prisma generate && pnpm --filter @dentalops/api exec prisma migrate deploy && pnpm turbo run build --filter=@dentalops/api
+```
+
+Verify the stub-versus-real distinction yourself, so the failure mode is familiar rather than mysterious:
+
+```bash
+grep -l "Tenant" node_modules/.pnpm/@prisma+client*/node_modules/.prisma/client/index.d.ts
+```
+
+Expected: no match immediately after a fresh `pnpm install`, and a match after `pnpm --filter @dentalops/api exec prisma generate`.
+
+Then run the full pipeline: `pnpm lint && pnpm typecheck && pnpm test && pnpm build`
+Expected: all green.
 
 - [ ] **Step 9: Commit and push**
 

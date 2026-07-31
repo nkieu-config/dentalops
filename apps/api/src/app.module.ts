@@ -1,12 +1,18 @@
-import { Module } from "@nestjs/common"
+import { MiddlewareConsumer, Module, NestModule } from "@nestjs/common"
 import { APP_FILTER } from "@nestjs/core"
-import { SentryGlobalFilter, SentryModule } from "@sentry/nestjs/setup"
+import { SentryModule } from "@sentry/nestjs/setup"
+import { AppExceptionFilter } from "./common/app-exception.filter"
+import { RequestIdMiddleware } from "./common/request-id.middleware"
 import { HealthController } from "./health/health.controller"
 import { PrismaModule } from "./prisma/prisma.module"
 
 @Module({
   imports: [SentryModule.forRoot(), PrismaModule],
   controllers: [HealthController],
-  providers: [{ provide: APP_FILTER, useClass: SentryGlobalFilter }]
+  providers: [{ provide: APP_FILTER, useClass: AppExceptionFilter }]
 })
-export class AppModule {}
+export class AppModule implements NestModule {
+  configure(consumer: MiddlewareConsumer) {
+    consumer.apply(RequestIdMiddleware).forRoutes("*")
+  }
+}

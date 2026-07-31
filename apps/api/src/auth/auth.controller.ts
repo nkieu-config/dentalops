@@ -1,12 +1,12 @@
-import { Body, Controller, Get, HttpCode, Post, Req, Res, UseGuards } from "@nestjs/common"
+import { Body, Controller, Get, HttpCode, Post, Req, Res } from "@nestjs/common"
 import { ApiBearerAuth, ApiTags } from "@nestjs/swagger"
 import type { Request, Response } from "express"
 import { AuthService } from "./auth.service"
 import { CurrentUser } from "./current-user.decorator"
 import { DemoLoginDto } from "./dto/demo-login.dto"
 import { LoginDto } from "./dto/login.dto"
+import { Public } from "./public.decorator"
 import { SignupDto } from "./dto/signup.dto"
-import { JwtAuthGuard } from "./jwt-auth.guard"
 import { AuthenticatedUser } from "./jwt.strategy"
 
 const REFRESH_COOKIE = "dentalops_refresh"
@@ -41,24 +41,28 @@ export class AuthController {
   }
 
   @Post("signup")
+  @Public()
   @HttpCode(200)
   async signup(@Body() dto: SignupDto, @Res() res: Response) {
     return this.respond(res, await this.auth.signup(dto))
   }
 
   @Post("login")
+  @Public()
   @HttpCode(200)
   async login(@Body() dto: LoginDto, @Res() res: Response) {
     return this.respond(res, await this.auth.login(dto))
   }
 
   @Post("demo-login")
+  @Public()
   @HttpCode(200)
   async demoLogin(@Body() dto: DemoLoginDto, @Res() res: Response) {
     return this.respond(res, await this.auth.demoLogin(dto))
   }
 
   @Post("refresh")
+  @Public()
   @HttpCode(200)
   async refresh(@Req() req: Request, @Res() res: Response) {
     const token = (req.cookies as Record<string, string> | undefined)?.[REFRESH_COOKIE]
@@ -67,7 +71,6 @@ export class AuthController {
 
   @Get("me")
   @ApiBearerAuth()
-  @UseGuards(JwtAuthGuard)
   me(@CurrentUser() user: AuthenticatedUser) {
     return user
   }

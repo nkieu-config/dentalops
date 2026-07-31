@@ -3,6 +3,7 @@ import { APP_FILTER, APP_GUARD } from "@nestjs/core"
 import { JwtModule } from "@nestjs/jwt"
 import { SentryModule } from "@sentry/nestjs/setup"
 import { AuthModule } from "./auth/auth.module"
+import { JwtAuthGuard } from "./auth/jwt-auth.guard"
 import { RolesGuard } from "./auth/roles.guard"
 import { AppExceptionFilter } from "./common/app-exception.filter"
 import { RequestIdMiddleware } from "./common/request-id.middleware"
@@ -22,6 +23,7 @@ import { TenantContextMiddleware } from "./tenant/tenant-context.middleware"
   controllers: [HealthController],
   providers: [
     { provide: APP_FILTER, useClass: AppExceptionFilter },
+    { provide: APP_GUARD, useClass: JwtAuthGuard },
     { provide: APP_GUARD, useClass: RolesGuard }
   ]
 })

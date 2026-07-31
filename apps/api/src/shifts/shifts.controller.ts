@@ -1,6 +1,5 @@
-import { Body, Controller, Delete, Get, HttpCode, Param, ParseUUIDPipe, Post, Query, UseGuards } from "@nestjs/common"
+import { Body, Controller, Delete, Get, HttpCode, Param, ParseUUIDPipe, Post, Query } from "@nestjs/common"
 import { ApiBearerAuth, ApiTags } from "@nestjs/swagger"
-import { JwtAuthGuard } from "../auth/jwt-auth.guard"
 import { Roles } from "../auth/roles.decorator"
 import { CreateShiftDto } from "./dto/create-shift.dto"
 import { QueryShiftsDto } from "./dto/query-shifts.dto"
@@ -8,7 +7,6 @@ import { ShiftsService } from "./shifts.service"
 
 @ApiTags("shifts")
 @ApiBearerAuth()
-@UseGuards(JwtAuthGuard)
 @Controller("shifts")
 export class ShiftsController {
   constructor(private readonly shifts: ShiftsService) {}

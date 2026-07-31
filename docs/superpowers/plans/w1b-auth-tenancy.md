@@ -125,7 +125,9 @@ export class AppExceptionFilter implements ExceptionFilter {
     const requestId = req.id ?? "unknown"
 
     const exclusion =
-      exception instanceof Error ? exception.message.match(/exclusion constraint "(\w+)"/) : null
+      exception instanceof Error
+        ? exception.message.match(/exclusion constraint \\?"(\w+)\\?"/)
+        : null
     if (exclusion) {
       return res.status(409).json({
         statusCode: 409,
@@ -930,14 +932,40 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
 }
 ```
 
+Both guards are registered globally, in order, so `JwtAuthGuard` always populates `req.user` before `RolesGuard` reads it. A controller-scoped `@UseGuards(JwtAuthGuard)` would run *after* a global `RolesGuard` — every `@Roles` route would then 403 for everyone, including the owner. Authentication is therefore opt-**out** via `@Public()`, which is also the safer default: a new endpoint is protected unless you say otherwise.
+
+`apps/api/src/auth/public.decorator.ts`:
+
+```ts
+import { SetMetadata } from "@nestjs/common"
+
+export const IS_PUBLIC_KEY = "isPublic"
+export const Public = () => SetMetadata(IS_PUBLIC_KEY, true)
+```
+
 `apps/api/src/auth/jwt-auth.guard.ts`:
 
 ```ts
-import { Injectable } from "@nestjs/common"
+import { ExecutionContext, Injectable } from "@nestjs/common"
+import { Reflector } from "@nestjs/core"
 import { AuthGuard } from "@nestjs/passport"
+import { IS_PUBLIC_KEY } from "./public.decorator"
 
 @Injectable()
-export class JwtAuthGuard extends AuthGuard("jwt") {}
+export class JwtAuthGuard extends AuthGuard("jwt") {
+  constructor(private readonly reflector: Reflector) {
+    super()
+  }
+
+  canActivate(context: ExecutionContext) {
+    const isPublic = this.reflector.getAllAndOverride<boolean>(IS_PUBLIC_KEY, [
+      context.getHandler(),
+      context.getClass()
+    ])
+    if (isPublic) return true
+    return super.canActivate(context)
+  }
+}
 ```
 
 `apps/api/src/auth/roles.decorator.ts`:
@@ -1143,6 +1171,7 @@ import { TenantContextMiddleware } from "./tenant/tenant-context.middleware"
   controllers: [HealthController],
   providers: [
     { provide: APP_FILTER, useClass: AppExceptionFilter },
+    { provide: APP_GUARD, useClass: JwtAuthGuard },
     { provide: APP_GUARD, useClass: RolesGuard }
   ]
 })
@@ -1153,7 +1182,7 @@ export class AppModule implements NestModule {
 }
 ```
 
-`RolesGuard` is global so `@Roles` works anywhere; routes without the decorator pass through untouched.
+Order matters: global guards execute in registration order, so `JwtAuthGuard` authenticates (401 for anonymous) before `RolesGuard` authorises (403 for the wrong role). Mark `GET /health` and the four public auth routes with `@Public()`, and drop `@UseGuards(JwtAuthGuard)` from `GET /auth/me` — the global guard covers it.
 
 - [ ] **Step 9: Real password hashes in the seed**
 
@@ -1462,9 +1491,8 @@ The overlap filter in `list` is the standard interval trick: a shift intersects 
 `apps/api/src/shifts/shifts.controller.ts`:
 
 ```ts
-import { Body, Controller, Delete, Get, HttpCode, Param, ParseUUIDPipe, Post, Query, UseGuards } from "@nestjs/common"
+import { Body, Controller, Delete, Get, HttpCode, Param, ParseUUIDPipe, Post, Query } from "@nestjs/common"
 import { ApiBearerAuth, ApiTags } from "@nestjs/swagger"
-import { JwtAuthGuard } from "../auth/jwt-auth.guard"
 import { Roles } from "../auth/roles.decorator"
 import { CreateShiftDto } from "./dto/create-shift.dto"
 import { QueryShiftsDto } from "./dto/query-shifts.dto"
@@ -1472,7 +1500,6 @@ import { ShiftsService } from "./shifts.service"
 
 @ApiTags("shifts")
 @ApiBearerAuth()
-@UseGuards(JwtAuthGuard)
 @Controller("shifts")
 export class ShiftsController {
   constructor(private readonly shifts: ShiftsService) {}

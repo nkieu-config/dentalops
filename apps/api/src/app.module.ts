@@ -8,10 +8,17 @@ import { AppExceptionFilter } from "./common/app-exception.filter"
 import { RequestIdMiddleware } from "./common/request-id.middleware"
 import { HealthController } from "./health/health.controller"
 import { PrismaModule } from "./prisma/prisma.module"
+import { ShiftsModule } from "./shifts/shifts.module"
 import { TenantContextMiddleware } from "./tenant/tenant-context.middleware"
 
 @Module({
-  imports: [SentryModule.forRoot(), PrismaModule, JwtModule.register({}), AuthModule],
+  imports: [
+    SentryModule.forRoot(),
+    PrismaModule,
+    JwtModule.register({}),
+    AuthModule,
+    ShiftsModule
+  ],
   controllers: [HealthController],
   providers: [
     { provide: APP_FILTER, useClass: AppExceptionFilter },

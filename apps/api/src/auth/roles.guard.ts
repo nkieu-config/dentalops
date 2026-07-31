@@ -1,6 +1,7 @@
 import { CanActivate, ExecutionContext, Injectable } from "@nestjs/common"
 import { Reflector } from "@nestjs/core"
 import { AppException } from "../common/app.exception"
+import { currentTenant } from "../tenant/tenant-context"
 import { ROLES_KEY } from "./roles.decorator"
 import { AuthenticatedUser } from "./jwt.strategy"
 
@@ -15,7 +16,8 @@ export class RolesGuard implements CanActivate {
     ])
     if (!required || required.length === 0) return true
     const user = context.switchToHttp().getRequest<{ user?: AuthenticatedUser }>().user
-    if (!user || !required.includes(user.role)) {
+    const role = user?.role ?? currentTenant()?.role
+    if (!role || !required.includes(role)) {
       throw new AppException(403, "FORBIDDEN", "Insufficient role for this action")
     }
     return true

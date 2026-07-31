@@ -21,7 +21,9 @@ export class AppExceptionFilter implements ExceptionFilter {
     const requestId = req.id ?? "unknown"
 
     const exclusion =
-      exception instanceof Error ? exception.message.match(/exclusion constraint "(\w+)"/) : null
+      exception instanceof Error
+        ? exception.message.match(/exclusion constraint \\?"(\w+)\\?"/)
+        : null
     if (exclusion) {
       return res.status(409).json({
         statusCode: 409,

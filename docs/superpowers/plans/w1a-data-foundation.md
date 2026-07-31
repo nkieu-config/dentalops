@@ -557,13 +557,12 @@ CREATE INDEX "time_blocks_during_idx" ON "time_blocks" USING GIST ("during");
 Run: `pnpm --filter @dentalops/api exec prisma migrate dev`
 Expected: `The following migration(s) have been applied` with no drift warning.
 
-If Prisma instead reports drift on the `during` columns, it is comparing the generated column against the plain `tstzrange` in `schema.prisma`. Do not let it reset the database. Fix it by marking the field so Prisma stops managing it — change both `during` declarations to:
+Prisma **will** report drift on the `during` columns afterwards — it compares the generated column against the plain `tstzrange` declaration and the difference is by design. Two facts learned the hard way (Prisma 6.19.3):
 
-```prisma
-  during Unsupported("tstzrange")? @ignore
-```
+- `@ignore` is NOT valid on `Unsupported` fields (validation error P1012) — do not try it.
+- Bare `prisma migrate dev` will block on an interactive drift prompt asking to create a fix-up migration. Never answer it; kill it if reached.
 
-then run `prisma migrate dev` again. If drift persists, generate the SQL by hand instead: `prisma migrate diff --from-migrations prisma/migrations --to-schema-datamodel prisma/schema.prisma --shadow-database-url $DATABASE_URL --script`, and keep hand-editing migrations from here on. Both outcomes are acceptable — record which one happened, because the follow-up tasks repeat this pattern.
+The working pattern, used from here on for every migration touching a `during` table: create with `--create-only`, hand-edit, then apply with `pnpm --filter @dentalops/api exec prisma migrate deploy` (deploy applies without drift-checking). Verify with `prisma migrate status` reporting `Database schema is up to date!`. The residual dev-only diff (`DROP DEFAULT` + the GiST indexes) is cosmetic and expected.
 
 Verify the constraint landed:
 
@@ -795,7 +794,9 @@ The partial `WHERE` clauses are the reason cancellation is a status change rathe
 
 - [ ] **Step 4: Apply and verify**
 
-Run: `pnpm --filter @dentalops/api exec prisma migrate dev`
+Run: `pnpm --filter @dentalops/api exec prisma migrate deploy`
+
+(`deploy`, not `dev` — see Task 3 Step 4: dev drift-checks the generated columns and blocks on an interactive prompt. Regenerate the client afterwards: `pnpm --filter @dentalops/api exec prisma generate`.)
 
 Verify:
 

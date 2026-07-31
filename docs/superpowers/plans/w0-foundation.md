@@ -1081,7 +1081,7 @@ Live demo: https://<app>.vercel.app
 ## Status
 
 Week 0 of 8 — walking skeleton deployed. See
-[docs/superpowers/specs/2026-07-31-dentalops-design.md](docs/superpowers/specs/2026-07-31-dentalops-design.md)
+[docs/superpowers/specs/dentalops-design.md](docs/superpowers/specs/dentalops-design.md)
 for the full design.
 
 ## Development

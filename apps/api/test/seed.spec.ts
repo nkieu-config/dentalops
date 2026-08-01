@@ -12,7 +12,7 @@ describe("seed script", () => {
     await prisma.$disconnect()
   })
 
-  it("creates the demo tenant with branches, services, resources, staff and patients", async () => {
+  it("creates the demo tenant with branches, services, resources, staff, patients, shifts and appointments", async () => {
     const tenant = await prisma.tenant.findUnique({ where: { slug: "demo-clinic" } })
     expect(tenant).not.toBeNull()
 
@@ -29,7 +29,14 @@ describe("seed script", () => {
     expect(services).toBe(6)
     expect(resources).toBe(8)
     expect(users).toBe(6)
-    expect(patients).toBe(4)
+    expect(patients).toBe(40)
+
+    const [shifts, appointments] = await Promise.all([
+      prisma.shift.count({ where: { tenantId } }),
+      prisma.appointment.count({ where: { tenantId } })
+    ])
+    expect(shifts).toBeGreaterThan(100)
+    expect(appointments).toBeGreaterThan(300)
   })
 
   it("is idempotent", async () => {

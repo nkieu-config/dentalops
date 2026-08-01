@@ -1,5 +1,6 @@
 import type { Branch } from "@dentalops/contracts"
 import { ChevronLeft, ChevronRight } from "lucide-react"
+import type { ReactNode } from "react"
 import { Button } from "../../components/ui/button"
 import { NativeSelect } from "../../components/ui/native-select"
 import { bkkShiftDate, bkkToday, fmtDay } from "./lib/geometry"
@@ -9,9 +10,10 @@ interface ToolbarProps {
   branchId: string | undefined
   branches: Branch[]
   onChange: (next: { date?: string; branchId?: string }) => void
+  children?: ReactNode
 }
 
-export const TimelineToolbar = ({ date, branchId, branches, onChange }: ToolbarProps) => (
+export const TimelineToolbar = ({ date, branchId, branches, onChange, children }: ToolbarProps) => (
   <div className="flex flex-wrap items-center gap-2 border-b border-border px-4 py-2">
     <NativeSelect
       aria-label="Branch"
@@ -47,5 +49,6 @@ export const TimelineToolbar = ({ date, branchId, branches, onChange }: ToolbarP
     <Button variant="secondary" size="sm" onClick={() => onChange({ date: bkkToday() })}>
       Today
     </Button>
+    {children}
   </div>
 )

@@ -6,9 +6,20 @@ import {
   staffMemberSchema
 } from "@dentalops/contracts"
 import { useQuery } from "@tanstack/react-query"
+import { useEffect, useState } from "react"
 import { z } from "zod"
 import { api } from "../../lib/api"
 import { DAY_MS } from "./lib/geometry"
+
+export const useNow = (active: boolean): number => {
+  const [now, setNow] = useState(() => Date.now())
+  useEffect(() => {
+    if (!active) return
+    const timer = setInterval(() => setNow(Date.now()), 60_000)
+    return () => clearInterval(timer)
+  }, [active])
+  return now
+}
 
 export const useBranches = () =>
   useQuery({ queryKey: ["branches"], queryFn: () => api("/branches", z.array(branchSchema)) })

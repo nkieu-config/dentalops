@@ -136,16 +136,6 @@ const GalleryGrid = ({ testId, dentists, shifts, appointments }: GalleryGridProp
       data-testid={testId}
       className="flex h-96 flex-col overflow-hidden rounded-md border border-border"
     >
-      <div className="flex shrink-0 border-b border-border pl-timegutter">
-        {dentists.map((staff) => (
-          <div
-            key={staff.id}
-            className="min-w-col-min flex-1 truncate px-2 py-1 text-xs font-medium"
-          >
-            {staff.name}
-          </div>
-        ))}
-      </div>
       <TimeGrid
         date={GALLERY_DATE}
         dentists={dentists}

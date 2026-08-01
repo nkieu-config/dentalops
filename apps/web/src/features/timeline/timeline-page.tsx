@@ -1,6 +1,6 @@
 import type { Appointment, StaffMember } from "@dentalops/contracts"
 import { CalendarX } from "lucide-react"
-import { useMemo, useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import { useSearchParams } from "react-router"
 import { EmptyState } from "../../components/ui/empty-state"
 import { Skeleton } from "../../components/ui/skeleton"
@@ -14,6 +14,10 @@ import { layoutByDentist } from "./lib/lanes"
 import { TimeGrid } from "./time-grid"
 import { TimelineToolbar } from "./timeline-toolbar"
 import { useDragCreate } from "./use-drag-create"
+import { useDragMove } from "./use-drag-move"
+import { useRescheduleAppointment } from "./use-reschedule"
+
+const CONFLICT_HIGHLIGHT_MS = 2500
 
 interface DragOverlayProps {
   dentist: StaffMember
@@ -55,12 +59,47 @@ export const TimelinePage = () => {
   const appointments = useAppointments(branchId, dayStart)
   const [selected, setSelected] = useState<Appointment | null>(null)
   const [draft, setDraft] = useState<CreateDraft | null>(null)
+  const [conflictId, setConflictId] = useState<string | null>(null)
   const canCreate = useCanBook()
+  const columnEls = useRef(new Map<string, HTMLDivElement>())
 
   const lanePositions = useMemo(
     () => layoutByDentist(appointments.data ?? []),
     [appointments.data]
   )
+  const dentistIds = useMemo(() => (dentists.data ?? []).map((d) => d.id), [dentists.data])
+  const dayKey = useMemo(() => ["appointments", branchId, dayStart], [branchId, dayStart])
+
+  const { reschedule, isBusy } = useRescheduleAppointment({
+    queryKey: dayKey,
+    onConflict: setConflictId
+  })
+
+  const drag = useDragMove({
+    dentistIds,
+    columnLefts: () =>
+      dentistIds.map((id) => columnEls.current.get(id)?.getBoundingClientRect().left ?? 0),
+    isBusy,
+    onDrop: reschedule
+  })
+
+  const preview = useMemo(() => {
+    if (!drag.preview) return null
+    const source = (appointments.data ?? []).find((a) => a.id === drag.preview?.id)
+    if (!source) return null
+    return {
+      ...source,
+      dentistId: drag.preview.dentistId,
+      startsAt: new Date(drag.preview.startMs).toISOString(),
+      endsAt: new Date(drag.preview.endMs).toISOString()
+    }
+  }, [drag.preview, appointments.data])
+
+  useEffect(() => {
+    if (conflictId === null) return
+    const timer = setTimeout(() => setConflictId(null), CONFLICT_HIGHLIGHT_MS)
+    return () => clearTimeout(timer)
+  }, [conflictId])
 
   const onChange = (next: { date?: string; branchId?: string }) => {
     const merged = new URLSearchParams(params)
@@ -96,6 +135,10 @@ export const TimelinePage = () => {
         dentists={dentists.data ?? []}
         shifts={shifts.data ?? []}
         appointments={appointments.data ?? []}
+        columnRef={(id, element) => {
+          if (element) columnEls.current.set(id, element)
+          else columnEls.current.delete(id)
+        }}
         renderAppointment={(a, ds) => (
           <AppointmentCard
             key={a.id}
@@ -103,9 +146,27 @@ export const TimelinePage = () => {
             dayStart={ds}
             lane={lanePositions.get(a.id)?.lane ?? 0}
             lanes={lanePositions.get(a.id)?.lanes ?? 1}
-            onClick={setSelected}
+            onClick={(picked) => {
+              if (!drag.consumeDrag()) setSelected(picked)
+            }}
+            onMoveStart={canCreate ? drag.startMove(a) : undefined}
+            onResizeStart={canCreate ? drag.startResize(a) : undefined}
+            dimmed={drag.preview?.id === a.id}
+            conflict={conflictId === a.id}
           />
         )}
+        columnPreview={(dentist, ds) =>
+          preview && preview.dentistId === dentist.id ? (
+            <AppointmentCard
+              appointment={preview}
+              dayStart={ds}
+              lane={0}
+              lanes={1}
+              onClick={() => {}}
+              preview
+            />
+          ) : null
+        }
         columnOverlay={
           branchId === undefined || !canCreate
             ? undefined

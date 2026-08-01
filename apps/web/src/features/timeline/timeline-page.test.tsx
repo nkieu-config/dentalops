@@ -1,9 +1,10 @@
 import type { UserRole } from "@dentalops/contracts"
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
-import { fireEvent, render, screen } from "@testing-library/react"
+import { fireEvent, render, screen, waitFor } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { MemoryRouter } from "react-router"
-import { describe, expect, it } from "vitest"
+import { Toaster, toast } from "sonner"
+import { afterEach, describe, expect, it } from "vitest"
 import { setSession } from "../../lib/session"
 import { API, http, HttpResponse, server } from "../../test/msw"
 import { TimelinePage } from "./timeline-page"
@@ -62,9 +63,12 @@ const mount = (role: UserRole = "receptionist") => {
       <MemoryRouter initialEntries={["/app/timeline?d=2026-08-03"]}>
         <TimelinePage />
       </MemoryRouter>
+      <Toaster />
     </QueryClientProvider>
   )
 }
+
+afterEach(() => toast.dismiss())
 
 describe("TimelinePage", () => {
   it("renders the grid for the branch and day in the url", async () => {
@@ -203,12 +207,93 @@ describe("TimelinePage", () => {
     expect(overlay.className).not.toMatch(/(^|\s)z-/)
 
     fireEvent.pointerDown(card, { clientY: 576, button: 0 })
-    fireEvent.pointerMove(card, { clientY: 640 })
+    fireEvent.pointerMove(card, { clientY: 578 })
     expect(screen.queryByTestId("ghost")).not.toBeInTheDocument()
 
     fireEvent.pointerUp(card)
     await userEvent.click(card)
     expect(await screen.findByRole("dialog")).toHaveTextContent("Cleaning")
+  })
+
+  it("drags a card to a new slot, previews it alone in shadow, and patches the new start", async () => {
+    const id = "a1000000-0000-4000-8000-000000000007"
+    const bodies: unknown[] = []
+    let stored = appointment(id, dentistId, "2026-08-03T02:00:00.000Z", "2026-08-03T03:00:00.000Z")
+    server.use(
+      ...directory([{ id: dentistId, name: "Dr. Anong" }]),
+      http.get(`${API}/appointments`, () => HttpResponse.json([stored])),
+      http.patch(`${API}/appointments/${id}`, async ({ request }) => {
+        bodies.push(await request.json())
+        stored = {
+          ...stored,
+          startsAt: "2026-08-03T03:00:00.000Z",
+          endsAt: "2026-08-03T04:00:00.000Z",
+          version: 2
+        }
+        return HttpResponse.json(stored)
+      })
+    )
+    mount()
+    const card = await screen.findByTestId(`appt-${id}`)
+
+    fireEvent.pointerDown(card, { button: 0, clientX: 10, clientY: 576 })
+    fireEvent.pointerMove(window, { clientX: 10, clientY: 640 })
+
+    const preview = screen.getByTestId("drag-preview")
+    expect(preview).toHaveStyle({ top: "640px", height: "64px" })
+    expect(preview.className).toContain("shadow-lg")
+    expect(card.className).toContain("opacity-40")
+    const grid = screen.getByTestId("timegrid-scroll")
+    expect([...grid.querySelectorAll('[class*="shadow"]')]).toEqual([preview])
+
+    fireEvent.pointerUp(window)
+    expect(screen.queryByTestId("drag-preview")).not.toBeInTheDocument()
+    await waitFor(() =>
+      expect(bodies).toEqual([{ version: 1, startsAt: "2026-08-03T03:00:00.000Z" }])
+    )
+    await waitFor(() =>
+      expect(screen.getByTestId(`appt-${id}`)).toHaveStyle({ top: "640px", height: "64px" })
+    )
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument()
+  })
+
+  it("snaps a rejected drag back and rings the appointment it collided with", async () => {
+    const moving = "a1000000-0000-4000-8000-000000000008"
+    const blocker = "a1000000-0000-4000-8000-000000000009"
+    server.use(
+      ...directory([{ id: dentistId, name: "Dr. Anong" }]),
+      http.get(`${API}/appointments`, () =>
+        HttpResponse.json([
+          appointment(moving, dentistId, "2026-08-03T02:00:00.000Z", "2026-08-03T03:00:00.000Z"),
+          appointment(blocker, dentistId, "2026-08-03T03:00:00.000Z", "2026-08-03T04:00:00.000Z")
+        ])
+      ),
+      http.patch(`${API}/appointments/${moving}`, () =>
+        HttpResponse.json(
+          {
+            statusCode: 409,
+            errorCode: "SLOT_CONFLICT",
+            message: "Dentist is already booked at this time",
+            details: { constraint: "no_dentist_double_booking", conflictingAppointmentId: blocker },
+            requestId: "r1"
+          },
+          { status: 409 }
+        )
+      )
+    )
+    mount()
+    const card = await screen.findByTestId(`appt-${moving}`)
+
+    fireEvent.pointerDown(card, { button: 0, clientX: 10, clientY: 576 })
+    fireEvent.pointerMove(window, { clientX: 10, clientY: 640 })
+    fireEvent.pointerUp(window)
+
+    expect(await screen.findByText("Conflicts with S. Chaiwat at 10:00")).toBeInTheDocument()
+    expect(screen.getByTestId(`appt-${moving}`)).toHaveStyle({ top: "576px" })
+    const blocked = screen.getByTestId(`appt-${blocker}`)
+    expect(blocked.className).toContain("ring-2")
+    expect(blocked.className).toContain("ring-destructive")
+    expect(screen.getByLabelText("Conflict")).toBeInTheDocument()
   })
 
   it("offers the drag overlay only to roles the api lets create appointments", async () => {

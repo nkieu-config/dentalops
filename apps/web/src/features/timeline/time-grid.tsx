@@ -28,6 +28,8 @@ interface TimeGridProps {
   appointments: Appointment[]
   renderAppointment: (appointment: Appointment, dayStart: number) => ReactNode
   columnOverlay?: (dentist: StaffMember, dayStart: number) => ReactNode
+  columnPreview?: (dentist: StaffMember, dayStart: number) => ReactNode
+  columnRef?: (dentistId: string, element: HTMLDivElement | null) => void
 }
 
 const useNow = (active: boolean) => {
@@ -46,7 +48,9 @@ export const TimeGrid = ({
   shifts,
   appointments,
   renderAppointment,
-  columnOverlay
+  columnOverlay,
+  columnPreview,
+  columnRef
 }: TimeGridProps) => {
   const scrollRef = useRef<HTMLDivElement>(null)
   const range = useVisibleRange(scrollRef)
@@ -109,6 +113,7 @@ export const TimeGrid = ({
           {dentists.map((dentist) => (
             <div
               key={dentist.id}
+              ref={(element) => columnRef?.(dentist.id, element)}
               data-testid={`col-${dentist.id}`}
               className="relative min-w-col-min flex-1 border-r border-border"
             >
@@ -128,6 +133,7 @@ export const TimeGrid = ({
                 .filter((a) => a.dentistId === dentist.id)
                 .map((a) => renderAppointment(a, dayStart))}
               {columnOverlay?.(dentist, dayStart)}
+              {columnPreview?.(dentist, dayStart)}
             </div>
           ))}
           {isToday ? (

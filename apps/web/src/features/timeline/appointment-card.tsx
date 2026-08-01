@@ -1,5 +1,6 @@
 import type { Appointment } from "@dentalops/contracts"
 import { AlertTriangle, Ban, Check, Repeat } from "lucide-react"
+import type { PointerEvent as ReactPointerEvent } from "react"
 import { cn } from "../../lib/cn"
 import { fmtTime, msToY } from "./lib/geometry"
 
@@ -9,6 +10,11 @@ interface AppointmentCardProps {
   lane: number
   lanes: number
   onClick: (appointment: Appointment) => void
+  onMoveStart?: (e: ReactPointerEvent<Element>) => void
+  onResizeStart?: (e: ReactPointerEvent<Element>) => void
+  dimmed?: boolean
+  preview?: boolean
+  conflict?: boolean
 }
 
 export const AppointmentCard = ({
@@ -16,7 +22,12 @@ export const AppointmentCard = ({
   dayStart,
   lane,
   lanes,
-  onClick
+  onClick,
+  onMoveStart,
+  onResizeStart,
+  dimmed = false,
+  preview = false,
+  conflict = false
 }: AppointmentCardProps) => {
   const start = Date.parse(appointment.startsAt)
   const end = Date.parse(appointment.endsAt)
@@ -30,12 +41,16 @@ export const AppointmentCard = ({
   return (
     <button
       type="button"
-      data-testid={`appt-${appointment.id}`}
+      data-testid={preview ? "drag-preview" : `appt-${appointment.id}`}
       onClick={() => onClick(appointment)}
+      onPointerDown={onMoveStart}
       className={cn(
         "absolute z-[5] flex flex-col items-start overflow-hidden rounded-sm border-l-[3px] px-1.5 py-0.5 text-left text-xs leading-tight text-card-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
         completed && "opacity-70",
-        cancelled && "border-l-border bg-muted text-muted-foreground"
+        cancelled && "border-l-border bg-muted text-muted-foreground",
+        conflict && "ring-2 ring-destructive",
+        dimmed && "opacity-40",
+        preview && "pointer-events-none z-10 shadow-lg"
       )}
       style={{
         top,
@@ -55,6 +70,9 @@ export const AppointmentCard = ({
           {fmtTime(start)}–{fmtTime(end)}
         </span>
         <span className="ml-auto flex items-center gap-0.5">
+          {conflict ? (
+            <AlertTriangle className="h-3 w-3 text-destructive" aria-label="Conflict" />
+          ) : null}
           {appointment.seriesId ? <Repeat className="h-3 w-3" aria-label="Recurring" /> : null}
           {completed ? <Check className="h-3 w-3" aria-label="Completed" /> : null}
           {noShow ? <AlertTriangle className="h-3 w-3 text-warning" aria-label="No-show" /> : null}
@@ -65,6 +83,14 @@ export const AppointmentCard = ({
         {appointment.service.name}
       </span>
       <span className="truncate text-muted-foreground">{appointment.patient.name}</span>
+      {onResizeStart ? (
+        <span
+          data-testid={`resize-${appointment.id}`}
+          onPointerDown={onResizeStart}
+          onClick={(e) => e.stopPropagation()}
+          className="absolute inset-x-0 bottom-0 h-2 cursor-ns-resize"
+        />
+      ) : null}
     </button>
   )
 }

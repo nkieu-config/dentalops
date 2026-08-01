@@ -391,10 +391,10 @@ use-drag-move.ts:
 ```
 
 Semantics locked here:
-- Move snaps the **delta** to 15-minute steps (`snapFloor` of the minute delta), so a card created off-grid keeps its offset rather than jumping.
+- Move snaps the **delta** to 15-minute steps — **round-to-nearest, not floor**, so a card created off-grid keeps its offset rather than jumping. Floor is asymmetric on a signed delta: `snapFloor(-1px)` is −15 min while `snapFloor(+15px)` is 0, so the smallest drag past the threshold would jump a whole slot upward but nothing downward, contradicting "no effective change sends nothing" in one direction only.
 - A pointer sequence under `DRAG_THRESHOLD_PX` total movement is a click — the existing `onClick` (details drawer) fires and no mutation happens.
 - Cross-column drag changes dentist; `columnAtX` maps clientX to a column via the measured lefts array (clamped to valid range).
-- Resize drags the bottom edge: `durationMin = max(15, snapCeil(currentEnd) − startMs)`, and only `durationMin` is sent.
+- Resize drags the bottom edge: `durationMin = clamp(round((snapCeil(currentEnd) − startMs) / 60_000), 15, 480)` — note the division, the difference is milliseconds; the 480 upper clamp keeps a long downward drag inside the DTO's validated range instead of guaranteeing a 400. Only `durationMin` is sent.
 - While dragging: the source card renders at 40% opacity; a preview card renders at the target with `shadow-lg` and no other shadow exists in the grid; `Escape` cancels the drag (window keydown, only while active).
 - Dropping with no effective change (same start, same column, same duration) sends nothing.
 - `isBusy(id)` cards ignore new drags.

@@ -229,6 +229,7 @@ interface RescheduleInput { id: string; version: number; startsAt?: string; dent
 useRescheduleAppointment(options: {
   queryKey: readonly unknown[]
   onConflict?: (conflictingAppointmentId: string | null) => void
+  onAnnounce?: (message: string) => void
 }) → { reschedule(input: RescheduleInput): void; isBusy(id: string): boolean }
 ```
 
@@ -454,7 +455,9 @@ git commit -m "feat(web): drag to move and resize with optimistic apply and conf
   - `Shift+ArrowDown`/`Shift+ArrowUp`: nudge the focused card ±15 minutes through `reschedule` (no-op while `isBusy`)
   - `Enter`: native button activation opens the drawer (no code needed — assert it still works)
   - All handled keys `preventDefault()` so the grid does not scroll underneath
-- A visually-hidden `aria-live="polite"` region announcing outcomes ("Moved to 09:15", "Conflict — reverted", "Changed elsewhere — refreshed"), fed by the same hook via a callback from the page.
+- A visually-hidden `aria-live="polite"` region announcing outcomes ("Moved to 09:15", "Conflict — reverted", "Changed elsewhere — refreshed").
+
+The announcements are **not** emitted by the keyboard hook. `reschedule()` is fire-and-forget — it returns nothing the caller can await — so the keyboard hook cannot observe whether the nudge succeeded, conflicted or hit a stale version. `useRescheduleAppointment` therefore gained an `onAnnounce?: (message: string) => void` option and emits from its own `onSuccess`/`onError` branches; `timeline-page.tsx` passes `setAnnouncement` and renders the live region. Every input path (drag, resize, nudge, SlotPicker) is announced as a result, not just the keyboard one.
 
 Implementation: cards carry `data-appt`, `data-dentist`, `data-starts`; the handler reads `document.activeElement`'s dataset, queries the grid wrapper for `[data-appt]`, sorts in memory, and calls `.focus()` on the target. No React state for focus — the DOM is the roving-focus source of truth.
 
@@ -537,6 +540,11 @@ git commit -m "feat(web): slot picker and gesture-free move path in the drawer"
   - **sm**: `<AgendaView appointments dentists onOpen/>` — a flat list sorted by start: hue left border, time range `tabular-nums`, service, patient, dentist name, status icons; a now divider when viewing today; a dentist filter `<NativeSelect>` ("All dentists" + each); rows ≥44px; tap → the same details drawer, whose Move section (Task 5) is the only rescheduling path — **no drag handlers exist in this mode at all**.
   - jsdom `matchMedia` stub in `vitest.setup.ts` (`??=`): returns a minimal MediaQueryList whose `matches` is driven by a test-settable map; export a helper `setViewport(mode)` from `src/test/msw.ts` or a new `src/test/viewport.ts`.
 
+Two structural corrections the plan did not anticipate:
+
+- The dentist header row had to move **inside** the scroll container (`sticky top-0` within it, with its own `sticky left-0` time-gutter spacer). Left outside, it does not receive the container's horizontal scroll offset, so the moment md introduces horizontal scrolling the names desync from the columns underneath them. `lg` never showed the bug because nothing scrolls horizontally there.
+- The snap container needs `scroll-pl-timegutter` (`--spacing-timegutter`, already a token). Without it `snap-start` aligns a column to the container's left edge, which is underneath the sticky time gutter — the first ~3.5rem of every snapped column is hidden.
+
 - [ ] **Step 1: TDD**
 
 `agenda-view.test.tsx`: sorted order across dentists; dentist filter narrows rows; status icons present (reuse fixtures); every row ≥44px class; tapping a row calls `onOpen` with the appointment.
@@ -556,7 +564,7 @@ git commit -m "feat(web): responsive timeline modes with agenda view and column 
 
 **Files:**
 - Create: `apps/web/playwright.config.ts`, `apps/web/e2e/drag-reschedule.spec.ts`, `apps/web/e2e/helpers.ts`
-- Modify: `apps/web/package.json` (add `@playwright/test` devDep + `"e2e": "playwright test"`), `.github/workflows/ci.yml`, root `.gitignore` (`playwright-report/`, `test-results/`)
+- Modify: `apps/web/package.json` (add `@playwright/test` devDep + `"e2e": "playwright test"` + `"preview": "vite preview"` — the package had no `preview` script at all), `.github/workflows/ci.yml`, root `.gitignore` (`playwright-report/`, `test-results/`)
 
 **Interfaces:**
 - Consumes: the deployed-shape app (built web preview + real api + seeded db).
@@ -572,22 +580,25 @@ import { defineConfig } from "@playwright/test"
 export default defineConfig({
   testDir: "./e2e",
   timeout: 60_000,
-  retries: process.env.CI ? 1 : 0,
+  retries: 0,
+  reporter: process.env.CI ? [["github"], ["list"]] : [["list"]],
   use: {
-    baseURL: "http://localhost:4173",
+    baseURL: webOrigin,
     trace: "retain-on-failure"
   },
   webServer: [
     {
       command: "pnpm --filter @dentalops/api start",
-      url: "http://localhost:3001/api/v1/health",
+      url: `${apiOrigin}/api/v1/health`,
       reuseExistingServer: !process.env.CI,
       timeout: 60_000,
-      env: { WEB_ORIGIN: "http://localhost:4173" }
+      stdout: "pipe",
+      stderr: "pipe",
+      env: { PORT: String(apiPort), WEB_ORIGIN: webOrigin }
     },
     {
-      command: "pnpm --filter @dentalops/web preview -- --port 4173 --strictPort",
-      url: "http://localhost:4173",
+      command: `pnpm --filter @dentalops/web preview --port ${webPort} --strictPort`,
+      url: webOrigin,
       reuseExistingServer: !process.env.CI,
       timeout: 60_000
     }
@@ -595,7 +606,13 @@ export default defineConfig({
 })
 ```
 
-(`webServer.env` merges into the inherited environment, so `DATABASE_URL` etc. flow from the CI job env / local shell. The api must be **built** and the web **built** before `playwright test` — CI runs it after `pnpm build`; locally the same.)
+(Ports come from `E2E_WEB_PORT`/`E2E_API_PORT` with the 4173/3001 defaults, so a stray dev server does not force a config edit. `webServer.env` merges into the inherited environment, so `DATABASE_URL` etc. flow from the CI job env / local shell. The api must be **built** and the web **built** before `playwright test` — CI runs it after `pnpm build`; locally the same.)
+
+Three corrections to the draft config:
+
+- `pnpm --filter <pkg> preview -- --port 4173 --strictPort` does **not** work. pnpm forwards the separator verbatim, so the script runs as `vite preview -- --port 4173 --strictPort` and vite's CLI ignores everything after the bare `--`. The flags vanish silently — preview binds its default 4173 with no `--strictPort`, and if 4173 is taken it hops to 4174 while Playwright still waits on 4173. Pass the flags without the `--` separator.
+- `apps/web` had no `preview` script at all, so the command would have failed outright even with correct flag passing. Added `"preview": "vite preview"`.
+- `retries` is **0**, in CI too. The journey is deterministic by construction; a retry would convert a real regression into a green run.
 
 - [ ] **Step 2: The journey**
 
@@ -670,6 +687,8 @@ test("J2: drag to reschedule, then a beaten-to-slot drag snaps back", async ({ p
 
 The reload before the second drag is load-bearing, not cosmetic: the conflict toast names the blocker by looking it up in the FE's cached day, and the blocker was created through the API *after* the page fetched — without the reload the cache misses, the toast falls back to the raw API message, and both the name assertion and the highlight would test nothing.
 
+The journey also needs `clearColumn(request, token, dentistId, date)` — it cancels every confirmed appointment already in the free dentist's Monday column before booking. The empty-column trick only guarantees the column is empty on a *freshly seeded* database; the journey books into it, so a second run without the sweep collides with its own leftovers from the first and fails at the 09:00 booking. It runs 3× locally and repeatedly in CI against a database that is not reset between runs, so re-runnability is a requirement, not a nicety.
+
 `findFreeDentist`: `GET /staff?role=dentist` + `GET /shifts?branchId&from=<monday>&to=<tuesday>` → return a dentist with **no shift that day** (the seed's part-time patterns guarantee at least one on any given weekday). Their column is empty and fully hatched — nothing the random seed did can collide with 09:00/11:00/13:00 there. Booking off-shift is allowed by the API (roster validation is W7), which is what makes this self-contained.
 
 Why the drags land exactly: cards start on the hour, the grid is 64px/hour, and the move planner snaps the **delta** — 128px = exactly +2h.
@@ -708,6 +727,8 @@ git commit -m "test(e2e): playwright J2 drag-reschedule with beaten-to-slot roll
 - [ ] **Step 1: Gallery**
 
 Add: a `dragging` card (preview styling, `shadow-lg`), a `conflict` card (destructive ring + ⚠), and a SlotPicker section rendering its states (loading / slots / none) from MSW-free static props — restructure SlotPicker only if needed so states are renderable without a server (e.g. accept optional `slotsOverride`; keep it minimal). Update the placeholder line: SlotPicker is now real; CountdownBanner remains W6; ViolationList/ShiftBlock remain W7. Extend `dev-ui-page.test.tsx` for the new states.
+
+A `slotsOverride` prop is not sufficient: `SlotPicker` calls `useQuery`, which needs a `QueryClientProvider`, and the gallery test renders `<DevUiPage/>` bare. It also cannot express the *loading* state, which has no slots to override with. Split instead: `SlotPickerView({ date, state, onPick, onDateChange })` holds all the markup and grouping, where `state` is `{ status: "loading" } | { status: "error" } | { status: "ready"; slots }`; `SlotPicker` keeps its exact public props and is now just the query that derives that state. The drawer and every existing SlotPicker test are untouched.
 
 - [ ] **Step 2: Full pipeline + e2e + push**
 

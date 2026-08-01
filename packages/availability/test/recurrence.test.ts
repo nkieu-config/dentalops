@@ -113,6 +113,25 @@ describe("monthly_date", () => {
     ])
   })
 
+  it("an unbounded rule stops at the window end", () => {
+    const out = expandRecurrence(
+      {
+        freq: "monthly_date",
+        interval: 1,
+        byWeekday: [],
+        timeStartMin: 10 * 60,
+        durationMin: 60,
+        startsOn: "2026-01-15"
+      },
+      { start: utc("2026-01-01T00:00:00Z"), end: utc("2026-04-01T00:00:00Z") }
+    )
+    expect(out.map((o) => new Date(o.start).toISOString().slice(0, 10))).toEqual([
+      "2026-01-15",
+      "2026-02-15",
+      "2026-03-15"
+    ])
+  })
+
   it("respects the month interval", () => {
     const out = expandRecurrence(
       {

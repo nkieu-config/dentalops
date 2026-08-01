@@ -241,10 +241,14 @@ describe("useRescheduleAppointment", () => {
 
   it("serializes per appointment: one patch per busy id, but two ids move in parallel", async () => {
     const patched: string[] = []
+    let release = () => {}
+    const inFlight = new Promise<void>((resolve) => {
+      release = resolve
+    })
     server.use(
       http.patch(`${API}/appointments/:id`, async ({ params }) => {
         patched.push(String(params.id))
-        await delay(80)
+        await inFlight
         return HttpResponse.json(
           makeAppointment(
             String(params.id),
@@ -261,6 +265,10 @@ describe("useRescheduleAppointment", () => {
     await userEvent.click(moveFirst)
     await userEvent.click(screen.getByRole("button", { name: "move second" }))
 
+    await waitFor(() => expect(screen.getByTestId("busy-first")).toHaveTextContent("busy"))
+    expect(patched).toEqual([first, second])
+
+    release()
     await waitFor(() => expect(screen.getByTestId("busy-first")).toHaveTextContent("idle"))
     expect(patched).toEqual([first, second])
   })

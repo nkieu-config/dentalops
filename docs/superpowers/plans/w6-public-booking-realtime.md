@@ -189,10 +189,11 @@ git commit -m "feat(api): redis slot holds with atomic all-or-nothing acquisitio
   - `POST /public/:clinicSlug/appointments` body `{ holdId, name, phone, email? }` → `{ appointment, manageToken }`. Validates the hold, upserts the patient by `(tenantId, phone)`, books through the existing service, releases the hold, and returns a manage token. `409 HOLD_EXPIRED` when the hold is gone; `409 SLOT_CONFLICT` passes through untouched when staff beat them to it.
   - `ManageTokenService.sign(appointmentId)` / `.verify(token)` — JWT with `{ sub: appointmentId, tenantId, purpose: "manage" }`, 30-day expiry, signed with `JWT_SECRET`; `verify` rejects any token whose `purpose` is not `manage` (so an access token can never be used as a manage link).
   - `GET /public/manage/:token` → the appointment summary; `POST /public/manage/:token/cancel` → 204; both `@Public()`. **`/public/manage/*` is NOT under `:clinicSlug`**, so it needs its own middleware binding that establishes tenant context from the token's `tenantId` — do not skip this and reach for the unscoped client.
+  - **Middleware order is load-bearing.** `forRoutes("public/:clinicSlug")` also matches `/public/manage/<token>` with `clinicSlug === "manage"`, so `PublicTenantMiddleware` would 404 `CLINIC_NOT_FOUND` before the manage middleware ever ran. Register `ManageTokenMiddleware` **first**, and move `PublicTenantMiddleware`'s `if (currentTenant()) return next()` short-circuit above its slug lookup. Swapping the two bindings turns all five manage tests red — verified.
 
 - [ ] **Step 1: Migration**
 
-`patients` currently has no uniqueness on phone, so an upsert has nothing to key on. Add to `schema.prisma`'s `Patient`: `@@unique([tenantId, phone])`. Generate with `prisma migrate dev --create-only`, inspect the SQL, and check for existing duplicates first:
+`patients` has `@@unique([tenantId, phone, email])`, which is too wide to key an upsert on. Narrow it to `@@unique([tenantId, phone])` and drop the now strictly-implied three-column index. Consequence: two patients in one tenant can no longer share a phone. Generate with `prisma migrate dev --create-only`, inspect the SQL, and check for existing duplicates first:
 
 ```sql
 SELECT tenant_id, phone, count(*) FROM patients GROUP BY 1,2 HAVING count(*) > 1;

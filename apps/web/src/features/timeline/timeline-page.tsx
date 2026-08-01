@@ -1,9 +1,14 @@
+import type { Appointment } from "@dentalops/contracts"
 import { CalendarX } from "lucide-react"
+import { useMemo, useState } from "react"
 import { useSearchParams } from "react-router"
 import { EmptyState } from "../../components/ui/empty-state"
 import { Skeleton } from "../../components/ui/skeleton"
+import { AppointmentCard } from "./appointment-card"
+import { AppointmentDrawer } from "./appointment-drawer"
 import { useAppointments, useBranches, useDentists, useShifts } from "./hooks"
-import { bkkDayStart, bkkToday, msToY } from "./lib/geometry"
+import { bkkDayStart, bkkToday } from "./lib/geometry"
+import { layoutLanes, type LaneItem, type LanePosition } from "./lib/lanes"
 import { TimeGrid } from "./time-grid"
 import { TimelineToolbar } from "./timeline-toolbar"
 
@@ -16,6 +21,25 @@ export const TimelinePage = () => {
   const dentists = useDentists()
   const shifts = useShifts(branchId, dayStart)
   const appointments = useAppointments(branchId, dayStart)
+  const [selected, setSelected] = useState<Appointment | null>(null)
+
+  const lanePositions = useMemo(() => {
+    const byDentist = new Map<string, LaneItem[]>()
+    for (const appointment of appointments.data ?? []) {
+      const items = byDentist.get(appointment.dentistId) ?? []
+      items.push({
+        id: appointment.id,
+        start: Date.parse(appointment.startsAt),
+        end: Date.parse(appointment.endsAt)
+      })
+      byDentist.set(appointment.dentistId, items)
+    }
+    const positions = new Map<string, LanePosition>()
+    for (const items of byDentist.values()) {
+      for (const [id, position] of layoutLanes(items)) positions.set(id, position)
+    }
+    return positions
+  }, [appointments.data])
 
   const onChange = (next: { date?: string; branchId?: string }) => {
     const merged = new URLSearchParams(params)
@@ -52,18 +76,17 @@ export const TimelinePage = () => {
         shifts={shifts.data ?? []}
         appointments={appointments.data ?? []}
         renderAppointment={(a, ds) => (
-          <div
+          <AppointmentCard
             key={a.id}
-            className="absolute inset-x-1 rounded-sm border border-border bg-card px-1 text-xs"
-            style={{
-              top: msToY(Date.parse(a.startsAt), ds),
-              height: msToY(Date.parse(a.endsAt), ds) - msToY(Date.parse(a.startsAt), ds)
-            }}
-          >
-            {a.service.name}
-          </div>
+            appointment={a}
+            dayStart={ds}
+            lane={lanePositions.get(a.id)?.lane ?? 0}
+            lanes={lanePositions.get(a.id)?.lanes ?? 1}
+            onClick={setSelected}
+          />
         )}
       />
+      <AppointmentDrawer appointment={selected} onClose={() => setSelected(null)} />
     </div>
   )
 }

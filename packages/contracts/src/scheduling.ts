@@ -39,6 +39,7 @@ export const appointmentSchema = z.looseObject({
   endsAt: z.iso.datetime(),
   status: appointmentStatusSchema,
   version: z.number().int(),
+  seriesId: z.uuid().nullable().optional(),
   service: z.looseObject({ id: z.uuid(), name: z.string(), colorIndex: z.number().int() }),
   patient: patientSchema,
   claims: z.array(resourceClaimSchema)

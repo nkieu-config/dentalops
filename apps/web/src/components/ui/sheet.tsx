@@ -14,7 +14,7 @@ interface SheetProps {
 export const Sheet = ({ open, onOpenChange, title, side = "right", children }: SheetProps) => (
   <Dialog.Root open={open} onOpenChange={onOpenChange}>
     <Dialog.Portal>
-      <Dialog.Overlay className="fixed inset-0 z-40 bg-black/40 backdrop-blur-[2px]" />
+      <Dialog.Overlay className="fixed inset-0 z-40 bg-overlay backdrop-blur-[2px]" />
       <Dialog.Content
         className={cn(
           "fixed z-50 bg-card text-card-foreground shadow-md focus:outline-none overflow-y-auto",

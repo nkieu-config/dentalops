@@ -36,6 +36,7 @@
   --offshift: #f1f5f9;
   --offshift-stripe: #e2e8f0;
   --now-line: #dc2626;
+  --overlay: rgb(15 23 42 / 0.45);
 }
 
 .dark {
@@ -71,6 +72,7 @@
   --offshift: #0b1220;
   --offshift-stripe: #1e293b;
   --now-line: #f87171;
+  --overlay: rgb(2 6 23 / 0.7);
 }
 
 @theme inline {
@@ -97,6 +99,7 @@
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);
+  --color-overlay: var(--overlay);
 
   --radius-sm: calc(var(--radius) - 2px);
   --radius-md: var(--radius);

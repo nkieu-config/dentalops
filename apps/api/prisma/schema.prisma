@@ -165,7 +165,7 @@ model Patient {
   tenant       Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   appointments Appointment[]
 
-  @@unique([tenantId, phone, email])
+  @@unique([tenantId, phone])
   @@index([tenantId])
   @@map("patients")
 }

@@ -22,6 +22,7 @@ export class PublicTenantMiddleware implements NestMiddleware {
   constructor(private readonly prisma: PrismaService) {}
 
   async use(req: Request, _res: Response, next: NextFunction) {
+    if (currentTenant()) return next()
     const slug = slugFromRequest(req)
     if (!slug) throw clinicNotFound()
     const tenant = await this.prisma.tenant.findUnique({
@@ -29,7 +30,6 @@ export class PublicTenantMiddleware implements NestMiddleware {
       select: { id: true }
     })
     if (!tenant) throw clinicNotFound()
-    if (currentTenant()) return next()
     tenantContext.run({ tenantId: tenant.id, userId: "public", role: "public" }, () => next())
   }
 }

@@ -1,14 +1,29 @@
 import { Injectable } from "@nestjs/common"
+import { Prisma } from "@prisma/client"
+import { AppointmentsService } from "../appointments/appointments.service"
 import { AvailabilityService } from "../availability/availability.service"
 import { AppException } from "../common/app.exception"
 import { HoldsService, spannedSlotIndexes } from "../holds/holds.service"
 import { PrismaService } from "../prisma/prisma.service"
 import { currentTenant } from "../tenant/tenant-context"
+import { ConfirmBookingDto } from "./dto/confirm-booking.dto"
 import { CreateHoldDto } from "./dto/create-hold.dto"
 import { QueryPublicAvailabilityDto } from "./dto/query-public-availability.dto"
+import { ManageTokenService } from "./manage-token.service"
 
 const BKK_OFFSET_MS = 7 * 60 * 60_000
 const DAY_MS = 24 * 60 * 60_000
+
+const PUBLIC_APPOINTMENT_SELECT = {
+  id: true,
+  status: true,
+  startsAt: true,
+  endsAt: true,
+  branch: { select: { id: true, name: true } },
+  service: { select: { id: true, name: true, durationMin: true } },
+  dentist: { select: { id: true, name: true } },
+  patient: { select: { id: true, name: true } }
+} satisfies Prisma.AppointmentSelect
 
 export interface PublicClinic {
   id: string
@@ -32,7 +47,9 @@ export class PublicService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly availability: AvailabilityService,
-    private readonly holds: HoldsService
+    private readonly holds: HoldsService,
+    private readonly appointments: AppointmentsService,
+    private readonly manageTokens: ManageTokenService
   ) {}
 
   async clinic(): Promise<PublicClinic> {
@@ -118,5 +135,58 @@ export class PublicService {
 
   releaseHold(holdId: string): Promise<void> {
     return this.holds.release(holdId)
+  }
+
+  async confirm(body: ConfirmBookingDto) {
+    const ctx = currentTenant()
+    if (!ctx) throw new AppException(404, "CLINIC_NOT_FOUND", "Clinic not found")
+
+    const hold = await this.holds.read(body.holdId)
+    if (!hold || hold.tenantId !== ctx.tenantId) {
+      throw new AppException(409, "HOLD_EXPIRED", "That time is no longer held for you")
+    }
+
+    const patient = await this.upsertPatient(ctx.tenantId, body)
+    const created = await this.appointments.create({
+      serviceId: hold.serviceId,
+      branchId: hold.branchId,
+      dentistId: hold.dentistId,
+      patientId: patient.id,
+      startsAt: hold.startsAt
+    })
+    await this.holds.release(body.holdId)
+
+    return {
+      appointment: await this.appointmentView(created.id),
+      manageToken: await this.manageTokens.sign(created.id)
+    }
+  }
+
+  async manageView(token: string) {
+    const claims = await this.manageTokens.verify(token)
+    return this.appointmentView(claims.sub)
+  }
+
+  async manageCancel(token: string) {
+    const claims = await this.manageTokens.verify(token)
+    await this.appointments.setStatus(claims.sub, { status: "cancelled" })
+  }
+
+  private upsertPatient(tenantId: string, body: ConfirmBookingDto) {
+    return this.prisma.scoped.patient.upsert({
+      where: { tenantId_phone: { tenantId, phone: body.phone } },
+      create: { tenantId, name: body.name, phone: body.phone, email: body.email ?? "" },
+      update: {},
+      select: { id: true }
+    })
+  }
+
+  private async appointmentView(id: string) {
+    const appointment = await this.prisma.scoped.appointment.findUnique({
+      where: { id },
+      select: PUBLIC_APPOINTMENT_SELECT
+    })
+    if (!appointment) throw new AppException(404, "NOT_FOUND", "Appointment not found")
+    return appointment
   }
 }

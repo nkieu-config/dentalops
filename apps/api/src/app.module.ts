@@ -19,6 +19,7 @@ import { DirectoryModule } from "./directory/directory.module"
 import { HealthController } from "./health/health.controller"
 import { PatientsModule } from "./patients/patients.module"
 import { PrismaModule } from "./prisma/prisma.module"
+import { ManageTokenMiddleware } from "./public/manage-token.middleware"
 import { PublicModule } from "./public/public.module"
 import { PublicTenantMiddleware } from "./public/public-tenant.middleware"
 import { REDIS, RedisModule } from "./redis/redis.module"
@@ -59,6 +60,7 @@ import { TenantContextMiddleware } from "./tenant/tenant-context.middleware"
 export class AppModule implements NestModule {
   configure(consumer: MiddlewareConsumer) {
     consumer.apply(RequestIdMiddleware, TenantContextMiddleware).forRoutes("*")
+    consumer.apply(ManageTokenMiddleware).forRoutes("public/manage/:token")
     consumer.apply(PublicTenantMiddleware).forRoutes("public/:clinicSlug")
   }
 }

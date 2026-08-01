@@ -18,7 +18,7 @@ export class PatientsService {
         throw new AppException(
           409,
           "DUPLICATE_PATIENT",
-          "A patient with this phone and email already exists"
+          "A patient with this phone number already exists"
         )
       }
       throw e

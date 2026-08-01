@@ -11,6 +11,7 @@ import {
 } from "@nestjs/common"
 import { ApiTags } from "@nestjs/swagger"
 import { Public } from "../auth/public.decorator"
+import { ConfirmBookingDto } from "./dto/confirm-booking.dto"
 import { CreateHoldDto } from "./dto/create-hold.dto"
 import { QueryPublicAvailabilityDto } from "./dto/query-public-availability.dto"
 import { PublicService } from "./public.service"
@@ -40,5 +41,10 @@ export class PublicController {
   @HttpCode(204)
   async release(@Param("holdId", ParseUUIDPipe) holdId: string) {
     await this.publicService.releaseHold(holdId)
+  }
+
+  @Post("appointments")
+  confirm(@Body() body: ConfirmBookingDto) {
+    return this.publicService.confirm(body)
   }
 }

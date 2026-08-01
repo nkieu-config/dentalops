@@ -27,6 +27,9 @@ const REGISTRY: Record<string, Expectation> = {
   "POST /patients": "auth-only",
   "GET /patients/:id": "not-found",
   "GET /public/:clinicSlug": "public",
+  "GET /public/:clinicSlug/availability": "public",
+  "POST /public/:clinicSlug/holds": "public",
+  "DELETE /public/:clinicSlug/holds/:holdId": "public",
   "GET /branches": "filtered",
   "GET /staff": "filtered",
   "GET /services": "filtered"

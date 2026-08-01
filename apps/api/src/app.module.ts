@@ -11,6 +11,7 @@ import { RequestIdMiddleware } from "./common/request-id.middleware"
 import { HealthController } from "./health/health.controller"
 import { PatientsModule } from "./patients/patients.module"
 import { PrismaModule } from "./prisma/prisma.module"
+import { RedisModule } from "./redis/redis.module"
 import { ShiftsModule } from "./shifts/shifts.module"
 import { TenantContextMiddleware } from "./tenant/tenant-context.middleware"
 
@@ -18,6 +19,7 @@ import { TenantContextMiddleware } from "./tenant/tenant-context.middleware"
   imports: [
     SentryModule.forRoot(),
     PrismaModule,
+    RedisModule,
     JwtModule.register({}),
     AuthModule,
     ShiftsModule,

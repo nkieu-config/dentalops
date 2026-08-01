@@ -9,6 +9,7 @@ import { RolesGuard } from "./auth/roles.guard"
 import { AppExceptionFilter } from "./common/app-exception.filter"
 import { RequestIdMiddleware } from "./common/request-id.middleware"
 import { HealthController } from "./health/health.controller"
+import { PatientsModule } from "./patients/patients.module"
 import { PrismaModule } from "./prisma/prisma.module"
 import { ShiftsModule } from "./shifts/shifts.module"
 import { TenantContextMiddleware } from "./tenant/tenant-context.middleware"
@@ -20,7 +21,8 @@ import { TenantContextMiddleware } from "./tenant/tenant-context.middleware"
     JwtModule.register({}),
     AuthModule,
     ShiftsModule,
-    AppointmentsModule
+    AppointmentsModule,
+    PatientsModule
   ],
   controllers: [HealthController],
   providers: [

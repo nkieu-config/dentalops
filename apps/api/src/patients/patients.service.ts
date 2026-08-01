@@ -1,0 +1,63 @@
+import { Injectable } from "@nestjs/common"
+import { Prisma } from "@prisma/client"
+import { AppException } from "../common/app.exception"
+import { decodeCursor, toPage } from "../common/pagination"
+import { PrismaService } from "../prisma/prisma.service"
+import { CreatePatientDto } from "./dto/create-patient.dto"
+import { QueryPatientsDto } from "./dto/query-patients.dto"
+
+@Injectable()
+export class PatientsService {
+  constructor(private readonly prisma: PrismaService) {}
+
+  async create(dto: CreatePatientDto) {
+    try {
+      return await this.prisma.scoped.patient.create({ data: { ...dto } as never })
+    } catch (e) {
+      if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === "P2002") {
+        throw new AppException(
+          409,
+          "DUPLICATE_PATIENT",
+          "A patient with this phone and email already exists"
+        )
+      }
+      throw e
+    }
+  }
+
+  async list(query: QueryPatientsDto) {
+    const limit = query.limit ?? 20
+    const cursor = decodeCursor(query.cursor)
+    const rows = await this.prisma.scoped.patient.findMany({
+      where: {
+        AND: [
+          query.q
+            ? {
+                OR: [
+                  { name: { contains: query.q, mode: "insensitive" } },
+                  { phone: { contains: query.q } }
+                ]
+              }
+            : {},
+          cursor
+            ? {
+                OR: [
+                  { createdAt: { lt: cursor.createdAt } },
+                  { createdAt: cursor.createdAt, id: { lt: cursor.id } }
+                ]
+              }
+            : {}
+        ]
+      },
+      orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+      take: limit + 1
+    })
+    return toPage(rows, limit)
+  }
+
+  async get(id: string) {
+    const patient = await this.prisma.scoped.patient.findUnique({ where: { id } })
+    if (!patient) throw new AppException(404, "NOT_FOUND", "Patient not found")
+    return patient
+  }
+}

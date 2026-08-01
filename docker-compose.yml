@@ -34,6 +34,14 @@ services:
       interval: 5s
       timeout: 3s
       retries: 10
+  mailpit:
+    image: axllent/mailpit:latest
+    ports:
+      - "1026:1025"
+      - "8026:8025"
+    environment:
+      MP_SMTP_AUTH_ACCEPT_ANY: 1
+      MP_SMTP_AUTH_ALLOW_INSECURE: 1
 volumes:
   pgdata:
   mongodata:

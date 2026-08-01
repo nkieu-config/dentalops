@@ -4,6 +4,7 @@ import { AppointmentsService } from "../appointments/appointments.service"
 import { AvailabilityService } from "../availability/availability.service"
 import { AppException } from "../common/app.exception"
 import { HoldsService, spannedSlotIndexes } from "../holds/holds.service"
+import { MailQueue } from "../mail/mail.queue"
 import { PrismaService } from "../prisma/prisma.service"
 import { currentTenant } from "../tenant/tenant-context"
 import { ConfirmBookingDto } from "./dto/confirm-booking.dto"
@@ -49,7 +50,8 @@ export class PublicService {
     private readonly availability: AvailabilityService,
     private readonly holds: HoldsService,
     private readonly appointments: AppointmentsService,
-    private readonly manageTokens: ManageTokenService
+    private readonly manageTokens: ManageTokenService,
+    private readonly mail: MailQueue
   ) {}
 
   async clinic(): Promise<PublicClinic> {
@@ -156,10 +158,14 @@ export class PublicService {
     })
     await this.holds.release(body.holdId)
 
-    return {
-      appointment: await this.appointmentView(created.id),
-      manageToken: await this.manageTokens.sign(created.id)
-    }
+    const manageToken = await this.manageTokens.sign(created.id)
+    await this.mail.enqueueConfirmation({
+      appointmentId: created.id,
+      tenantId: ctx.tenantId,
+      manageToken
+    })
+
+    return { appointment: await this.appointmentView(created.id), manageToken }
   }
 
   async manageView(token: string) {

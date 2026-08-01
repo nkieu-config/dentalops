@@ -22,6 +22,9 @@
 - Chrome is quiet, data carries the color, status is reserved: brand teal never on appointment cards; red/amber/emerald only for status; every status has an icon or text, never color alone
 - All times/durations/counts render with `tabular-nums`; no `100vh` (use `100dvh`); `body` never scrolls horizontally — only the grid container scrolls
 - The web test glob must become `src/**/*.test.{ts,tsx}` (Task 1) — the math libs test as `.ts`
+- `apps/web` needs `zod` as a direct dependency — pnpm's strict linking means the transitive copy under `@dentalops/contracts` is not resolvable from web source
+- jsdom is missing four things this week's code touches; stub them in `apps/web/vitest.setup.ts` with `??=` and **never** weaken the production code to accommodate them: `ResizeObserver`, `Element.prototype.scrollTo`, `Element.prototype.setPointerCapture`/`releasePointerCapture`, and the `PointerEvent` constructor itself (without a stub, `fireEvent.pointerDown(el, { clientY })` silently drops `clientY` and the drag tests assert on `undefined`)
+- jsdom's CSS shorthand parser drops `background: var(--x)` but keeps `backgroundColor` — use the longhand anywhere a test needs to read a token-driven fill back
 - Do not reformat files you are not changing
 - Full pipeline (`pnpm lint && pnpm typecheck && pnpm test && pnpm build`) before every push; push to `origin main`; report CI conclusion
 

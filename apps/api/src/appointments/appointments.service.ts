@@ -2,6 +2,8 @@ import { Injectable } from "@nestjs/common"
 import { Prisma, Resource, ResourceType } from "@prisma/client"
 import { AppException } from "../common/app.exception"
 import { PrismaService } from "../prisma/prisma.service"
+import { AppointmentAction } from "../realtime/realtime.events"
+import { RealtimeGateway } from "../realtime/realtime.gateway"
 import { CreateAppointmentDto } from "./dto/create-appointment.dto"
 import { QueryAppointmentsDto } from "./dto/query-appointments.dto"
 import { RescheduleAppointmentDto } from "./dto/reschedule-appointment.dto"
@@ -27,7 +29,22 @@ type ScopedTransactionClient = Parameters<Parameters<ScopedClient["$transaction"
 
 @Injectable()
 export class AppointmentsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly realtime: RealtimeGateway
+  ) {}
+
+  private announce(
+    appointment: { id: string; tenantId: string; branchId: string },
+    action: AppointmentAction
+  ) {
+    this.realtime.appointmentChanged({
+      appointmentId: appointment.id,
+      tenantId: appointment.tenantId,
+      branchId: appointment.branchId,
+      action
+    })
+  }
 
   list(query: QueryAppointmentsDto) {
     return this.prisma.scoped.appointment.findMany({
@@ -66,10 +83,12 @@ export class AppointmentsService {
       )
     }
 
-    return this.withConflictIdentity(
+    const created = await this.withConflictIdentity(
       () => this.withResourceRetry(() => this.attemptCreate(dto, service.requirements, win)),
       () => this.findDentistConflict(dto.dentistId, win.startsAt, win.endsAt)
     )
+    this.announce(created, "created")
+    return created
   }
 
   private findDentistConflict(
@@ -238,7 +257,7 @@ export class AppointmentsService {
   }
 
   async reschedule(id: string, dto: RescheduleAppointmentDto) {
-    return this.withConflictIdentity(
+    const updated = await this.withConflictIdentity(
       () => this.attemptReschedule(id, dto),
       async () => {
         const current = await this.prisma.scoped.appointment.findUnique({ where: { id } })
@@ -255,6 +274,8 @@ export class AppointmentsService {
         )
       }
     )
+    this.announce(updated, "rescheduled")
+    return updated
   }
 
   private attemptReschedule(id: string, dto: RescheduleAppointmentDto) {
@@ -320,7 +341,7 @@ export class AppointmentsService {
   }
 
   async setStatus(id: string, dto: SetStatusDto) {
-    return this.prisma.scoped.$transaction(async (tx) => {
+    const updated = await this.prisma.scoped.$transaction(async (tx) => {
       const current = await tx.appointment.findUnique({ where: { id } })
       if (!current) throw new AppException(404, "NOT_FOUND", "Appointment not found")
       if (current.status !== "confirmed") {
@@ -342,5 +363,7 @@ export class AppointmentsService {
       }
       return tx.appointment.findUniqueOrThrow({ where: { id }, include: APPOINTMENT_INCLUDE })
     })
+    this.announce(updated, "status")
+    return updated
   }
 }

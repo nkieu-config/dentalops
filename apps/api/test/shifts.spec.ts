@@ -1,13 +1,14 @@
-import { INestApplication, ValidationPipe } from "@nestjs/common"
-import { Test } from "@nestjs/testing"
+import { INestApplication } from "@nestjs/common"
 import request from "supertest"
-import cookieParser from "cookie-parser"
+import type { Server } from "node:http"
 import { apiErrorSchema } from "@dentalops/contracts"
-import { AppModule } from "../src/app.module"
 import { PrismaService } from "../src/prisma/prisma.service"
+import { createTestApp } from "./utils/test-app"
+import { expectStatus } from "./utils/expect-status"
 
 describe("shifts endpoints", () => {
   let app: INestApplication
+  let server: Server
   let prisma: PrismaService
   let ownerToken: string
   let dentistToken: string
@@ -18,20 +19,17 @@ describe("shifts endpoints", () => {
   const at = (day: number, h: number) => new Date(Date.UTC(2026, 8, day, h, 0, 0)).toISOString()
 
   beforeAll(async () => {
-    const moduleRef = await Test.createTestingModule({ imports: [AppModule] }).compile()
-    app = moduleRef.createNestApplication()
-    app.use(cookieParser())
-    app.useGlobalPipes(new ValidationPipe({ whitelist: true, transform: true }))
+    ;({ app, server } = await createTestApp())
     prisma = app.get(PrismaService)
-    await app.init()
 
-    const signup = await request(app.getHttpServer()).post("/auth/signup").send({
+    const signup = await request(server).post("/auth/signup").send({
       clinicName: "Shifts Test Clinic",
       slug,
       email: "owner@shiftstest.local",
       password: "s3cure-pass",
       name: "Owner"
     })
+    expectStatus(signup, 200)
     ownerToken = signup.body.accessToken
 
     const tenant = await prisma.tenant.findUnique({ where: { slug } })
@@ -54,11 +52,12 @@ describe("shifts endpoints", () => {
       where: { id: dentist.id },
       data: { passwordHash: await argon2.hash("s3cure-pass") }
     })
-    const dentistLogin = await request(app.getHttpServer()).post("/auth/login").send({
+    const dentistLogin = await request(server).post("/auth/login").send({
       clinicSlug: slug,
       email: "dentist@shiftstest.local",
       password: "s3cure-pass"
     })
+    expectStatus(dentistLogin, 200)
     dentistToken = dentistLogin.body.accessToken
   })
 
@@ -68,7 +67,7 @@ describe("shifts endpoints", () => {
   })
 
   it("owner creates a shift", async () => {
-    await request(app.getHttpServer())
+    await request(server)
       .post("/shifts")
       .set("Authorization", `Bearer ${ownerToken}`)
       .send({ staffId, branchId, startsAt: at(7, 2), endsAt: at(7, 10) })
@@ -76,7 +75,7 @@ describe("shifts endpoints", () => {
   })
 
   it("overlapping shift for the same staff returns SLOT_CONFLICT with the constraint name", async () => {
-    const res = await request(app.getHttpServer())
+    const res = await request(server)
       .post("/shifts")
       .set("Authorization", `Bearer ${ownerToken}`)
       .send({ staffId, branchId, startsAt: at(7, 9), endsAt: at(7, 12) })
@@ -87,7 +86,7 @@ describe("shifts endpoints", () => {
   })
 
   it("back-to-back shift at the boundary is allowed", async () => {
-    await request(app.getHttpServer())
+    await request(server)
       .post("/shifts")
       .set("Authorization", `Bearer ${ownerToken}`)
       .send({ staffId, branchId, startsAt: at(7, 10), endsAt: at(7, 13) })
@@ -95,7 +94,7 @@ describe("shifts endpoints", () => {
   })
 
   it("dentist role cannot create shifts", async () => {
-    const res = await request(app.getHttpServer())
+    const res = await request(server)
       .post("/shifts")
       .set("Authorization", `Bearer ${dentistToken}`)
       .send({ staffId, branchId, startsAt: at(8, 2), endsAt: at(8, 10) })
@@ -104,7 +103,7 @@ describe("shifts endpoints", () => {
   })
 
   it("lists shifts within a window", async () => {
-    const res = await request(app.getHttpServer())
+    const res = await request(server)
       .get("/shifts")
       .set("Authorization", `Bearer ${ownerToken}`)
       .query({ from: at(7, 0), to: at(8, 0), staffId })
@@ -113,20 +112,20 @@ describe("shifts endpoints", () => {
   })
 
   it("unauthenticated requests are rejected", async () => {
-    await request(app.getHttpServer()).get("/shifts").expect(401)
+    await request(server).get("/shifts").expect(401)
   })
 
   it("deleting a shift frees the slot", async () => {
-    const list = await request(app.getHttpServer())
+    const list = await request(server)
       .get("/shifts")
       .set("Authorization", `Bearer ${ownerToken}`)
       .query({ staffId })
     const first = list.body[0]
-    await request(app.getHttpServer())
+    await request(server)
       .delete(`/shifts/${first.id}`)
       .set("Authorization", `Bearer ${ownerToken}`)
       .expect(204)
-    await request(app.getHttpServer())
+    await request(server)
       .post("/shifts")
       .set("Authorization", `Bearer ${ownerToken}`)
       .send({ staffId, branchId, startsAt: first.startsAt, endsAt: first.endsAt })

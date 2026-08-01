@@ -1,9 +1,9 @@
-import { INestApplication, ValidationPipe } from "@nestjs/common"
-import { Test } from "@nestjs/testing"
+import { INestApplication } from "@nestjs/common"
 import request from "supertest"
-import cookieParser from "cookie-parser"
-import { AppModule } from "../src/app.module"
+import type { Server } from "node:http"
 import { PrismaService } from "../src/prisma/prisma.service"
+import { createTestApp } from "./utils/test-app"
+import { expectStatus } from "./utils/expect-status"
 
 type Expectation = "public" | "auth-only" | "not-found" | "filtered"
 
@@ -54,6 +54,7 @@ function discoverRoutes(app: INestApplication): DiscoveredRoute[] {
 
 describe("tenant isolation across every route", () => {
   let app: INestApplication
+  let server: Server
   let prisma: PrismaService
   let intruderToken: string
   let victimShiftId: string
@@ -61,32 +62,30 @@ describe("tenant isolation across every route", () => {
   const intruderSlug = `iso-intruder-${Date.now()}`
 
   beforeAll(async () => {
-    const moduleRef = await Test.createTestingModule({ imports: [AppModule] }).compile()
-    app = moduleRef.createNestApplication()
-    app.use(cookieParser())
-    app.useGlobalPipes(new ValidationPipe({ whitelist: true, transform: true }))
+    ;({ app, server } = await createTestApp())
     prisma = app.get(PrismaService)
-    await app.init()
 
-    const victim = await request(app.getHttpServer()).post("/auth/signup").send({
+    const victim = await request(server).post("/auth/signup").send({
       clinicName: "Victim Clinic",
       slug: victimSlug,
       email: "owner@victim.local",
       password: "s3cure-pass",
       name: "Victim Owner"
     })
-    const intruder = await request(app.getHttpServer()).post("/auth/signup").send({
+    const intruder = await request(server).post("/auth/signup").send({
       clinicName: "Intruder Clinic",
       slug: intruderSlug,
       email: "owner@intruder.local",
       password: "s3cure-pass",
       name: "Intruder Owner"
     })
+    expectStatus(victim, 200)
+    expectStatus(intruder, 200)
     intruderToken = intruder.body.accessToken
 
     const victimTenant = await prisma.tenant.findUnique({ where: { slug: victimSlug } })
     const victimBranch = await prisma.branch.findFirst({ where: { tenantId: victimTenant!.id } })
-    const shift = await request(app.getHttpServer())
+    const shift = await request(server)
       .post("/shifts")
       .set("Authorization", `Bearer ${victim.body.accessToken}`)
       .send({
@@ -115,7 +114,7 @@ describe("tenant isolation across every route", () => {
     for (const [key] of idRoutes) {
       const [method, path] = key.split(" ") as [string, string]
       const url = path.replace(":id", victimShiftId)
-      const res = await request(app.getHttpServer())
+      const res = await request(server)
         [method.toLowerCase() as "get" | "delete" | "patch"](url)
         .set("Authorization", `Bearer ${intruderToken}`)
         .send(BODY_BY_ROUTE[key] ?? {})
@@ -124,7 +123,7 @@ describe("tenant isolation across every route", () => {
   })
 
   it("collection routes never leak another tenant's rows", async () => {
-    const res = await request(app.getHttpServer())
+    const res = await request(server)
       .get("/shifts")
       .set("Authorization", `Bearer ${intruderToken}`)
       .expect(200)
@@ -139,7 +138,7 @@ describe("tenant isolation across every route", () => {
     for (const [key] of routes) {
       const [method, path] = key.split(" ") as [string, string]
       const url = path.replace(":id", victimShiftId)
-      const res = await request(app.getHttpServer())[
+      const res = await request(server)[
         method.toLowerCase() as "get" | "post" | "delete" | "patch"
       ](url)
       expect(res.status).toBe(401)

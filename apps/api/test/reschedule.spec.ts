@@ -1,13 +1,14 @@
-import { INestApplication, ValidationPipe } from "@nestjs/common"
-import { Test } from "@nestjs/testing"
+import { INestApplication } from "@nestjs/common"
 import request from "supertest"
-import cookieParser from "cookie-parser"
+import type { Server } from "node:http"
 import { apiErrorSchema } from "@dentalops/contracts"
-import { AppModule } from "../src/app.module"
 import { PrismaService } from "../src/prisma/prisma.service"
+import { createTestApp } from "./utils/test-app"
+import { expectStatus } from "./utils/expect-status"
 
 describe("reschedule and status transitions", () => {
   let app: INestApplication
+  let server: Server
   let prisma: PrismaService
   let ownerToken: string
   let branchId: string
@@ -22,26 +23,23 @@ describe("reschedule and status transitions", () => {
   const at = (day: number, h: number) => new Date(Date.UTC(2026, 10, day, h, 0, 0)).toISOString()
 
   const book = (dentist: string, startsAt: string) =>
-    request(app.getHttpServer())
+    request(server)
       .post("/appointments")
       .set("Authorization", `Bearer ${ownerToken}`)
       .send({ serviceId, dentistId: dentist, patientId, branchId, startsAt })
 
   beforeAll(async () => {
-    const moduleRef = await Test.createTestingModule({ imports: [AppModule] }).compile()
-    app = moduleRef.createNestApplication()
-    app.use(cookieParser())
-    app.useGlobalPipes(new ValidationPipe({ whitelist: true, transform: true }))
+    ;({ app, server } = await createTestApp())
     prisma = app.get(PrismaService)
-    await app.init()
 
-    const signup = await request(app.getHttpServer()).post("/auth/signup").send({
+    const signup = await request(server).post("/auth/signup").send({
       clinicName: "Reschedule Test Clinic",
       slug,
       email: "owner@reschedule.local",
       password: "s3cure-pass",
       name: "Owner"
     })
+    expectStatus(signup, 200)
     ownerToken = signup.body.accessToken
 
     const tenant = await prisma.tenant.findUnique({ where: { slug } })
@@ -92,7 +90,7 @@ describe("reschedule and status transitions", () => {
   })
 
   it("reschedule moves the appointment and reissues claims", async () => {
-    const res = await request(app.getHttpServer())
+    const res = await request(server)
       .patch(`/appointments/${apptId}`)
       .set("Authorization", `Bearer ${ownerToken}`)
       .send({ version: 0, startsAt: at(2, 11) })
@@ -117,7 +115,7 @@ describe("reschedule and status transitions", () => {
   })
 
   it("stale version is rejected with STALE_VERSION", async () => {
-    const res = await request(app.getHttpServer())
+    const res = await request(server)
       .patch(`/appointments/${apptId}`)
       .set("Authorization", `Bearer ${ownerToken}`)
       .send({ version: 0, startsAt: at(2, 14) })
@@ -135,7 +133,7 @@ describe("reschedule and status transitions", () => {
   it("reschedule into another dentist's slot returns SLOT_CONFLICT", async () => {
     await book(dentist2Id, at(3, 13)).expect(201)
 
-    const res = await request(app.getHttpServer())
+    const res = await request(server)
       .patch(`/appointments/${apptId}`)
       .set("Authorization", `Bearer ${ownerToken}`)
       .send({ version: 1, startsAt: at(3, 13), dentistId: dentist2Id })
@@ -148,7 +146,7 @@ describe("reschedule and status transitions", () => {
   })
 
   it("completed keeps the chair claim active", async () => {
-    const res = await request(app.getHttpServer())
+    const res = await request(server)
       .patch(`/appointments/${apptId}/status`)
       .set("Authorization", `Bearer ${ownerToken}`)
       .send({ status: "completed" })
@@ -170,7 +168,7 @@ describe("reschedule and status transitions", () => {
     cancelledId = created.body.id
     const chairId = created.body.claims[0].resourceId
 
-    const cancelled = await request(app.getHttpServer())
+    const cancelled = await request(server)
       .patch(`/appointments/${cancelledId}/status`)
       .set("Authorization", `Bearer ${ownerToken}`)
       .send({ status: "cancelled" })
@@ -188,7 +186,7 @@ describe("reschedule and status transitions", () => {
   })
 
   it("INVALID_TRANSITION on double status change", async () => {
-    const res = await request(app.getHttpServer())
+    const res = await request(server)
       .patch(`/appointments/${cancelledId}/status`)
       .set("Authorization", `Bearer ${ownerToken}`)
       .send({ status: "cancelled" })
@@ -198,7 +196,7 @@ describe("reschedule and status transitions", () => {
 
   it("moving a cancelled appointment is NOT_CONFIRMED", async () => {
     const current = await prisma.appointment.findUniqueOrThrow({ where: { id: cancelledId } })
-    const res = await request(app.getHttpServer())
+    const res = await request(server)
       .patch(`/appointments/${cancelledId}`)
       .set("Authorization", `Bearer ${ownerToken}`)
       .send({ version: current.version, startsAt: at(5, 9) })

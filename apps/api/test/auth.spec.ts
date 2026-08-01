@@ -1,23 +1,19 @@
-import { INestApplication, ValidationPipe } from "@nestjs/common"
-import { Test } from "@nestjs/testing"
+import { INestApplication } from "@nestjs/common"
 import request from "supertest"
-import cookieParser from "cookie-parser"
+import type { Server } from "node:http"
 import { apiErrorSchema } from "@dentalops/contracts"
-import { AppModule } from "../src/app.module"
 import { PrismaService } from "../src/prisma/prisma.service"
+import { createTestApp } from "./utils/test-app"
 
 describe("auth", () => {
   let app: INestApplication
+  let server: Server
   let prisma: PrismaService
   const slug = `auth-test-${Date.now()}`
 
   beforeAll(async () => {
-    const moduleRef = await Test.createTestingModule({ imports: [AppModule] }).compile()
-    app = moduleRef.createNestApplication()
-    app.use(cookieParser())
-    app.useGlobalPipes(new ValidationPipe({ whitelist: true, transform: true }))
+    ;({ app, server } = await createTestApp())
     prisma = app.get(PrismaService)
-    await app.init()
   })
 
   afterAll(async () => {
@@ -34,7 +30,7 @@ describe("auth", () => {
   }
 
   it("signs up a new clinic with defaults provisioned", async () => {
-    const res = await request(app.getHttpServer())
+    const res = await request(server)
       .post("/auth/signup")
       .send(signupBody)
       .expect(200)
@@ -53,7 +49,7 @@ describe("auth", () => {
   })
 
   it("rejects a duplicate slug with SLUG_TAKEN", async () => {
-    const res = await request(app.getHttpServer())
+    const res = await request(server)
       .post("/auth/signup")
       .send({ ...signupBody, email: "other@authtest.local" })
       .expect(409)
@@ -61,7 +57,7 @@ describe("auth", () => {
   })
 
   it("logs in with correct credentials and sets a refresh cookie", async () => {
-    const res = await request(app.getHttpServer())
+    const res = await request(server)
       .post("/auth/login")
       .send({ clinicSlug: slug, email: signupBody.email, password: signupBody.password })
       .expect(200)
@@ -73,7 +69,7 @@ describe("auth", () => {
   })
 
   it("rejects a wrong password with INVALID_CREDENTIALS", async () => {
-    const res = await request(app.getHttpServer())
+    const res = await request(server)
       .post("/auth/login")
       .send({ clinicSlug: slug, email: signupBody.email, password: "wrong-password" })
       .expect(401)
@@ -81,23 +77,23 @@ describe("auth", () => {
   })
 
   it("serves /auth/me with a valid token and rejects without one", async () => {
-    const login = await request(app.getHttpServer())
+    const login = await request(server)
       .post("/auth/login")
       .send({ clinicSlug: slug, email: signupBody.email, password: signupBody.password })
-    const me = await request(app.getHttpServer())
+    const me = await request(server)
       .get("/auth/me")
       .set("Authorization", `Bearer ${login.body.accessToken}`)
       .expect(200)
     expect(me.body.role).toBe("owner")
-    await request(app.getHttpServer()).get("/auth/me").expect(401)
+    await request(server).get("/auth/me").expect(401)
   })
 
   it("refreshes using the httpOnly cookie", async () => {
-    const login = await request(app.getHttpServer())
+    const login = await request(server)
       .post("/auth/login")
       .send({ clinicSlug: slug, email: signupBody.email, password: signupBody.password })
     const cookies = login.headers["set-cookie"] as unknown as string[]
-    const res = await request(app.getHttpServer())
+    const res = await request(server)
       .post("/auth/refresh")
       .set("Cookie", cookies)
       .expect(200)
@@ -106,7 +102,7 @@ describe("auth", () => {
 
   it("demo-login works for every role after seeding", async () => {
     for (const role of ["owner", "receptionist", "dentist"]) {
-      const res = await request(app.getHttpServer())
+      const res = await request(server)
         .post("/auth/demo-login")
         .send({ role })
         .expect(200)

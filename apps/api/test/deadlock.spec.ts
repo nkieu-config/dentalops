@@ -1,13 +1,14 @@
-import { INestApplication, ValidationPipe } from "@nestjs/common"
-import { Test } from "@nestjs/testing"
+import { INestApplication } from "@nestjs/common"
 import request from "supertest"
-import cookieParser from "cookie-parser"
+import type { Server } from "node:http"
 import { apiErrorSchema } from "@dentalops/contracts"
-import { AppModule } from "../src/app.module"
 import { PrismaService } from "../src/prisma/prisma.service"
+import { createTestApp } from "./utils/test-app"
+import { expectStatus } from "./utils/expect-status"
 
 describe("deadlock safety of concurrent reschedules", () => {
   let app: INestApplication
+  let server: Server
   let prisma: PrismaService
   let ownerToken: string
   let branchId: string
@@ -24,26 +25,23 @@ describe("deadlock safety of concurrent reschedules", () => {
   const at = (day: number, h: number) => new Date(Date.UTC(2027, 0, day, h, 0, 0)).toISOString()
 
   const book = (dentist: string, startsAt: string) =>
-    request(app.getHttpServer())
+    request(server)
       .post("/appointments")
       .set("Authorization", `Bearer ${ownerToken}`)
       .send({ serviceId, dentistId: dentist, patientId, branchId, startsAt })
 
   beforeAll(async () => {
-    const moduleRef = await Test.createTestingModule({ imports: [AppModule] }).compile()
-    app = moduleRef.createNestApplication()
-    app.use(cookieParser())
-    app.useGlobalPipes(new ValidationPipe({ whitelist: true, transform: true }))
+    ;({ app, server } = await createTestApp())
     prisma = app.get(PrismaService)
-    await app.init()
 
-    const signup = await request(app.getHttpServer()).post("/auth/signup").send({
+    const signup = await request(server).post("/auth/signup").send({
       clinicName: "Deadlock Test Clinic",
       slug,
       email: "owner@lockorder.local",
       password: "s3cure-pass",
       name: "Owner"
     })
+    expectStatus(signup, 200)
     ownerToken = signup.body.accessToken
 
     const tenant = await prisma.tenant.findUnique({ where: { slug } })
@@ -126,11 +124,11 @@ describe("deadlock safety of concurrent reschedules", () => {
   it("concurrent opposite reschedules never deadlock", async () => {
     for (let i = 0; i < 15; i++) {
       const [ra, rb] = await Promise.all([
-        request(app.getHttpServer())
+        request(server)
           .patch(`/appointments/${apptA.id}`)
           .set("Authorization", `Bearer ${ownerToken}`)
           .send({ version: versionA, startsAt: at(10 + (i % 2), 9) }),
-        request(app.getHttpServer())
+        request(server)
           .patch(`/appointments/${apptB.id}`)
           .set("Authorization", `Bearer ${ownerToken}`)
           .send({ version: versionB, startsAt: at(10 + ((i + 1) % 2), 13) })

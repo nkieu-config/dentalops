@@ -1,13 +1,14 @@
-import { INestApplication, ValidationPipe } from "@nestjs/common"
-import { Test } from "@nestjs/testing"
+import { INestApplication } from "@nestjs/common"
 import request from "supertest"
-import cookieParser from "cookie-parser"
+import type { Server } from "node:http"
 import { apiErrorSchema } from "@dentalops/contracts"
-import { AppModule } from "../src/app.module"
 import { PrismaService } from "../src/prisma/prisma.service"
+import { createTestApp } from "./utils/test-app"
+import { expectStatus } from "./utils/expect-status"
 
 describe("idempotency keys", () => {
   let app: INestApplication
+  let server: Server
   let prisma: PrismaService
   let ownerToken: string
   let branchId: string
@@ -23,27 +24,24 @@ describe("idempotency keys", () => {
   const at = (day: number, h: number) => new Date(Date.UTC(2026, 11, day, h, 0, 0)).toISOString()
 
   const book = (startsAt: string, key: string) =>
-    request(app.getHttpServer())
+    request(server)
       .post("/appointments")
       .set("Authorization", `Bearer ${ownerToken}`)
       .set("Idempotency-Key", key)
       .send({ serviceId, dentistId, patientId, branchId, startsAt })
 
   beforeAll(async () => {
-    const moduleRef = await Test.createTestingModule({ imports: [AppModule] }).compile()
-    app = moduleRef.createNestApplication()
-    app.use(cookieParser())
-    app.useGlobalPipes(new ValidationPipe({ whitelist: true, transform: true }))
+    ;({ app, server } = await createTestApp())
     prisma = app.get(PrismaService)
-    await app.init()
 
-    const signup = await request(app.getHttpServer()).post("/auth/signup").send({
+    const signup = await request(server).post("/auth/signup").send({
       clinicName: "Idempotency Test Clinic",
       slug,
       email: "owner@idempotency.local",
       password: "s3cure-pass",
       name: "Owner"
     })
+    expectStatus(signup, 200)
     ownerToken = signup.body.accessToken
 
     const tenant = await prisma.tenant.findUnique({ where: { slug } })
@@ -109,7 +107,7 @@ describe("idempotency keys", () => {
   })
 
   it("key is scoped per route", async () => {
-    const res = await request(app.getHttpServer())
+    const res = await request(server)
       .patch(`/appointments/${apptId}/status`)
       .set("Authorization", `Bearer ${ownerToken}`)
       .set("Idempotency-Key", keyOne)

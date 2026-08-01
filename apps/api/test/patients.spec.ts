@@ -1,10 +1,10 @@
-import { INestApplication, ValidationPipe } from "@nestjs/common"
-import { Test } from "@nestjs/testing"
+import { INestApplication } from "@nestjs/common"
 import request from "supertest"
-import cookieParser from "cookie-parser"
+import type { Server } from "node:http"
 import { apiErrorSchema } from "@dentalops/contracts"
-import { AppModule } from "../src/app.module"
 import { PrismaService } from "../src/prisma/prisma.service"
+import { createTestApp } from "./utils/test-app"
+import { expectStatus } from "./utils/expect-status"
 
 interface PatientRow {
   id: string
@@ -20,6 +20,7 @@ interface PatientPage {
 
 describe("patients endpoints", () => {
   let app: INestApplication
+  let server: Server
   let prisma: PrismaService
   let ownerToken: string
   let tenantId: string
@@ -37,26 +38,23 @@ describe("patients endpoints", () => {
   }
 
   const listPage = (query: Record<string, string | number>) =>
-    request(app.getHttpServer())
+    request(server)
       .get("/patients")
       .set("Authorization", `Bearer ${ownerToken}`)
       .query(query)
 
   beforeAll(async () => {
-    const moduleRef = await Test.createTestingModule({ imports: [AppModule] }).compile()
-    app = moduleRef.createNestApplication()
-    app.use(cookieParser())
-    app.useGlobalPipes(new ValidationPipe({ whitelist: true, transform: true }))
+    ;({ app, server } = await createTestApp())
     prisma = app.get(PrismaService)
-    await app.init()
 
-    const signup = await request(app.getHttpServer()).post("/auth/signup").send({
+    const signup = await request(server).post("/auth/signup").send({
       clinicName: "Patients Test Clinic",
       slug,
       email: "owner@patientsapi.local",
       password: "s3cure-pass",
       name: "Owner"
     })
+    expectStatus(signup, 200)
     ownerToken = signup.body.accessToken
 
     const tenant = await prisma.tenant.findUnique({ where: { slug } })
@@ -64,7 +62,7 @@ describe("patients endpoints", () => {
 
     seededIds = []
     for (let i = 0; i < 25; i++) {
-      const res = await request(app.getHttpServer())
+      const res = await request(server)
         .post("/patients")
         .set("Authorization", `Bearer ${ownerToken}`)
         .send({
@@ -83,7 +81,7 @@ describe("patients endpoints", () => {
   })
 
   it("creates a patient", async () => {
-    const res = await request(app.getHttpServer())
+    const res = await request(server)
       .post("/patients")
       .set("Authorization", `Bearer ${ownerToken}`)
       .send(created)
@@ -97,7 +95,7 @@ describe("patients endpoints", () => {
   })
 
   it("rejects a duplicate phone and email with DUPLICATE_PATIENT", async () => {
-    const res = await request(app.getHttpServer())
+    const res = await request(server)
       .post("/patients")
       .set("Authorization", `Bearer ${ownerToken}`)
       .send(created)
@@ -153,14 +151,14 @@ describe("patients endpoints", () => {
   })
 
   it("reads one patient by id and 404s on an unknown id", async () => {
-    const res = await request(app.getHttpServer())
+    const res = await request(server)
       .get(`/patients/${seededIds[0]}`)
       .set("Authorization", `Bearer ${ownerToken}`)
       .expect(200)
     expect(res.body.id).toBe(seededIds[0])
     expect(res.body.phone).toBe(phoneFor(0))
 
-    const missing = await request(app.getHttpServer())
+    const missing = await request(server)
       .get("/patients/00000000-0000-4000-8000-000000000000")
       .set("Authorization", `Bearer ${ownerToken}`)
       .expect(404)

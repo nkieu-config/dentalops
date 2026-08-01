@@ -24,9 +24,8 @@ export class IdempotencyInterceptor implements NestInterceptor {
 
     const cached = await this.redis.get(storeKey)
     if (cached) {
-      const { status, body } = JSON.parse(cached) as { status: number; body: unknown }
+      const { body } = JSON.parse(cached) as { body: unknown }
       res.setHeader("x-idempotent-replay", "true")
-      res.status(status)
       return of(body)
     }
 
@@ -39,7 +38,7 @@ export class IdempotencyInterceptor implements NestInterceptor {
       tap({
         next: (body) => {
           void this.redis
-            .set(storeKey, JSON.stringify({ status: res.statusCode, body }), "EX", TTL_SECONDS)
+            .set(storeKey, JSON.stringify({ body }), "EX", TTL_SECONDS)
             .then(() => this.redis.del(`${storeKey}:lock`))
         },
         error: () => {

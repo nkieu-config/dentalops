@@ -4,6 +4,8 @@ import { AppException } from "../common/app.exception"
 import { PrismaService } from "../prisma/prisma.service"
 import { CreateAppointmentDto } from "./dto/create-appointment.dto"
 import { QueryAppointmentsDto } from "./dto/query-appointments.dto"
+import { RescheduleAppointmentDto } from "./dto/reschedule-appointment.dto"
+import { SetStatusDto } from "./dto/set-status.dto"
 
 const EXCLUSION = /exclusion constraint \\?"(\w+)\\?"/
 
@@ -170,5 +172,89 @@ export class AppointmentsService {
     })
     const busyIds = new Set(busy.map((b) => b.resourceId))
     return candidates.find((c) => !busyIds.has(c.id)) ?? null
+  }
+
+  async reschedule(id: string, dto: RescheduleAppointmentDto) {
+    return this.withResourceRetry(() =>
+      this.prisma.scoped.$transaction(async (tx) => {
+        const current = await tx.appointment.findUnique({
+          where: { id },
+          include: { service: { include: { requirements: true } } }
+        })
+        if (!current) throw new AppException(404, "NOT_FOUND", "Appointment not found")
+        if (current.status !== "confirmed") {
+          throw new AppException(409, "NOT_CONFIRMED", "Only confirmed appointments can move")
+        }
+
+        const startsAt = dto.startsAt ? new Date(dto.startsAt) : current.startsAt
+        const dentistId = dto.dentistId ?? current.dentistId
+        const win = {
+          startsAt,
+          endsAt: new Date(startsAt.getTime() + current.service.durationMin * 60_000),
+          chairEndsAt: new Date(
+            startsAt.getTime() +
+              (current.service.durationMin + current.service.bufferMin) * 60_000
+          )
+        }
+
+        const updated = await tx.appointment.updateMany({
+          where: { id, version: dto.version },
+          data: {
+            startsAt: win.startsAt,
+            endsAt: win.endsAt,
+            dentistId,
+            version: { increment: 1 }
+          }
+        })
+        if (updated.count === 0) {
+          throw new AppException(409, "STALE_VERSION", "Appointment was changed by someone else", {
+            currentVersion: current.version
+          })
+        }
+
+        await tx.resourceClaim.updateMany({
+          where: { appointmentId: id, status: "active" },
+          data: { status: "released" }
+        })
+        const claims = await this.pickResources(
+          tx,
+          current.branchId,
+          current.service.requirements,
+          win
+        )
+        for (const claim of claims) {
+          await tx.resourceClaim.create({ data: { appointmentId: id, ...claim } as never })
+        }
+        return tx.appointment.findUniqueOrThrow({
+          where: { id },
+          include: APPOINTMENT_INCLUDE
+        })
+      })
+    )
+  }
+
+  async setStatus(id: string, dto: SetStatusDto) {
+    return this.prisma.scoped.$transaction(async (tx) => {
+      const current = await tx.appointment.findUnique({ where: { id } })
+      if (!current) throw new AppException(404, "NOT_FOUND", "Appointment not found")
+      if (current.status !== "confirmed") {
+        throw new AppException(
+          409,
+          "INVALID_TRANSITION",
+          `Cannot ${dto.status} a ${current.status} appointment`
+        )
+      }
+      await tx.appointment.update({
+        where: { id },
+        data: { status: dto.status, version: { increment: 1 } }
+      })
+      if (dto.status === "cancelled") {
+        await tx.resourceClaim.updateMany({
+          where: { appointmentId: id, status: "active" },
+          data: { status: "released" }
+        })
+      }
+      return tx.appointment.findUniqueOrThrow({ where: { id }, include: APPOINTMENT_INCLUDE })
+    })
   }
 }

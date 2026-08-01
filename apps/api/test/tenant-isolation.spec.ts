@@ -18,7 +18,14 @@ const REGISTRY: Record<string, Expectation> = {
   "POST /shifts": "auth-only",
   "DELETE /shifts/:id": "not-found",
   "GET /appointments": "filtered",
-  "POST /appointments": "auth-only"
+  "POST /appointments": "auth-only",
+  "PATCH /appointments/:id": "not-found",
+  "PATCH /appointments/:id/status": "not-found"
+}
+
+const BODY_BY_ROUTE: Record<string, object> = {
+  "PATCH /appointments/:id": { version: 0 },
+  "PATCH /appointments/:id/status": { status: "cancelled" }
 }
 
 interface DiscoveredRoute {
@@ -108,6 +115,7 @@ describe("tenant isolation across every route", () => {
       const res = await request(app.getHttpServer())
         [method.toLowerCase() as "get" | "delete" | "patch"](url)
         .set("Authorization", `Bearer ${intruderToken}`)
+        .send(BODY_BY_ROUTE[key] ?? {})
       expect([404]).toContain(res.status)
     }
   })
@@ -129,7 +137,7 @@ describe("tenant isolation across every route", () => {
       const [method, path] = key.split(" ") as [string, string]
       const url = path.replace(":id", victimShiftId)
       const res = await request(app.getHttpServer())[
-        method.toLowerCase() as "get" | "post" | "delete"
+        method.toLowerCase() as "get" | "post" | "delete" | "patch"
       ](url)
       expect(res.status).toBe(401)
     }

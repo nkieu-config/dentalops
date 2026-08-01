@@ -243,7 +243,9 @@ Zero-budget note to state in the README later: the queue, retries, and worker ar
 2. the processor renders a subject containing the clinic name and a body containing the BKK-formatted appointment time and the manage URL
 3. a transport that throws causes the job to retry (assert `attempts` config and that a failing transport does not fail the HTTP request — the booking must still return 201)
 
-The third point is the important one: **email must never block or fail a booking.** Enqueue after commit, never inside the transaction.
+The third point is the important one: **email must never block or fail a booking.** Enqueue after commit, never inside the transaction, and swallow enqueue failures inside `MailQueue` so no call site has to remember to.
+
+**The trap in the worker:** it runs outside any request, so it must establish tenant context itself — and `tenantContext.run(store, () => this.prisma.scoped.…)` compiles but fails at runtime. `PrismaPromise` is lazy, so the extension fires on `.then()`, which happens after `run()` has already returned. The callback must be `async` with the query `await`ed **inside** it. This is the same lazy-promise trap W1b hit; it applies to every non-HTTP entry point that touches `prisma.scoped`.
 
 - [ ] **Step 2: Implement, then commit**
 

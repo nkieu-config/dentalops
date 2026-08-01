@@ -4,7 +4,7 @@ services:
     runtime: node
     plan: free
     region: singapore
-    buildCommand: npm i -g pnpm@10.4.1 && pnpm install --frozen-lockfile && pnpm --filter @dentalops/api exec prisma generate && pnpm --filter @dentalops/api exec prisma migrate deploy && pnpm turbo run build --filter=@dentalops/api
+    buildCommand: npm i -g pnpm@10.4.1 && pnpm install --frozen-lockfile && pnpm --filter @dentalops/api exec prisma generate && pnpm --filter @dentalops/api exec prisma migrate deploy && pnpm --filter @dentalops/api db:seed && pnpm turbo run build --filter=@dentalops/api
     startCommand: node apps/api/dist/main.js
     healthCheckPath: /api/v1/health
     envVars:

@@ -1,12 +1,16 @@
-import type { Appointment } from "@dentalops/contracts"
+import { computeSlots, type Interval } from "@dentalops/availability"
+import type { Appointment, UserRole } from "@dentalops/contracts"
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
-import { render, screen } from "@testing-library/react"
+import { render, screen, waitFor } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { useState } from "react"
 import { Toaster, toast } from "sonner"
 import { afterEach, describe, expect, it } from "vitest"
+import { setSession } from "../../lib/session"
 import { API, http, HttpResponse, server } from "../../test/msw"
 import { AppointmentDrawer } from "./appointment-drawer"
+import { bkkDayStart } from "./lib/geometry"
+import { useRescheduleAppointment } from "./use-reschedule"
 
 const appointmentId = "4f9619ff-8b86-4d01-b42d-00cf4fc964ff"
 
@@ -44,6 +48,66 @@ const mount = () => {
     </QueryClientProvider>
   )
 }
+
+const MoveHarness = () => {
+  const [selected, setSelected] = useState<Appointment | null>(appointment)
+  const { reschedule } = useRescheduleAppointment({ queryKey: ["appointments"] })
+  return (
+    <AppointmentDrawer
+      appointment={selected}
+      onClose={() => setSelected(null)}
+      onReschedule={reschedule}
+    />
+  )
+}
+
+const mountMove = (role: UserRole = "receptionist") => {
+  setSession({
+    accessToken: "t1",
+    user: {
+      id: "7f9619ff-8b86-4d01-b42d-00cf4fc964ff",
+      tenantId: "9f9619ff-8b86-4d01-b42d-00cf4fc964ff",
+      name: "Demo User",
+      role
+    }
+  })
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+  return render(
+    <QueryClientProvider client={client}>
+      <MoveHarness />
+      <Toaster />
+    </QueryClientProvider>
+  )
+}
+
+const dayStart = bkkDayStart("2026-08-03")
+const HOUR = 3_600_000
+
+const ownWindow: Interval = {
+  start: Date.parse(appointment.startsAt),
+  end: Date.parse(appointment.endsAt)
+}
+
+const slotsAsAvailabilityWould = (busy: Interval[]) =>
+  computeSlots({
+    window: { start: dayStart, end: dayStart + 24 * HOUR },
+    stepMin: 15,
+    durationMin: 60,
+    bufferMin: 0,
+    staff: [
+      {
+        staffId: appointment.dentistId,
+        shifts: [{ start: dayStart + 9 * HOUR, end: dayStart + 17 * HOUR }],
+        busy
+      }
+    ],
+    chairs: [{ id: "chair-1", busy: [] }],
+    equipmentPools: []
+  }).map((s) => ({
+    dentistId: s.staffId,
+    startsAt: new Date(s.start).toISOString(),
+    endsAt: new Date(s.end).toISOString()
+  }))
 
 afterEach(() => toast.dismiss())
 
@@ -98,5 +162,60 @@ describe("AppointmentDrawer", () => {
     )
     expect(screen.getByText("cancelled")).toBeInTheDocument()
     expect(screen.queryByRole("button", { name: "Complete" })).not.toBeInTheDocument()
+  })
+
+  it("moves the appointment to a picked slot with no gesture at all", async () => {
+    const bodies: unknown[] = []
+    server.use(
+      http.get(`${API}/availability`, () =>
+        HttpResponse.json({ slots: slotsAsAvailabilityWould([ownWindow]) })
+      ),
+      http.patch(`${API}/appointments/${appointmentId}`, async ({ request }) => {
+        bodies.push(await request.json())
+        return HttpResponse.json({
+          ...appointment,
+          startsAt: "2026-08-03T04:00:00.000Z",
+          endsAt: "2026-08-03T05:00:00.000Z",
+          version: 2
+        })
+      })
+    )
+    mountMove()
+
+    expect(await screen.findByText("Move")).toBeInTheDocument()
+    await userEvent.click(await screen.findByRole("button", { name: "11:00" }))
+
+    await waitFor(() =>
+      expect(bodies).toEqual([{ version: 1, startsAt: "2026-08-03T04:00:00.000Z" }])
+    )
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument()
+  })
+
+  it("hides the move controls from a role the api will not let reschedule", async () => {
+    mountMove("dentist")
+    expect(await screen.findByText("S. Chaiwat · 0812345678")).toBeInTheDocument()
+    expect(screen.queryByText("Move")).not.toBeInTheDocument()
+    expect(screen.queryAllByTestId("slot")).toHaveLength(0)
+  })
+
+  it("cannot offer a slot the appointment itself occupies, because availability counts it as busy", async () => {
+    const withItself = slotsAsAvailabilityWould([ownWindow])
+    const withoutItself = slotsAsAvailabilityWould([])
+    expect(
+      withItself.every(
+        (s) =>
+          Date.parse(s.endsAt) <= ownWindow.start || Date.parse(s.startsAt) >= ownWindow.end
+      )
+    ).toBe(true)
+    expect(withoutItself.map((s) => s.startsAt)).toContain(appointment.startsAt)
+    expect(withItself.map((s) => s.startsAt)).not.toContain(appointment.startsAt)
+
+    server.use(http.get(`${API}/availability`, () => HttpResponse.json({ slots: withItself })))
+    mountMove()
+
+    expect(await screen.findByRole("button", { name: "10:00" })).toBeInTheDocument()
+    expect(screen.queryByRole("button", { name: "09:00" })).not.toBeInTheDocument()
+    expect(screen.queryByRole("button", { name: "09:15" })).not.toBeInTheDocument()
+    expect(screen.queryByRole("button", { name: "09:45" })).not.toBeInTheDocument()
   })
 })

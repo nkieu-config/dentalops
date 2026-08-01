@@ -19,7 +19,9 @@ const dayFmt = new Intl.DateTimeFormat("en-GB", {
   year: "numeric"
 })
 
-export const bkkToday = (): string => dateFmt.format(new Date())
+export const bkkDate = (ms: number): string => dateFmt.format(new Date(ms))
+
+export const bkkToday = (): string => bkkDate(Date.now())
 
 export const bkkShiftDate = (isoDate: string, days: number): string =>
   dateFmt.format(new Date(bkkDayStart(isoDate) + days * DAY_MS + DAY_MS / 2))

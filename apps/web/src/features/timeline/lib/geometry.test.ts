@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest"
 import {
+  bkkDate,
   bkkDayStart,
   bkkShiftDate,
   fmtTime,
@@ -37,6 +38,12 @@ describe("geometry", () => {
   it("formats clinic wall time regardless of the viewer's zone", () => {
     expect(fmtTime(Date.parse("2026-08-03T02:00:00Z"))).toBe("09:00")
     expect(fmtTime(Date.parse("2026-08-03T16:30:00Z"))).toBe("23:30")
+  })
+
+  it("names the bangkok calendar day an instant falls on", () => {
+    expect(bkkDate(Date.parse("2026-08-03T02:00:00Z"))).toBe("2026-08-03")
+    expect(bkkDate(Date.parse("2026-08-02T17:00:00Z"))).toBe("2026-08-03")
+    expect(bkkDate(Date.parse("2026-08-02T16:59:00Z"))).toBe("2026-08-02")
   })
 
   it("shifts a calendar date across a month boundary", () => {

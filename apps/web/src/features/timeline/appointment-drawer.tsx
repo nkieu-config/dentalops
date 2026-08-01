@@ -1,15 +1,20 @@
 import { appointmentSchema, type Appointment, type AppointmentStatus } from "@dentalops/contracts"
 import { useMutation, useQueryClient } from "@tanstack/react-query"
+import { useState } from "react"
 import { toast } from "sonner"
+import { SlotPicker } from "../../components/slot-picker"
 import { Button } from "../../components/ui/button"
 import { Label } from "../../components/ui/label"
 import { Sheet } from "../../components/ui/sheet"
 import { api, ApiError } from "../../lib/api"
-import { fmtTime } from "./lib/geometry"
+import { useCanBook } from "../../lib/session"
+import { bkkDate, fmtTime } from "./lib/geometry"
+import type { RescheduleInput } from "./use-reschedule"
 
 interface AppointmentDrawerProps {
   appointment: Appointment | null
   onClose: () => void
+  onReschedule?: (input: RescheduleInput) => void
 }
 
 const Row = ({ label, value }: { label: string; value: string }) => (
@@ -19,8 +24,39 @@ const Row = ({ label, value }: { label: string; value: string }) => (
   </div>
 )
 
-export const AppointmentDrawer = ({ appointment, onClose }: AppointmentDrawerProps) => {
+interface MoveSectionProps {
+  appointment: Appointment
+  onReschedule: (input: RescheduleInput) => void
+  onClose: () => void
+}
+
+const MoveSection = ({ appointment, onReschedule, onClose }: MoveSectionProps) => {
+  const [date, setDate] = useState(() => bkkDate(Date.parse(appointment.startsAt)))
+  return (
+    <div className="space-y-2 border-t border-border pt-4">
+      <Label>Move</Label>
+      <SlotPicker
+        serviceId={appointment.serviceId}
+        branchId={appointment.branchId}
+        dentistId={appointment.dentistId}
+        date={date}
+        onDateChange={setDate}
+        onPick={(startsAt) => {
+          onReschedule({ id: appointment.id, version: appointment.version, startsAt })
+          onClose()
+        }}
+      />
+    </div>
+  )
+}
+
+export const AppointmentDrawer = ({
+  appointment,
+  onClose,
+  onReschedule
+}: AppointmentDrawerProps) => {
   const queryClient = useQueryClient()
+  const canMove = useCanBook()
   const setStatus = useMutation({
     mutationFn: ({ id, status }: { id: string; status: AppointmentStatus }) =>
       api(`/appointments/${id}/status`, appointmentSchema, { method: "PATCH", body: { status } }),
@@ -78,6 +114,14 @@ export const AppointmentDrawer = ({ appointment, onClose }: AppointmentDrawerPro
                 Cancel
               </Button>
             </div>
+          ) : null}
+          {appointment.status === "confirmed" && canMove && onReschedule ? (
+            <MoveSection
+              key={appointment.id}
+              appointment={appointment}
+              onReschedule={onReschedule}
+              onClose={onClose}
+            />
           ) : null}
         </div>
       ) : null}

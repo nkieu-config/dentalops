@@ -191,7 +191,11 @@ export const TimelinePage = () => {
       <p role="status" aria-live="polite" className="sr-only">
         {announcement}
       </p>
-      <AppointmentDrawer appointment={selected} onClose={() => setSelected(null)} />
+      <AppointmentDrawer
+        appointment={selected}
+        onClose={() => setSelected(null)}
+        onReschedule={reschedule}
+      />
       {draft ? <CreateDrawer draft={draft} onClose={() => setDraft(null)} /> : null}
     </div>
   )

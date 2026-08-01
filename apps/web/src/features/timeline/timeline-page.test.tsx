@@ -44,7 +44,8 @@ const directory = (dentists: { id: string; name: string }[]) => [
   http.get(`${API}/staff`, () =>
     HttpResponse.json(dentists.map((d) => ({ ...d, role: "dentist", isActive: true })))
   ),
-  http.get(`${API}/shifts`, () => HttpResponse.json([]))
+  http.get(`${API}/shifts`, () => HttpResponse.json([])),
+  http.get(`${API}/availability`, () => HttpResponse.json({ slots: [] }))
 ]
 
 const mount = (role: UserRole = "receptionist") => {
@@ -327,6 +328,47 @@ describe("TimelinePage", () => {
     await waitFor(() => expect(screen.getByRole("status")).toHaveTextContent("Moved to 09:15"))
     await waitFor(() => expect(screen.getByTestId(`appt-${id}`)).toHaveStyle({ top: "592px" }))
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument()
+  })
+
+  it("moves a card from the drawer slot picker onto the grid", async () => {
+    const id = "a1000000-0000-4000-8000-000000000012"
+    const bodies: unknown[] = []
+    let stored = appointment(id, dentistId, "2026-08-03T02:00:00.000Z", "2026-08-03T03:00:00.000Z")
+    server.use(
+      http.get(`${API}/availability`, () =>
+        HttpResponse.json({
+          slots: [
+            {
+              dentistId,
+              startsAt: "2026-08-03T05:00:00.000Z",
+              endsAt: "2026-08-03T06:00:00.000Z"
+            }
+          ]
+        })
+      ),
+      ...directory([{ id: dentistId, name: "Dr. Anong" }]),
+      http.get(`${API}/appointments`, () => HttpResponse.json([stored])),
+      http.patch(`${API}/appointments/${id}`, async ({ request }) => {
+        bodies.push(await request.json())
+        stored = {
+          ...stored,
+          startsAt: "2026-08-03T05:00:00.000Z",
+          endsAt: "2026-08-03T06:00:00.000Z",
+          version: 2
+        }
+        return HttpResponse.json(stored)
+      })
+    )
+    mount()
+    await userEvent.click(await screen.findByTestId(`appt-${id}`))
+    await userEvent.click(await screen.findByRole("button", { name: "12:00" }))
+
+    await waitFor(() =>
+      expect(bodies).toEqual([{ version: 1, startsAt: "2026-08-03T05:00:00.000Z" }])
+    )
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument()
+    await waitFor(() => expect(screen.getByTestId(`appt-${id}`)).toHaveStyle({ top: "768px" }))
+    await waitFor(() => expect(screen.getByRole("status")).toHaveTextContent("Moved to 12:00"))
   })
 
   it("opens the drawer when the focused card is activated with Enter", async () => {

@@ -4,6 +4,7 @@ import { JwtModule } from "@nestjs/jwt"
 import { SentryModule } from "@sentry/nestjs/setup"
 import { AppointmentsModule } from "./appointments/appointments.module"
 import { AuthModule } from "./auth/auth.module"
+import { AvailabilityModule } from "./availability/availability.module"
 import { JwtAuthGuard } from "./auth/jwt-auth.guard"
 import { RolesGuard } from "./auth/roles.guard"
 import { AppExceptionFilter } from "./common/app-exception.filter"
@@ -24,6 +25,7 @@ import { TenantContextMiddleware } from "./tenant/tenant-context.middleware"
     AuthModule,
     ShiftsModule,
     AppointmentsModule,
+    AvailabilityModule,
     PatientsModule
   ],
   controllers: [HealthController],

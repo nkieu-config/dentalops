@@ -26,6 +26,9 @@ importers:
 
   apps/api:
     dependencies:
+      '@dentalops/availability':
+        specifier: workspace:*
+        version: link:../../packages/availability
       '@dentalops/contracts':
         specifier: workspace:*
         version: link:../../packages/contracts

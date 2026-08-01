@@ -1,0 +1,137 @@
+import type {
+  Appointment,
+  Branch,
+  PatientPage,
+  ServiceSummary,
+  Shift,
+  StaffMember
+} from "@dentalops/contracts"
+import type { APIRequestContext } from "@playwright/test"
+
+const API_ORIGIN = `http://localhost:${process.env.E2E_API_PORT ?? 3001}`
+
+const bkkDate = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Bangkok" })
+const bkkWeekday = new Intl.DateTimeFormat("en-US", { timeZone: "Asia/Bangkok", weekday: "short" })
+
+const DAY_MS = 86_400_000
+
+export const apiUrl = (path: string): string => `${API_ORIGIN}/api/v1${path}`
+
+export const demoLogin = async (request: APIRequestContext): Promise<string> => {
+  const res = await request.post(apiUrl("/auth/demo-login"), { data: { role: "owner" } })
+  if (!res.ok()) throw new Error(`demo-login failed ${res.status()}: ${await res.text()}`)
+  const body = (await res.json()) as { accessToken: string }
+  return body.accessToken
+}
+
+export const getJson = async <T>(
+  request: APIRequestContext,
+  token: string,
+  path: string
+): Promise<T> => {
+  const res = await request.get(apiUrl(path), { headers: { authorization: `Bearer ${token}` } })
+  if (!res.ok()) throw new Error(`GET ${path} failed ${res.status()}: ${await res.text()}`)
+  return (await res.json()) as T
+}
+
+export const postJson = async <T>(
+  request: APIRequestContext,
+  token: string,
+  path: string,
+  body: unknown
+): Promise<T> => {
+  const res = await request.post(apiUrl(path), {
+    headers: { authorization: `Bearer ${token}` },
+    data: body
+  })
+  if (!res.ok()) throw new Error(`POST ${path} failed ${res.status()}: ${await res.text()}`)
+  return (await res.json()) as T
+}
+
+export const patchJson = async <T>(
+  request: APIRequestContext,
+  token: string,
+  path: string,
+  body: unknown
+): Promise<T> => {
+  const res = await request.patch(apiUrl(path), {
+    headers: { authorization: `Bearer ${token}` },
+    data: body
+  })
+  if (!res.ok()) throw new Error(`PATCH ${path} failed ${res.status()}: ${await res.text()}`)
+  return (await res.json()) as T
+}
+
+export const dayWindow = (date: string): string => {
+  const from = new Date(Date.parse(`${date}T00:00:00+07:00`)).toISOString()
+  const to = new Date(Date.parse(from) + DAY_MS).toISOString()
+  return `from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`
+}
+
+export const nextMonday = (): string => {
+  for (let days = 1; days <= 7; days += 1) {
+    const candidate = new Date(Date.now() + days * DAY_MS)
+    if (bkkWeekday.format(candidate) === "Mon") return bkkDate.format(candidate)
+  }
+  throw new Error("no Monday in the next seven days")
+}
+
+export const findFreeDentist = async (
+  request: APIRequestContext,
+  token: string,
+  date: string
+): Promise<StaffMember> => {
+  const dentists = await getJson<StaffMember[]>(request, token, "/staff?role=dentist")
+  const shifts = await getJson<Shift[]>(request, token, `/shifts?${dayWindow(date)}`)
+  const onShift = new Set(shifts.map((s) => s.staffId))
+  const free = dentists.find((d) => d.isActive && !onShift.has(d.id))
+  if (!free) {
+    throw new Error(
+      `every dentist is rostered on ${date}: ${dentists.map((d) => d.name).join(", ")}`
+    )
+  }
+  return free
+}
+
+export const clearColumn = async (
+  request: APIRequestContext,
+  token: string,
+  dentistId: string,
+  date: string
+): Promise<void> => {
+  const existing = await getJson<Appointment[]>(
+    request,
+    token,
+    `/appointments?dentistId=${dentistId}&${dayWindow(date)}`
+  )
+  for (const appointment of existing) {
+    if (appointment.status !== "confirmed") continue
+    await patchJson(request, token, `/appointments/${appointment.id}/status`, {
+      status: "cancelled"
+    })
+  }
+}
+
+export const findSixtyMinuteService = async (
+  request: APIRequestContext,
+  token: string
+): Promise<ServiceSummary> => {
+  const services = await getJson<ServiceSummary[]>(request, token, "/services")
+  const service = services.find((s) => s.isActive && s.durationMin === 60)
+  if (!service) throw new Error("no active 60-minute service in the demo tenant")
+  return service
+}
+
+export const firstBranch = async (request: APIRequestContext, token: string): Promise<Branch> => {
+  const branches = await getJson<Branch[]>(request, token, "/branches")
+  const branch = branches[0]
+  if (!branch) throw new Error("the demo tenant has no branches")
+  return branch
+}
+
+export const firstPatient = async (request: APIRequestContext, token: string) => {
+  const page = await getJson<PatientPage>(request, token, "/patients?limit=1")
+  const patient = page.items[0]
+  if (!patient) throw new Error("the demo tenant has no patients")
+  return patient
+}

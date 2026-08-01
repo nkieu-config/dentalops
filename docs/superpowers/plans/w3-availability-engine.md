@@ -939,7 +939,9 @@ describe("interval algebra", () => {
 
 describe("slot honesty", () => {
   const arbUnit = (name: string) =>
-    arbIntervalList.map((busy, i) => ({ id: `${name}${i}`, busy }))
+    fc
+      .tuple(fc.integer({ min: 0, max: 9 }), arbIntervalList)
+      .map(([n, busy]) => ({ id: `${name}${n}`, busy }))
 
   it("every reported slot lies in a shift, avoids busy, sits on the grid, and has a chair", () => {
     fc.assert(
@@ -1037,6 +1039,8 @@ Run: `pnpm --filter @dentalops/availability test`
 Expected: PASS with a coverage table showing 100/100/100/100 on `src/**`. If a branch is uncovered, add the missing unit test — do not lower a threshold without flagging it in the task report.
 
 Check root `.gitignore` contains a `coverage/` line; append it if missing.
+
+Two gaps the planned tests do not reach, so expect to add these: `src/index.ts` is inside `include: ["src/**"]` and needs a barrel test asserting the 9 exported names; and `recurrence.ts`'s `if (probe.start >= window.end) break` never fires while every monthly test is bounded by `count` or `endsOn` — add a `monthly_date` rule with neither, which is the guard that stops an unbounded rule looping forever.
 
 - [ ] **Step 4: Commit**
 

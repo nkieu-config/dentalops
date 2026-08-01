@@ -10,6 +10,13 @@ export interface LanePosition {
   lanes: number
 }
 
+export interface LaneSubject {
+  id: string
+  dentistId: string
+  startsAt: string
+  endsAt: string
+}
+
 export const layoutLanes = (items: LaneItem[]): Map<string, LanePosition> => {
   const sorted = [...items].sort(
     (a, b) => a.start - b.start || a.end - b.end || a.id.localeCompare(b.id)
@@ -47,4 +54,24 @@ export const layoutLanes = (items: LaneItem[]): Map<string, LanePosition> => {
   }
   flush()
   return result
+}
+
+export const layoutByDentist = (
+  subjects: readonly LaneSubject[]
+): Map<string, LanePosition> => {
+  const byDentist = new Map<string, LaneItem[]>()
+  for (const subject of subjects) {
+    const items = byDentist.get(subject.dentistId) ?? []
+    items.push({
+      id: subject.id,
+      start: Date.parse(subject.startsAt),
+      end: Date.parse(subject.endsAt)
+    })
+    byDentist.set(subject.dentistId, items)
+  }
+  const positions = new Map<string, LanePosition>()
+  for (const items of byDentist.values()) {
+    for (const [id, position] of layoutLanes(items)) positions.set(id, position)
+  }
+  return positions
 }

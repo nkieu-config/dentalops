@@ -1,14 +1,196 @@
-import { CalendarX } from "lucide-react"
+import type { Appointment, AppointmentStatus, Shift, StaffMember } from "@dentalops/contracts"
+import { AlertTriangle, CalendarX, ServerCrash, WifiOff } from "lucide-react"
+import { useMemo, useState } from "react"
 import { Button } from "../components/ui/button"
 import { EmptyState } from "../components/ui/empty-state"
 import { Input } from "../components/ui/input"
 import { Label } from "../components/ui/label"
 import { Skeleton } from "../components/ui/skeleton"
+import { AppointmentCard } from "../features/timeline/appointment-card"
+import { bkkDayStart } from "../features/timeline/lib/geometry"
+import { layoutByDentist } from "../features/timeline/lib/lanes"
+import { TimeGrid } from "../features/timeline/time-grid"
 
 const swatches = [
   "background", "foreground", "primary", "secondary", "muted", "accent",
   "destructive", "warning", "success", "border"
 ]
+
+const hues = [0, 1, 2, 3, 4, 5]
+
+const statuses: AppointmentStatus[] = ["confirmed", "completed", "no_show", "cancelled"]
+
+const serviceNames = ["Cleaning", "Filling", "Whitening", "Root canal", "Extraction", "Checkup"]
+
+const HOUR = 3_600_000
+const GALLERY_DATE = "2026-08-03"
+const galleryDayStart = bkkDayStart(GALLERY_DATE)
+const cardGridDayStart = galleryDayStart + 9 * HOUR
+
+const noop = () => {}
+
+const uuid = (n: number) => `f0000000-0000-4000-8000-${String(n).padStart(12, "0")}`
+
+interface FixtureOverrides {
+  id?: string
+  dentistId?: string
+  startsAt?: number
+  durationMin?: number
+  status?: AppointmentStatus
+  colorIndex?: number
+}
+
+const fixtureAppointment = (overrides: FixtureOverrides = {}): Appointment => {
+  const colorIndex = overrides.colorIndex ?? 0
+  const startsAt = overrides.startsAt ?? cardGridDayStart
+  const durationMin = overrides.durationMin ?? 55
+  const serviceId = uuid(800 + colorIndex)
+  return {
+    id: overrides.id ?? uuid(1),
+    branchId: uuid(900),
+    serviceId,
+    dentistId: overrides.dentistId ?? uuid(700),
+    patientId: uuid(600),
+    startsAt: new Date(startsAt).toISOString(),
+    endsAt: new Date(startsAt + durationMin * 60_000).toISOString(),
+    status: overrides.status ?? "confirmed",
+    version: 1,
+    seriesId: null,
+    service: { id: serviceId, name: serviceNames[colorIndex] ?? "Cleaning", colorIndex },
+    patient: { id: uuid(600), name: "S. Chaiwat", phone: "0812345678" },
+    claims: []
+  }
+}
+
+const dentist = (index: number, name: string): StaffMember => ({
+  id: uuid(700 + index),
+  name,
+  role: "dentist",
+  isActive: true
+})
+
+const shiftFor = (staff: StaffMember, fromHour: number, toHour: number, seq: number): Shift => ({
+  id: uuid(500 + seq),
+  staffId: staff.id,
+  branchId: uuid(900),
+  startsAt: new Date(galleryDayStart + fromHour * HOUR).toISOString(),
+  endsAt: new Date(galleryDayStart + toHour * HOUR).toISOString()
+})
+
+const laneDentists = [dentist(0, "Dr. Anong"), dentist(1, "Dr. Boon")]
+
+const laneShifts = laneDentists.map((staff, i) => shiftFor(staff, 9, 17, i))
+
+const laneAppointments = [
+  fixtureAppointment({
+    id: uuid(101),
+    dentistId: uuid(700),
+    startsAt: galleryDayStart + 9 * HOUR,
+    durationMin: 60,
+    colorIndex: 0
+  }),
+  fixtureAppointment({
+    id: uuid(102),
+    dentistId: uuid(700),
+    startsAt: galleryDayStart + 9.5 * HOUR,
+    durationMin: 60,
+    colorIndex: 3
+  }),
+  fixtureAppointment({
+    id: uuid(103),
+    dentistId: uuid(701),
+    startsAt: galleryDayStart + 11 * HOUR,
+    durationMin: 45,
+    colorIndex: 4
+  })
+]
+
+const perfDentists = Array.from({ length: 8 }, (_, i) => dentist(10 + i, `Dr. ${i + 1}`))
+
+const perfShifts = perfDentists.map((staff, i) => shiftFor(staff, 8, 20, 10 + i))
+
+const perfDurations = [30, 45, 60]
+
+const buildPerfAppointments = (): Appointment[] =>
+  Array.from({ length: 1000 }, (_, i) =>
+    fixtureAppointment({
+      id: uuid(1000 + i),
+      dentistId: perfDentists[i % 8]!.id,
+      startsAt: galleryDayStart + (6 + (i % 56) * 0.25) * HOUR,
+      durationMin: perfDurations[i % 3] ?? 30,
+      colorIndex: i % 6
+    })
+  )
+
+interface GalleryGridProps {
+  testId: string
+  dentists: StaffMember[]
+  shifts: Shift[]
+  appointments: Appointment[]
+}
+
+const GalleryGrid = ({ testId, dentists, shifts, appointments }: GalleryGridProps) => {
+  const positions = useMemo(() => layoutByDentist(appointments), [appointments])
+  return (
+    <div
+      data-testid={testId}
+      className="flex h-96 flex-col overflow-hidden rounded-md border border-border"
+    >
+      <div className="flex shrink-0 border-b border-border pl-timegutter">
+        {dentists.map((staff) => (
+          <div
+            key={staff.id}
+            className="min-w-col-min flex-1 truncate px-2 py-1 text-xs font-medium"
+          >
+            {staff.name}
+          </div>
+        ))}
+      </div>
+      <TimeGrid
+        date={GALLERY_DATE}
+        dentists={dentists}
+        shifts={shifts}
+        appointments={appointments}
+        renderAppointment={(appointment, dayStart) => (
+          <AppointmentCard
+            key={appointment.id}
+            appointment={appointment}
+            dayStart={dayStart}
+            lane={positions.get(appointment.id)?.lane ?? 0}
+            lanes={positions.get(appointment.id)?.lanes ?? 1}
+            onClick={noop}
+          />
+        )}
+      />
+    </div>
+  )
+}
+
+const PerfSection = () => {
+  const [mounted, setMounted] = useState(false)
+  const appointments = useMemo(() => (mounted ? buildPerfAppointments() : []), [mounted])
+
+  return (
+    <section className="space-y-3">
+      <h2 className="text-lg font-semibold">TimeGrid — 1,000 card perf case</h2>
+      <p className="text-sm text-muted-foreground">
+        Eight dentists and 1,000 deterministic appointments. The scroll-driven visible range keeps
+        the mounted DOM to what the viewport can show.
+      </p>
+      <Button onClick={() => setMounted(true)} disabled={mounted}>
+        Render 1,000 cards
+      </Button>
+      {mounted ? (
+        <GalleryGrid
+          testId="perf-grid"
+          dentists={perfDentists}
+          shifts={perfShifts}
+          appointments={appointments}
+        />
+      ) : null}
+    </section>
+  )
+}
 
 export const DevUiPage = () => (
   <div className="mx-auto max-w-4xl space-y-10 p-8">
@@ -27,7 +209,7 @@ export const DevUiPage = () => (
         ))}
       </div>
       <div className="flex gap-2">
-        {[0, 1, 2, 3, 4, 5].map((i) => (
+        {hues.map((i) => (
           <div
             key={i}
             className="h-12 w-12 rounded-sm border-l-[3px]"
@@ -52,6 +234,76 @@ export const DevUiPage = () => (
         <Skeleton className="h-9 w-full" />
       </div>
       <EmptyState icon={CalendarX} title="No appointments" hint="Drag on the grid to create one" />
+    </section>
+    <section className="space-y-3">
+      <h2 className="text-lg font-semibold">AppointmentCard</h2>
+      <p className="text-sm text-muted-foreground">
+        Six service hues across confirmed, completed, no-show and cancelled — one status per row.
+      </p>
+      <div data-testid="card-gallery" className="relative h-64 rounded-md border border-border">
+        {statuses.map((status, row) =>
+          hues.map((hue) => (
+            <AppointmentCard
+              key={`${status}-${hue}`}
+              appointment={fixtureAppointment({
+                id: uuid(row * 6 + hue + 1),
+                startsAt: cardGridDayStart + row * HOUR,
+                colorIndex: hue,
+                status
+              })}
+              dayStart={cardGridDayStart}
+              lane={hue}
+              lanes={hues.length}
+              onClick={noop}
+            />
+          ))
+        )}
+      </div>
+    </section>
+    <section className="space-y-3">
+      <h2 className="text-lg font-semibold">TimeGrid</h2>
+      <p className="text-sm text-muted-foreground">
+        Two dentists on a 09:00–17:00 shift, off-shift hours hatched, and two overlapping
+        appointments splitting their column into lanes.
+      </p>
+      <GalleryGrid
+        testId="lane-grid"
+        dentists={laneDentists}
+        shifts={laneShifts}
+        appointments={laneAppointments}
+      />
+    </section>
+    <PerfSection />
+    <section className="space-y-3">
+      <h2 className="text-lg font-semibold">Empty and error states</h2>
+      <div className="grid gap-4 sm:grid-cols-2">
+        <div className="rounded-md border border-border">
+          <EmptyState icon={CalendarX} title="No appointments" hint="Nothing booked for this day" />
+        </div>
+        <div className="rounded-md border border-border">
+          <EmptyState
+            icon={AlertTriangle}
+            title="That slot was just taken"
+            hint="Pick another time and try again"
+          />
+        </div>
+        <div className="rounded-md border border-border">
+          <EmptyState
+            icon={ServerCrash}
+            title="Something went wrong"
+            hint="The server could not answer — retry shortly"
+          />
+        </div>
+        <div className="rounded-md border border-border">
+          <EmptyState icon={WifiOff} title="You are offline" hint="Changes resume when you reconnect" />
+        </div>
+      </div>
+    </section>
+    <section className="space-y-2">
+      <h2 className="text-lg font-semibold">Arriving later</h2>
+      <p className="text-sm text-muted-foreground">
+        SlotPicker · CountdownBanner — W6 · ViolationList · ShiftBlock — W7
+      </p>
     </section>
   </div>
 )

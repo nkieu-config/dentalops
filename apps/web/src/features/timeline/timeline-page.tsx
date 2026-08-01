@@ -9,7 +9,7 @@ import { AppointmentDrawer } from "./appointment-drawer"
 import { CreateDrawer, type CreateDraft } from "./create-drawer"
 import { useAppointments, useBranches, useDentists, useShifts } from "./hooks"
 import { bkkDayStart, bkkToday, msToY } from "./lib/geometry"
-import { layoutLanes, type LaneItem, type LanePosition } from "./lib/lanes"
+import { layoutByDentist } from "./lib/lanes"
 import { TimeGrid } from "./time-grid"
 import { TimelineToolbar } from "./timeline-toolbar"
 import { useDragCreate } from "./use-drag-create"
@@ -55,23 +55,10 @@ export const TimelinePage = () => {
   const [selected, setSelected] = useState<Appointment | null>(null)
   const [draft, setDraft] = useState<CreateDraft | null>(null)
 
-  const lanePositions = useMemo(() => {
-    const byDentist = new Map<string, LaneItem[]>()
-    for (const appointment of appointments.data ?? []) {
-      const items = byDentist.get(appointment.dentistId) ?? []
-      items.push({
-        id: appointment.id,
-        start: Date.parse(appointment.startsAt),
-        end: Date.parse(appointment.endsAt)
-      })
-      byDentist.set(appointment.dentistId, items)
-    }
-    const positions = new Map<string, LanePosition>()
-    for (const items of byDentist.values()) {
-      for (const [id, position] of layoutLanes(items)) positions.set(id, position)
-    }
-    return positions
-  }, [appointments.data])
+  const lanePositions = useMemo(
+    () => layoutByDentist(appointments.data ?? []),
+    [appointments.data]
+  )
 
   const onChange = (next: { date?: string; branchId?: string }) => {
     const merged = new URLSearchParams(params)

@@ -16,7 +16,9 @@ const REGISTRY: Record<string, Expectation> = {
   "GET /auth/me": "auth-only",
   "GET /shifts": "filtered",
   "POST /shifts": "auth-only",
-  "DELETE /shifts/:id": "not-found"
+  "DELETE /shifts/:id": "not-found",
+  "GET /appointments": "filtered",
+  "POST /appointments": "auth-only"
 }
 
 interface DiscoveredRoute {

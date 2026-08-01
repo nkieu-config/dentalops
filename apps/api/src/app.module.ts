@@ -2,6 +2,7 @@ import { MiddlewareConsumer, Module, NestModule } from "@nestjs/common"
 import { APP_FILTER, APP_GUARD } from "@nestjs/core"
 import { JwtModule } from "@nestjs/jwt"
 import { SentryModule } from "@sentry/nestjs/setup"
+import { AppointmentsModule } from "./appointments/appointments.module"
 import { AuthModule } from "./auth/auth.module"
 import { JwtAuthGuard } from "./auth/jwt-auth.guard"
 import { RolesGuard } from "./auth/roles.guard"
@@ -18,7 +19,8 @@ import { TenantContextMiddleware } from "./tenant/tenant-context.middleware"
     PrismaModule,
     JwtModule.register({}),
     AuthModule,
-    ShiftsModule
+    ShiftsModule,
+    AppointmentsModule
   ],
   controllers: [HealthController],
   providers: [

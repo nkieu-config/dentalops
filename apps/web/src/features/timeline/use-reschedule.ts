@@ -1,0 +1,102 @@
+import { appointmentSchema, slotConflictDetailsSchema, type Appointment } from "@dentalops/contracts"
+import { useMutation, useQueryClient } from "@tanstack/react-query"
+import { useRef } from "react"
+import { toast } from "sonner"
+import { api, ApiError } from "../../lib/api"
+import { fmtTime } from "./lib/geometry"
+
+export interface RescheduleInput {
+  id: string
+  version: number
+  startsAt?: string
+  dentistId?: string
+  durationMin?: number
+}
+
+interface RescheduleOptions {
+  queryKey: readonly unknown[]
+  onConflict?: (conflictingAppointmentId: string | null) => void
+}
+
+const applyOptimistic = (list: Appointment[], input: RescheduleInput): Appointment[] =>
+  list.map((appointment) => {
+    if (appointment.id !== input.id) return appointment
+    const startsAt = input.startsAt ?? appointment.startsAt
+    const durationMs = input.durationMin
+      ? input.durationMin * 60_000
+      : Date.parse(appointment.endsAt) - Date.parse(appointment.startsAt)
+    return {
+      ...appointment,
+      startsAt,
+      endsAt: new Date(Date.parse(startsAt) + durationMs).toISOString(),
+      dentistId: input.dentistId ?? appointment.dentistId,
+      version: appointment.version + 1
+    }
+  })
+
+export const useRescheduleAppointment = ({ queryKey, onConflict }: RescheduleOptions) => {
+  const queryClient = useQueryClient()
+  const busy = useRef(new Set<string>())
+
+  const mutation = useMutation({
+    mutationFn: (input: RescheduleInput) =>
+      api(`/appointments/${input.id}`, appointmentSchema, {
+        method: "PATCH",
+        body: {
+          version: input.version,
+          ...(input.startsAt ? { startsAt: input.startsAt } : {}),
+          ...(input.dentistId ? { dentistId: input.dentistId } : {}),
+          ...(input.durationMin ? { durationMin: input.durationMin } : {})
+        }
+      }),
+    onMutate: async (input) => {
+      await queryClient.cancelQueries({ queryKey })
+      const previous = queryClient.getQueryData<Appointment[]>(queryKey)
+      if (previous) queryClient.setQueryData(queryKey, applyOptimistic(previous, input))
+      return { previous }
+    },
+    onError: (error, _input, context) => {
+      if (context?.previous) queryClient.setQueryData(queryKey, context.previous)
+      if (error instanceof ApiError && error.errorCode === "SLOT_CONFLICT") {
+        const details = slotConflictDetailsSchema.safeParse(error.details)
+        const conflictId = details.success ? (details.data.conflictingAppointmentId ?? null) : null
+        const cached = queryClient.getQueryData<Appointment[]>(queryKey)
+        const blocker = conflictId ? cached?.find((a) => a.id === conflictId) : undefined
+        toast.error(
+          blocker
+            ? `Conflicts with ${blocker.patient.name} at ${fmtTime(Date.parse(blocker.startsAt))}`
+            : error.message
+        )
+        onConflict?.(conflictId)
+        return
+      }
+      if (error instanceof ApiError && error.errorCode === "STALE_VERSION") {
+        toast.error("This appointment was changed by someone else — refreshed")
+        return
+      }
+      toast.error(error instanceof ApiError ? error.message : "Could not move the appointment")
+    },
+    onSuccess: (updated) => {
+      const cached = queryClient.getQueryData<Appointment[]>(queryKey)
+      if (cached) {
+        queryClient.setQueryData(
+          queryKey,
+          cached.map((a) => (a.id === updated.id ? updated : a))
+        )
+      }
+    },
+    onSettled: (_data, _error, input) => {
+      busy.current.delete(input.id)
+      void queryClient.invalidateQueries({ queryKey })
+    }
+  })
+
+  return {
+    reschedule: (input: RescheduleInput) => {
+      if (busy.current.has(input.id)) return
+      busy.current.add(input.id)
+      mutation.mutate(input)
+    },
+    isBusy: (id: string) => busy.current.has(id)
+  }
+}

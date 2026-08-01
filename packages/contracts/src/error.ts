@@ -9,3 +9,9 @@ export const apiErrorSchema = z.object({
 })
 
 export type ApiError = z.infer<typeof apiErrorSchema>
+
+export const slotConflictDetailsSchema = z.looseObject({
+  conflictingAppointmentId: z.uuid().optional()
+})
+
+export type SlotConflictDetails = z.infer<typeof slotConflictDetailsSchema>

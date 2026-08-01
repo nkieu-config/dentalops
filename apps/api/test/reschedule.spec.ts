@@ -20,7 +20,8 @@ describe("reschedule and status transitions", () => {
   let cancelledId: string
   const slug = `reschedule-api-${Date.now()}`
 
-  const at = (day: number, h: number) => new Date(Date.UTC(2026, 10, day, h, 0, 0)).toISOString()
+  const at = (day: number, h: number, m = 0) =>
+    new Date(Date.UTC(2026, 10, day, h, m, 0)).toISOString()
 
   const book = (dentist: string, startsAt: string) =>
     request(server)
@@ -202,5 +203,63 @@ describe("reschedule and status transitions", () => {
       .send({ version: current.version, startsAt: at(5, 9) })
       .expect(409)
     expect(apiErrorSchema.parse(res.body).errorCode).toBe("NOT_CONFIRMED")
+  })
+
+  it("resizes via durationMin and a later move preserves the resized duration", async () => {
+    const created = await book(dentistId, at(20, 2))
+    expectStatus(created, 201)
+
+    const resized = await request(server)
+      .patch(`/appointments/${created.body.id}`)
+      .set("Authorization", `Bearer ${ownerToken}`)
+      .send({ version: created.body.version, durationMin: 90 })
+    expectStatus(resized, 200)
+    expect(Date.parse(resized.body.endsAt) - Date.parse(resized.body.startsAt)).toBe(90 * 60_000)
+
+    const moved = await request(server)
+      .patch(`/appointments/${created.body.id}`)
+      .set("Authorization", `Bearer ${ownerToken}`)
+      .send({ version: resized.body.version, startsAt: at(20, 5) })
+    expectStatus(moved, 200)
+    expect(moved.body.startsAt).toBe(at(20, 5))
+    expect(Date.parse(moved.body.endsAt) - Date.parse(moved.body.startsAt)).toBe(90 * 60_000)
+  })
+
+  it("a conflicting reschedule names the appointment it collided with", async () => {
+    const blocker = await book(dentistId, at(21, 2))
+    expectStatus(blocker, 201)
+    const victim = await book(dentistId, at(21, 6))
+    expectStatus(victim, 201)
+
+    const res = await request(server)
+      .patch(`/appointments/${victim.body.id}`)
+      .set("Authorization", `Bearer ${ownerToken}`)
+      .send({ version: victim.body.version, startsAt: at(21, 2, 30) })
+    expect(res.status).toBe(409)
+
+    const parsed = apiErrorSchema.parse(res.body)
+    expect(parsed.errorCode).toBe("SLOT_CONFLICT")
+    expect((parsed.details as { conflictingAppointmentId?: string }).conflictingAppointmentId).toBe(
+      blocker.body.id
+    )
+  })
+
+  it("never names the moving appointment as its own conflict", async () => {
+    const blocker = await book(dentistId, at(22, 4))
+    expectStatus(blocker, 201)
+    const victim = await book(dentistId, at(22, 3))
+    expectStatus(victim, 201)
+
+    const res = await request(server)
+      .patch(`/appointments/${victim.body.id}`)
+      .set("Authorization", `Bearer ${ownerToken}`)
+      .send({ version: victim.body.version, startsAt: at(22, 3, 30) })
+    expect(res.status).toBe(409)
+
+    const details = apiErrorSchema.parse(res.body).details as {
+      conflictingAppointmentId?: string
+    }
+    expect(details.conflictingAppointmentId).not.toBe(victim.body.id)
+    expect(details.conflictingAppointmentId).toBe(blocker.body.id)
   })
 })

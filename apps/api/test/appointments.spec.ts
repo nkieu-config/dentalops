@@ -20,6 +20,7 @@ describe("appointments endpoints", () => {
   let equipmentId: string
   let bufferedServiceId: string
   let plainServiceId: string
+  let firstApptId: string
   const slug = `appt-api-${Date.now()}`
 
   const at = (day: number, h: number) => new Date(Date.UTC(2026, 9, day, h, 0, 0)).toISOString()
@@ -122,6 +123,7 @@ describe("appointments endpoints", () => {
       .set("Authorization", `Bearer ${ownerToken}`)
       .send({ serviceId: bufferedServiceId, dentistId, patientId, branchId, startsAt: at(10, 9) })
       .expect(201)
+    firstApptId = res.body.id
     expect(res.body.claims.length).toBe(2)
     const chairClaim = res.body.claims.find((c: { resourceId: string }) => c.resourceId !== equipmentId)
     expect(new Date(chairClaim.endsAt).getTime() - new Date(res.body.endsAt).getTime()).toBe(15 * 60_000)
@@ -135,7 +137,11 @@ describe("appointments endpoints", () => {
       .set("Authorization", `Bearer ${ownerToken}`)
       .send({ serviceId: plainServiceId, dentistId, patientId, branchId, startsAt: at(10, 9) })
       .expect(409)
-    expect(apiErrorSchema.parse(res.body).errorCode).toBe("SLOT_CONFLICT")
+    const error = apiErrorSchema.parse(res.body)
+    expect(error.errorCode).toBe("SLOT_CONFLICT")
+    expect((error.details as { conflictingAppointmentId?: string }).conflictingAppointmentId).toBe(
+      firstApptId
+    )
   })
 
   it("books a second dentist at the same time on another chair", async () => {

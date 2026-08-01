@@ -66,7 +66,54 @@ export class AppointmentsService {
       )
     }
 
-    return this.withResourceRetry(() => this.attemptCreate(dto, service.requirements, win))
+    return this.withConflictIdentity(
+      () => this.withResourceRetry(() => this.attemptCreate(dto, service.requirements, win)),
+      () => this.findDentistConflict(dto.dentistId, win.startsAt, win.endsAt)
+    )
+  }
+
+  private findDentistConflict(
+    dentistId: string,
+    startsAt: Date,
+    endsAt: Date,
+    excludeId?: string
+  ): Promise<{ id: string } | null> {
+    return this.prisma.scoped.appointment.findFirst({
+      where: {
+        dentistId,
+        status: "confirmed",
+        startsAt: { lt: endsAt },
+        endsAt: { gt: startsAt },
+        ...(excludeId ? { id: { not: excludeId } } : {})
+      },
+      orderBy: { startsAt: "asc" },
+      select: { id: true }
+    })
+  }
+
+  private async withConflictIdentity<T>(
+    fn: () => Promise<T>,
+    locate: () => Promise<{ id: string } | null>
+  ): Promise<T> {
+    try {
+      return await fn()
+    } catch (e) {
+      if (e instanceof AppException) {
+        const body = e.getResponse() as {
+          errorCode?: string
+          message?: string
+          details?: unknown
+        }
+        if (body.errorCode === "SLOT_CONFLICT") {
+          const conflict = await locate()
+          throw new AppException(409, "SLOT_CONFLICT", body.message ?? "Slot conflict", {
+            ...(typeof body.details === "object" && body.details !== null ? body.details : {}),
+            ...(conflict ? { conflictingAppointmentId: conflict.id } : {})
+          })
+        }
+      }
+      throw e
+    }
   }
 
   async withResourceRetry<T>(attempt: () => Promise<T>): Promise<T> {
@@ -191,6 +238,26 @@ export class AppointmentsService {
   }
 
   async reschedule(id: string, dto: RescheduleAppointmentDto) {
+    return this.withConflictIdentity(
+      () => this.attemptReschedule(id, dto),
+      async () => {
+        const current = await this.prisma.scoped.appointment.findUnique({ where: { id } })
+        if (!current) return null
+        const startsAt = dto.startsAt ? new Date(dto.startsAt) : current.startsAt
+        const durationMs = dto.durationMin
+          ? dto.durationMin * 60_000
+          : current.endsAt.getTime() - current.startsAt.getTime()
+        return this.findDentistConflict(
+          dto.dentistId ?? current.dentistId,
+          startsAt,
+          new Date(startsAt.getTime() + durationMs),
+          id
+        )
+      }
+    )
+  }
+
+  private attemptReschedule(id: string, dto: RescheduleAppointmentDto) {
     return this.withResourceRetry(() =>
       this.prisma.scoped.$transaction(async (tx) => {
         const current = await tx.appointment.findUnique({
@@ -204,12 +271,14 @@ export class AppointmentsService {
 
         const startsAt = dto.startsAt ? new Date(dto.startsAt) : current.startsAt
         const dentistId = dto.dentistId ?? current.dentistId
+        const durationMin =
+          dto.durationMin ??
+          Math.round((current.endsAt.getTime() - current.startsAt.getTime()) / 60_000)
         const win = {
           startsAt,
-          endsAt: new Date(startsAt.getTime() + current.service.durationMin * 60_000),
+          endsAt: new Date(startsAt.getTime() + durationMin * 60_000),
           chairEndsAt: new Date(
-            startsAt.getTime() +
-              (current.service.durationMin + current.service.bufferMin) * 60_000
+            startsAt.getTime() + (durationMin + current.service.bufferMin) * 60_000
           )
         }
 

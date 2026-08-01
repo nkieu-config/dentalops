@@ -9,6 +9,7 @@ type Expectation = "public" | "auth-only" | "not-found" | "filtered"
 
 const REGISTRY: Record<string, Expectation> = {
   "GET /health": "public",
+  "GET /internal/latency": "auth-only",
   "POST /auth/signup": "public",
   "POST /auth/login": "public",
   "POST /auth/demo-login": "public",

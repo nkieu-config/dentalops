@@ -8,6 +8,7 @@ import { RescheduleAppointmentDto } from "./dto/reschedule-appointment.dto"
 import { SetStatusDto } from "./dto/set-status.dto"
 
 const EXCLUSION = /exclusion constraint \\?"(\w+)\\?"/
+const RETRYABLE_SQLSTATE = /code: "(40P01|40001)"/
 
 const APPOINTMENT_INCLUDE = {
   claims: { where: { status: "active" as const } },
@@ -69,17 +70,19 @@ export class AppointmentsService {
   }
 
   async withResourceRetry<T>(attempt: () => Promise<T>): Promise<T> {
-    for (let i = 0; i < 4; i++) {
+    for (let i = 0; i < 8; i++) {
       try {
         return await attempt()
       } catch (e) {
-        const constraint = e instanceof Error ? e.message.match(EXCLUSION)?.[1] : undefined
+        const message = e instanceof Error ? e.message : ""
+        const constraint = message.match(EXCLUSION)?.[1]
         if (constraint === "no_dentist_overlap") {
           throw new AppException(409, "SLOT_CONFLICT", "Dentist is already booked at this time", {
             constraint
           })
         }
         if (constraint === "no_resource_overlap") continue
+        if (RETRYABLE_SQLSTATE.test(message)) continue
         throw e
       }
     }
@@ -92,7 +95,7 @@ export class AppointmentsService {
     win: Window
   ) {
     return this.prisma.scoped.$transaction(async (tx) => {
-      const claims = await this.pickResources(tx, dto.branchId, requirements, win)
+      await this.lockDentist(tx, dto.dentistId)
       const appointment = await tx.appointment.create({
         data: {
           branchId: dto.branchId,
@@ -103,6 +106,7 @@ export class AppointmentsService {
           endsAt: win.endsAt
         } as never
       })
+      const claims = await this.pickResources(tx, dto.branchId, requirements, win)
       for (const claim of claims) {
         await tx.resourceClaim.create({
           data: { appointmentId: appointment.id, ...claim } as never
@@ -113,6 +117,14 @@ export class AppointmentsService {
         include: APPOINTMENT_INCLUDE
       })
     })
+  }
+
+  private async lockDentist(tx: ScopedTransactionClient, dentistId: string) {
+    await tx.$queryRaw`SELECT id FROM users WHERE id = ${dentistId}::uuid FOR UPDATE`
+  }
+
+  private async lockResource(tx: ScopedTransactionClient, resourceId: string) {
+    await tx.$queryRaw`SELECT id FROM resources WHERE id = ${resourceId}::uuid FOR UPDATE`
   }
 
   async pickResources(
@@ -140,7 +152,11 @@ export class AppointmentsService {
       }
       claims.push({ resourceId: unit.id, startsAt: win.startsAt, endsAt: win.endsAt })
     }
-    return claims.sort((a, b) => a.resourceId.localeCompare(b.resourceId))
+    const ordered = claims.sort((a, b) => a.resourceId.localeCompare(b.resourceId))
+    for (const claim of ordered) {
+      await this.lockResource(tx, claim.resourceId)
+    }
+    return ordered
   }
 
   private async findFreeResource(
@@ -197,6 +213,7 @@ export class AppointmentsService {
           )
         }
 
+        await this.lockDentist(tx, dentistId)
         const updated = await tx.appointment.updateMany({
           where: { id, version: dto.version },
           data: {

@@ -20,6 +20,7 @@
 - Chair feasibility is `∃ single unit free for the whole window` — never overlap counting
 - Dentist window is `[s, s + duration)`; chair window is `[s, s + duration + buffer)`; equipment window is `[s, s + duration)` — exactly mirroring `pickResources` in `apps/api/src/appointments/appointments.service.ts`
 - Every new route MUST be added to `REGISTRY` in `apps/api/test/tenant-isolation.spec.ts` in the same task that creates it (both new routes here are `"auth-only"`)
+- After any `pnpm install`, run `pnpm --filter @dentalops/api db:generate` — pnpm 10 blocks Prisma's postinstall, so installing re-links `@prisma/client` as an empty stub and `pnpm typecheck` fails with `Property 'tenant' does not exist on type 'PrismaService'` in files you never touched
 - Do not reformat files you are not changing
 - Full pipeline (`pnpm lint && pnpm typecheck && pnpm test && pnpm build`) before every push; push to `origin main`; report CI conclusion
 
@@ -47,7 +48,7 @@
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "scripts": {
-    "build": "tsc -p tsconfig.json",
+    "build": "tsc -p tsconfig.build.json",
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "test": "vitest run"
   },
@@ -72,6 +73,18 @@
     "outDir": "dist"
   },
   "include": ["src", "test", "vitest.config.ts"]
+}
+```
+
+`packages/availability/tsconfig.build.json` — the build must emit `dist/index.js` because `package.json` `main` points there and Task 6 resolves the package through it. A single tsconfig whose `include` spans `src`, `test` and a root file makes tsc infer the package root as `rootDir`, emitting `dist/src/index.js` and shipping compiled tests — with exit code 0, so nothing looks wrong until the api cannot resolve the import. Same split as `apps/api`:
+
+```json
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "rootDir": "src"
+  },
+  "include": ["src"]
 }
 ```
 
@@ -437,8 +450,8 @@ describe("computeSlots", () => {
       ...base,
       staff: [{ staffId: "d1", shifts: [iv(0, 2 * H)], busy: [] }],
       chairs: [
-        { id: "c1", busy: [iv(30 * M, 3 * H)] },
-        { id: "c2", busy: [iv(0, 30 * M)] }
+        { id: "c1", busy: [iv(0, 30 * M), iv(60 * M, 90 * M)] },
+        { id: "c2", busy: [iv(30 * M, 60 * M), iv(90 * M, 2 * H)] }
       ]
     })
     expect(slots).toHaveLength(0)
@@ -492,6 +505,8 @@ describe("computeSlots", () => {
   })
 })
 ```
+
+The two chair busy-sets above are disjoint and their union is exactly the shift `[0, 2H)`, so at every instant precisely one chair is free — overlap counting would call all 5 grid starts bookable while `∃ unit` correctly returns none, since every 70-minute chair window straddles a handover. That gap between the two answers is the whole point of the rule.
 
 Expectation notes baked into the tests: with a 60-min duration and 10-min buffer against a single free chair, start `0` needs the chair through `70 min` — a chair busy from `65 min` blocks it (buffer test). The equipment window is only 60 min, so equipment busy `[0, 1H)` frees start `1H` exactly (half-open).
 
@@ -618,7 +633,6 @@ Locked semantics (W7's series API and nightly horizon job consume these — do n
 import { describe, expect, it } from "vitest"
 import { expandRecurrence } from "../src/recurrence"
 
-const M = 60_000
 const utc = (iso: string) => Date.parse(iso)
 const wideWindow = { start: utc("2026-01-01T00:00:00Z"), end: utc("2027-01-01T00:00:00Z") }
 

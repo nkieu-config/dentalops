@@ -6,7 +6,10 @@ import { StrictMode } from "react"
 import { createRoot } from "react-dom/client"
 import { RouterProvider } from "react-router"
 import { Toaster } from "sonner"
+import { initTheme } from "./lib/theme"
 import { router } from "./routes"
+
+initTheme()
 
 if (import.meta.env.VITE_SENTRY_DSN) {
   Sentry.init({ dsn: import.meta.env.VITE_SENTRY_DSN })

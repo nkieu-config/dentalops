@@ -1,16 +1,29 @@
-import { createBrowserRouter, Outlet } from "react-router"
+import { createBrowserRouter, Navigate } from "react-router"
+import { AppShell } from "./components/shell/app-shell"
+import { RequireAuth } from "./components/shell/require-auth"
 import { DevUiPage } from "./pages/dev-ui-page"
+import { LandingPage } from "./pages/landing-page"
 
 const Placeholder = ({ label }: { label: string }) => (
   <div className="p-8 text-muted-foreground">{label}</div>
 )
 
 export const router = createBrowserRouter([
-  { path: "/", element: <Placeholder label="Landing — Task 3" /> },
+  { path: "/", element: <LandingPage /> },
   {
     path: "/app",
-    element: <Outlet />,
-    children: [{ path: "timeline", element: <Placeholder label="Timeline — Task 5" /> }]
+    element: (
+      <RequireAuth>
+        <AppShell />
+      </RequireAuth>
+    ),
+    children: [
+      { index: true, element: <Navigate to="/app/timeline" replace /> },
+      { path: "timeline", element: <Placeholder label="Timeline — Task 5" /> },
+      { path: "roster", element: <Placeholder label="Roster — arrives in W7" /> },
+      { path: "patients", element: <Placeholder label="Patients — arrives in W6" /> },
+      { path: "settings", element: <Placeholder label="Settings — arrives in W6" /> }
+    ]
   },
   { path: "/dev/ui", element: <DevUiPage /> }
 ])

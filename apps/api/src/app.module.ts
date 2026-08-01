@@ -12,6 +12,7 @@ import { LatencyController } from "./common/latency.controller"
 import { LatencyInterceptor } from "./common/latency.interceptor"
 import { LatencyRegistry } from "./common/latency.registry"
 import { RequestIdMiddleware } from "./common/request-id.middleware"
+import { DirectoryModule } from "./directory/directory.module"
 import { HealthController } from "./health/health.controller"
 import { PatientsModule } from "./patients/patients.module"
 import { PrismaModule } from "./prisma/prisma.module"
@@ -29,7 +30,8 @@ import { TenantContextMiddleware } from "./tenant/tenant-context.middleware"
     ShiftsModule,
     AppointmentsModule,
     AvailabilityModule,
-    PatientsModule
+    PatientsModule,
+    DirectoryModule
   ],
   controllers: [HealthController, LatencyController],
   providers: [

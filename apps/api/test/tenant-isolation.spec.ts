@@ -25,7 +25,10 @@ const REGISTRY: Record<string, Expectation> = {
   "GET /availability": "auth-only",
   "GET /patients": "filtered",
   "POST /patients": "auth-only",
-  "GET /patients/:id": "not-found"
+  "GET /patients/:id": "not-found",
+  "GET /branches": "filtered",
+  "GET /staff": "filtered",
+  "GET /services": "filtered"
 }
 
 const BODY_BY_ROUTE: Record<string, object> = {

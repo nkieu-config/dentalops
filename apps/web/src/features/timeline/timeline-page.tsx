@@ -1,4 +1,4 @@
-import type { Appointment } from "@dentalops/contracts"
+import type { Appointment, StaffMember } from "@dentalops/contracts"
 import { CalendarX } from "lucide-react"
 import { useMemo, useState } from "react"
 import { useSearchParams } from "react-router"
@@ -6,11 +6,42 @@ import { EmptyState } from "../../components/ui/empty-state"
 import { Skeleton } from "../../components/ui/skeleton"
 import { AppointmentCard } from "./appointment-card"
 import { AppointmentDrawer } from "./appointment-drawer"
+import { CreateDrawer, type CreateDraft } from "./create-drawer"
 import { useAppointments, useBranches, useDentists, useShifts } from "./hooks"
-import { bkkDayStart, bkkToday } from "./lib/geometry"
+import { bkkDayStart, bkkToday, msToY } from "./lib/geometry"
 import { layoutLanes, type LaneItem, type LanePosition } from "./lib/lanes"
 import { TimeGrid } from "./time-grid"
 import { TimelineToolbar } from "./timeline-toolbar"
+import { useDragCreate } from "./use-drag-create"
+
+interface DragOverlayProps {
+  dentist: StaffMember
+  dayStart: number
+  branchId: string
+  onDraft: (draft: CreateDraft) => void
+}
+
+const DragOverlay = ({ dentist, dayStart, branchId, onDraft }: DragOverlayProps) => {
+  const { overlayProps, ghost } = useDragCreate({
+    dayStart,
+    onSelect: (range) => onDraft({ dentist, branchId, startsAt: range.start })
+  })
+  return (
+    <div className="absolute inset-0" data-testid={`overlay-${dentist.id}`} {...overlayProps}>
+      {ghost ? (
+        <div
+          className="pointer-events-none absolute inset-x-0.5 rounded-sm border-2 border-dashed border-primary"
+          data-testid="ghost"
+          style={{
+            top: msToY(ghost.start, dayStart),
+            height: msToY(ghost.end, dayStart) - msToY(ghost.start, dayStart),
+            backgroundColor: "color-mix(in srgb, var(--color-primary) 10%, transparent)"
+          }}
+        />
+      ) : null}
+    </div>
+  )
+}
 
 export const TimelinePage = () => {
   const [params, setParams] = useSearchParams()
@@ -22,6 +53,7 @@ export const TimelinePage = () => {
   const shifts = useShifts(branchId, dayStart)
   const appointments = useAppointments(branchId, dayStart)
   const [selected, setSelected] = useState<Appointment | null>(null)
+  const [draft, setDraft] = useState<CreateDraft | null>(null)
 
   const lanePositions = useMemo(() => {
     const byDentist = new Map<string, LaneItem[]>()
@@ -85,8 +117,22 @@ export const TimelinePage = () => {
             onClick={setSelected}
           />
         )}
+        columnOverlay={
+          branchId === undefined
+            ? undefined
+            : (dentist, ds) => (
+                <DragOverlay
+                  key={dentist.id}
+                  dentist={dentist}
+                  dayStart={ds}
+                  branchId={branchId}
+                  onDraft={setDraft}
+                />
+              )
+        }
       />
       <AppointmentDrawer appointment={selected} onClose={() => setSelected(null)} />
+      {draft ? <CreateDrawer draft={draft} onClose={() => setDraft(null)} /> : null}
     </div>
   )
 }

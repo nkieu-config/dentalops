@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
-import { render, screen } from "@testing-library/react"
+import { fireEvent, render, screen } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { MemoryRouter } from "react-router"
 import { describe, expect, it } from "vitest"
@@ -145,5 +145,58 @@ describe("TimelinePage", () => {
     expect(dialog).toHaveTextContent("Root canal")
     expect(dialog).toHaveTextContent("09:00–10:00")
     expect(dialog).toHaveTextContent("S. Chaiwat · 0812345678")
+  })
+
+  it("drags a range on a dentist column into a prefilled booking drawer", async () => {
+    server.use(
+      ...directory([{ id: dentistId, name: "Dr. Anong" }]),
+      http.get(`${API}/appointments`, () => HttpResponse.json([])),
+      http.get(`${API}/services`, () => HttpResponse.json([])),
+      http.get(`${API}/patients`, () => HttpResponse.json({ items: [], nextCursor: null }))
+    )
+    mount()
+    const overlay = await screen.findByTestId(`overlay-${dentistId}`)
+
+    fireEvent.pointerDown(overlay, { clientY: 576, button: 0 })
+    fireEvent.pointerMove(overlay, { clientY: 640 })
+    expect(screen.getByTestId("ghost")).toHaveStyle({ top: "576px", height: "64px" })
+
+    fireEvent.pointerUp(overlay)
+    const dialog = await screen.findByRole("dialog")
+    expect(dialog).toHaveTextContent("New appointment")
+    expect(dialog).toHaveTextContent("Dr. Anong")
+    expect(dialog).toHaveTextContent("09:00")
+  })
+
+  it("stacks cards above the drag overlay so a card press never starts a drag", async () => {
+    server.use(
+      ...directory([{ id: dentistId, name: "Dr. Anong" }]),
+      http.get(`${API}/appointments`, () =>
+        HttpResponse.json([
+          appointment(
+            "a1000000-0000-4000-8000-000000000006",
+            dentistId,
+            "2026-08-03T02:00:00.000Z",
+            "2026-08-03T03:00:00.000Z"
+          )
+        ])
+      )
+    )
+    mount()
+    const card = await screen.findByTestId("appt-a1000000-0000-4000-8000-000000000006")
+    const overlay = screen.getByTestId(`overlay-${dentistId}`)
+
+    expect(overlay.contains(card)).toBe(false)
+    expect(card.compareDocumentPosition(overlay) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(card.className).toContain("z-[5]")
+    expect(overlay.className).not.toMatch(/(^|\s)z-/)
+
+    fireEvent.pointerDown(card, { clientY: 576, button: 0 })
+    fireEvent.pointerMove(card, { clientY: 640 })
+    expect(screen.queryByTestId("ghost")).not.toBeInTheDocument()
+
+    fireEvent.pointerUp(card)
+    await userEvent.click(card)
+    expect(await screen.findByRole("dialog")).toHaveTextContent("Cleaning")
   })
 })

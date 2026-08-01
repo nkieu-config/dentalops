@@ -10,8 +10,23 @@ class NoopResizeObserver implements ResizeObserver {
   disconnect() {}
 }
 
+class JsdomPointerEvent extends MouseEvent {
+  readonly pointerId: number
+  readonly pointerType: string
+
+  constructor(type: string, init: PointerEventInit = {}) {
+    super(type, init)
+    this.pointerId = init.pointerId ?? 0
+    this.pointerType = init.pointerType ?? "mouse"
+  }
+}
+
 globalThis.ResizeObserver ??= NoopResizeObserver
+globalThis.PointerEvent ??= JsdomPointerEvent as unknown as typeof PointerEvent
+window.PointerEvent ??= globalThis.PointerEvent
 Element.prototype.scrollTo ??= () => {}
+Element.prototype.setPointerCapture ??= () => {}
+Element.prototype.releasePointerCapture ??= () => {}
 
 beforeAll(() => {
   server.listen({ onUnhandledRequest: "error" })

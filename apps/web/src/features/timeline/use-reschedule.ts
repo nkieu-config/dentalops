@@ -16,6 +16,7 @@ export interface RescheduleInput {
 interface RescheduleOptions {
   queryKey: readonly unknown[]
   onConflict?: (conflictingAppointmentId: string | null) => void
+  onAnnounce?: (message: string) => void
 }
 
 const applyOptimistic = (list: Appointment[], input: RescheduleInput): Appointment[] =>
@@ -34,7 +35,11 @@ const applyOptimistic = (list: Appointment[], input: RescheduleInput): Appointme
     }
   })
 
-export const useRescheduleAppointment = ({ queryKey, onConflict }: RescheduleOptions) => {
+export const useRescheduleAppointment = ({
+  queryKey,
+  onConflict,
+  onAnnounce
+}: RescheduleOptions) => {
   const queryClient = useQueryClient()
   const busy = useRef(new Set<string>())
 
@@ -68,13 +73,17 @@ export const useRescheduleAppointment = ({ queryKey, onConflict }: RescheduleOpt
             : error.message
         )
         onConflict?.(conflictId)
+        onAnnounce?.("Conflict — reverted")
         return
       }
       if (error instanceof ApiError && error.errorCode === "STALE_VERSION") {
         toast.error("This appointment was changed by someone else — refreshed")
+        onAnnounce?.("Changed elsewhere — refreshed")
         return
       }
-      toast.error(error instanceof ApiError ? error.message : "Could not move the appointment")
+      const message = error instanceof ApiError ? error.message : "Could not move the appointment"
+      toast.error(message)
+      onAnnounce?.(message)
     },
     onSuccess: (updated) => {
       const cached = queryClient.getQueryData<Appointment[]>(queryKey)
@@ -84,6 +93,7 @@ export const useRescheduleAppointment = ({ queryKey, onConflict }: RescheduleOpt
           cached.map((a) => (a.id === updated.id ? updated : a))
         )
       }
+      onAnnounce?.(`Moved to ${fmtTime(Date.parse(updated.startsAt))}`)
     },
     onSettled: (_data, _error, input) => {
       busy.current.delete(input.id)

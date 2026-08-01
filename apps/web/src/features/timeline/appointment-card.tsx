@@ -42,6 +42,10 @@ export const AppointmentCard = ({
     <button
       type="button"
       data-testid={preview ? "drag-preview" : `appt-${appointment.id}`}
+      data-appt={preview ? undefined : appointment.id}
+      data-dentist={preview ? undefined : appointment.dentistId}
+      data-starts={preview ? undefined : appointment.startsAt}
+      data-version={preview ? undefined : appointment.version}
       onClick={() => onClick(appointment)}
       onPointerDown={onMoveStart}
       className={cn(

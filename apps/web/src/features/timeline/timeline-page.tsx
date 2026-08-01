@@ -15,6 +15,7 @@ import { TimeGrid } from "./time-grid"
 import { TimelineToolbar } from "./timeline-toolbar"
 import { useDragCreate } from "./use-drag-create"
 import { useDragMove } from "./use-drag-move"
+import { useGridKeyboard } from "./use-grid-keyboard"
 import { useRescheduleAppointment } from "./use-reschedule"
 
 const CONFLICT_HIGHLIGHT_MS = 2500
@@ -60,6 +61,7 @@ export const TimelinePage = () => {
   const [selected, setSelected] = useState<Appointment | null>(null)
   const [draft, setDraft] = useState<CreateDraft | null>(null)
   const [conflictId, setConflictId] = useState<string | null>(null)
+  const [announcement, setAnnouncement] = useState("")
   const canCreate = useCanBook()
   const columnEls = useRef(new Map<string, HTMLDivElement>())
 
@@ -72,8 +74,11 @@ export const TimelinePage = () => {
 
   const { reschedule, isBusy } = useRescheduleAppointment({
     queryKey: dayKey,
-    onConflict: setConflictId
+    onConflict: setConflictId,
+    onAnnounce: setAnnouncement
   })
+
+  const keyboard = useGridKeyboard({ reschedule, isBusy })
 
   const drag = useDragMove({
     dentistIds,
@@ -130,57 +135,62 @@ export const TimelinePage = () => {
           </div>
         ))}
       </div>
-      <TimeGrid
-        date={date}
-        dentists={dentists.data ?? []}
-        shifts={shifts.data ?? []}
-        appointments={appointments.data ?? []}
-        columnRef={(id, element) => {
-          if (element) columnEls.current.set(id, element)
-          else columnEls.current.delete(id)
-        }}
-        renderAppointment={(a, ds) => (
-          <AppointmentCard
-            key={a.id}
-            appointment={a}
-            dayStart={ds}
-            lane={lanePositions.get(a.id)?.lane ?? 0}
-            lanes={lanePositions.get(a.id)?.lanes ?? 1}
-            onClick={(picked) => {
-              if (!drag.consumeDrag()) setSelected(picked)
-            }}
-            onMoveStart={canCreate ? drag.startMove(a) : undefined}
-            onResizeStart={canCreate ? drag.startResize(a) : undefined}
-            dimmed={drag.preview?.id === a.id}
-            conflict={conflictId === a.id}
-          />
-        )}
-        columnPreview={(dentist, ds) =>
-          preview && preview.dentistId === dentist.id ? (
+      <div className="contents" onKeyDown={keyboard.onKeyDown}>
+        <TimeGrid
+          date={date}
+          dentists={dentists.data ?? []}
+          shifts={shifts.data ?? []}
+          appointments={appointments.data ?? []}
+          columnRef={(id, element) => {
+            if (element) columnEls.current.set(id, element)
+            else columnEls.current.delete(id)
+          }}
+          renderAppointment={(a, ds) => (
             <AppointmentCard
-              appointment={preview}
+              key={a.id}
+              appointment={a}
               dayStart={ds}
-              lane={0}
-              lanes={1}
-              onClick={() => {}}
-              preview
+              lane={lanePositions.get(a.id)?.lane ?? 0}
+              lanes={lanePositions.get(a.id)?.lanes ?? 1}
+              onClick={(picked) => {
+                if (!drag.consumeDrag()) setSelected(picked)
+              }}
+              onMoveStart={canCreate ? drag.startMove(a) : undefined}
+              onResizeStart={canCreate ? drag.startResize(a) : undefined}
+              dimmed={drag.preview?.id === a.id}
+              conflict={conflictId === a.id}
             />
-          ) : null
-        }
-        columnOverlay={
-          branchId === undefined || !canCreate
-            ? undefined
-            : (dentist, ds) => (
-                <DragOverlay
-                  key={dentist.id}
-                  dentist={dentist}
-                  dayStart={ds}
-                  branchId={branchId}
-                  onDraft={setDraft}
-                />
-              )
-        }
-      />
+          )}
+          columnPreview={(dentist, ds) =>
+            preview && preview.dentistId === dentist.id ? (
+              <AppointmentCard
+                appointment={preview}
+                dayStart={ds}
+                lane={0}
+                lanes={1}
+                onClick={() => {}}
+                preview
+              />
+            ) : null
+          }
+          columnOverlay={
+            branchId === undefined || !canCreate
+              ? undefined
+              : (dentist, ds) => (
+                  <DragOverlay
+                    key={dentist.id}
+                    dentist={dentist}
+                    dayStart={ds}
+                    branchId={branchId}
+                    onDraft={setDraft}
+                  />
+                )
+          }
+        />
+      </div>
+      <p role="status" aria-live="polite" className="sr-only">
+        {announcement}
+      </p>
       <AppointmentDrawer appointment={selected} onClose={() => setSelected(null)} />
       {draft ? <CreateDrawer draft={draft} onClose={() => setDraft(null)} /> : null}
     </div>

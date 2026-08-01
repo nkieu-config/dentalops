@@ -294,6 +294,65 @@ describe("TimelinePage", () => {
     expect(blocked.className).toContain("ring-2")
     expect(blocked.className).toContain("ring-destructive")
     expect(screen.getByLabelText("Conflict")).toBeInTheDocument()
+    expect(screen.getByRole("status")).toHaveTextContent("Conflict — reverted")
+  })
+
+  it("nudges the focused card by a quarter hour and announces where it landed", async () => {
+    const id = "a1000000-0000-4000-8000-000000000010"
+    const bodies: unknown[] = []
+    let stored = appointment(id, dentistId, "2026-08-03T02:00:00.000Z", "2026-08-03T03:00:00.000Z")
+    server.use(
+      ...directory([{ id: dentistId, name: "Dr. Anong" }]),
+      http.get(`${API}/appointments`, () => HttpResponse.json([stored])),
+      http.patch(`${API}/appointments/${id}`, async ({ request }) => {
+        bodies.push(await request.json())
+        stored = {
+          ...stored,
+          startsAt: "2026-08-03T02:15:00.000Z",
+          endsAt: "2026-08-03T03:15:00.000Z",
+          version: 2
+        }
+        return HttpResponse.json(stored)
+      })
+    )
+    mount()
+    const card = await screen.findByTestId(`appt-${id}`)
+    card.focus()
+
+    expect(fireEvent.keyDown(card, { key: "ArrowDown", shiftKey: true })).toBe(false)
+
+    await waitFor(() =>
+      expect(bodies).toEqual([{ version: 1, startsAt: "2026-08-03T02:15:00.000Z" }])
+    )
+    await waitFor(() => expect(screen.getByRole("status")).toHaveTextContent("Moved to 09:15"))
+    await waitFor(() => expect(screen.getByTestId(`appt-${id}`)).toHaveStyle({ top: "592px" }))
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument()
+  })
+
+  it("opens the drawer when the focused card is activated with Enter", async () => {
+    const id = "a1000000-0000-4000-8000-000000000011"
+    const bodies: unknown[] = []
+    server.use(
+      ...directory([{ id: dentistId, name: "Dr. Anong" }]),
+      http.get(`${API}/appointments`, () =>
+        HttpResponse.json([
+          appointment(id, dentistId, "2026-08-03T02:00:00.000Z", "2026-08-03T03:00:00.000Z")
+        ])
+      ),
+      http.patch(`${API}/appointments/${id}`, async ({ request }) => {
+        bodies.push(await request.json())
+        return HttpResponse.json(
+          appointment(id, dentistId, "2026-08-03T02:00:00.000Z", "2026-08-03T03:00:00.000Z")
+        )
+      })
+    )
+    mount()
+    const card = await screen.findByTestId(`appt-${id}`)
+    card.focus()
+    await userEvent.keyboard("{Enter}")
+
+    expect(await screen.findByRole("dialog")).toHaveTextContent("09:00–10:00")
+    expect(bodies).toEqual([])
   })
 
   it("offers the drag overlay only to roles the api lets create appointments", async () => {

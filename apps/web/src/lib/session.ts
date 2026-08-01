@@ -1,4 +1,4 @@
-import { authSessionSchema, type AuthSession } from "@dentalops/contracts"
+import { authSessionSchema, type AuthSession, type UserRole } from "@dentalops/contracts"
 import { useSyncExternalStore } from "react"
 
 const API_URL: string = import.meta.env.VITE_API_URL ?? "http://localhost:3001"
@@ -29,6 +29,13 @@ export const setSession = (next: AuthSession | null, opts?: { demo?: boolean }) 
 }
 
 export const useSession = () => useSyncExternalStore(subscribe, getSession)
+
+const bookingRoles: ReadonlySet<UserRole> = new Set<UserRole>(["owner", "receptionist"])
+
+export const canBook = (current: AuthSession | null): boolean =>
+  current !== null && bookingRoles.has(current.user.role)
+
+export const useCanBook = (): boolean => canBook(useSession())
 
 let refreshing: Promise<AuthSession | null> | null = null
 

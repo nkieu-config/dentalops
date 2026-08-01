@@ -1,8 +1,10 @@
+import type { UserRole } from "@dentalops/contracts"
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 import { fireEvent, render, screen } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { MemoryRouter } from "react-router"
 import { describe, expect, it } from "vitest"
+import { setSession } from "../../lib/session"
 import { API, http, HttpResponse, server } from "../../test/msw"
 import { TimelinePage } from "./timeline-page"
 
@@ -44,7 +46,16 @@ const directory = (dentists: { id: string; name: string }[]) => [
   http.get(`${API}/shifts`, () => HttpResponse.json([]))
 ]
 
-const mount = () => {
+const mount = (role: UserRole = "receptionist") => {
+  setSession({
+    accessToken: "t1",
+    user: {
+      id: "7f9619ff-8b86-4d01-b42d-00cf4fc964ff",
+      tenantId: "9f9619ff-8b86-4d01-b42d-00cf4fc964ff",
+      name: "Demo User",
+      role
+    }
+  })
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   return render(
     <QueryClientProvider client={client}>
@@ -198,5 +209,19 @@ describe("TimelinePage", () => {
     fireEvent.pointerUp(card)
     await userEvent.click(card)
     expect(await screen.findByRole("dialog")).toHaveTextContent("Cleaning")
+  })
+
+  it("offers the drag overlay only to roles the api lets create appointments", async () => {
+    server.use(
+      ...directory([{ id: dentistId, name: "Dr. Anong" }]),
+      http.get(`${API}/appointments`, () => HttpResponse.json([]))
+    )
+    const asDentist = mount("dentist")
+    expect(await screen.findByTestId(`col-${dentistId}`)).toBeInTheDocument()
+    expect(screen.queryByTestId(`overlay-${dentistId}`)).not.toBeInTheDocument()
+    asDentist.unmount()
+
+    mount("receptionist")
+    expect(await screen.findByTestId(`overlay-${dentistId}`)).toBeInTheDocument()
   })
 })

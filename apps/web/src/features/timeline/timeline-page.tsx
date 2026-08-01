@@ -4,6 +4,7 @@ import { useMemo, useState } from "react"
 import { useSearchParams } from "react-router"
 import { EmptyState } from "../../components/ui/empty-state"
 import { Skeleton } from "../../components/ui/skeleton"
+import { useCanBook } from "../../lib/session"
 import { AppointmentCard } from "./appointment-card"
 import { AppointmentDrawer } from "./appointment-drawer"
 import { CreateDrawer, type CreateDraft } from "./create-drawer"
@@ -54,6 +55,7 @@ export const TimelinePage = () => {
   const appointments = useAppointments(branchId, dayStart)
   const [selected, setSelected] = useState<Appointment | null>(null)
   const [draft, setDraft] = useState<CreateDraft | null>(null)
+  const canCreate = useCanBook()
 
   const lanePositions = useMemo(
     () => layoutByDentist(appointments.data ?? []),
@@ -105,7 +107,7 @@ export const TimelinePage = () => {
           />
         )}
         columnOverlay={
-          branchId === undefined
+          branchId === undefined || !canCreate
             ? undefined
             : (dentist, ds) => (
                 <DragOverlay

@@ -11,7 +11,7 @@
 ## Global Constraints
 
 - Node >= 22, pnpm 10; plain `pnpm` — never `corepack enable` (EACCES on this machine)
-- Prisma pinned `^6`; **no new migrations in this plan** (schema is complete for W2)
+- Prisma pinned `^6`. One migration was added during Task 1 — `20260801000000_foreign_keys` — because W1a declared several FK-shaped columns (`dentist_id`, `branch_id`, `service_id`, `patient_id`, `resource_id`, `staff_id`) with no foreign keys behind them. A project whose thesis is "the database is the referee" cannot leave referential integrity to the ORM. No further migrations are expected in W2.
 - TypeScript strict; **no comments in any code file**
 - Conventional commits; **no trailers of any kind**
 - Never read, print, or commit any `.env`

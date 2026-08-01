@@ -65,7 +65,7 @@ export class PublicTenantMiddleware implements NestMiddleware {
 }
 ```
 
-Wire in `app.module.ts`'s `configure`: `consumer.apply(PublicTenantMiddleware).forRoutes("public/:clinicSlug")` **and** `"public/:clinicSlug/*path"` (Express 5 requires a named wildcard; a bare `*` throws at boot). Verify by hitting a nested route in the spec — if only the parent path is bound, nested routes will fail with the tenant-context error and the spec will catch it.
+Wire in `app.module.ts`'s `configure`: `consumer.apply(PublicTenantMiddleware).forRoutes("public/:clinicSlug")`. **One binding is enough** — Nest 11 middleware paths match nested segments, so this covers `/public/:clinicSlug/anything/deep` too. This was verified empirically (a test-only nested probe controller in the spec, plus a mutation test: disabling the binding turns the nested case red). A second `"public/:clinicSlug/*path"` binding is unnecessary; note that a bare `*` would throw at boot under Express 5, so do not add one.
 
 Note the existing `TenantContextMiddleware` also runs and is a no-op without a bearer token, so ordering is not a hazard — but confirm the public middleware is applied after it so an authenticated staff member hitting a public URL still gets their own tenant, not the slug's. Assert that in the spec.
 
@@ -119,7 +119,7 @@ git commit -m "feat(api): public tenant context, rate limiting, and clinic endpo
 HOLD_TTL_SECONDS = 300
 SLOT_MS = 900_000
 slotKey(tenantId, dentistId, slotIndex): string   // hold:{t}:{d}:{i}
-HoldsService.acquire({ dentistId, startsAt, durationMin }): Promise<{ holdId, expiresAt }>
+HoldsService.acquire({ dentistId, serviceId, branchId, startsAt, durationMin }): Promise<{ holdId, expiresAt }>
 HoldsService.read(holdId): Promise<HoldRecord | null>
 HoldsService.release(holdId): Promise<void>
 HoldsService.heldSlotIndexes(dentistIds, fromMs, toMs, exceptHoldId?): Promise<Map<string, Set<number>>>
@@ -158,6 +158,8 @@ return 1
 Register with `redis.defineCommand("acquireHold", { numberOfKeys: ... })` or call `redis.eval(script, keys.length, ...keys, holdId, ttl)`. The check-then-set loop is safe because Lua execution is atomic in Redis.
 
 Slot span: `startIndex = floor(startMs / SLOT_MS)`, `endIndex = ceil(endMs / SLOT_MS) - 1`, where `endMs = startMs + durationMin*60_000`. Assert in a unit-level case that a 45-minute window at 09:00 spans exactly indexes for 09:00/09:15/09:30 and not 09:45.
+
+`release` needs a Lua script too, for the mirror-image reason: a blind `DEL` of the slot keys would, after a hold's TTL had already lapsed and a *different* hold had taken those slots, delete the new owner's keys. The release script deletes a key only when its value equals the releasing holdId. Slot key values are therefore the owning holdId, which is also what makes `exceptHoldId` a value comparison rather than a second lookup.
 
 The Lua rollback is written as "check all, then set all" rather than "set-NX each and undo on failure" deliberately: because the whole script is atomic, no other client can interleave between the two loops, so there is nothing to undo. Do not "improve" it into a per-key `SET NX` loop with compensating `DEL`s — that would delete keys belonging to a *different* hold if it ever ran non-atomically.
 

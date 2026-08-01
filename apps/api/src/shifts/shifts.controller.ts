@@ -1,10 +1,12 @@
 import { Body, Controller, Delete, Get, HttpCode, Param, ParseUUIDPipe, Post, Query } from "@nestjs/common"
 import { ApiBearerAuth, ApiTags } from "@nestjs/swagger"
+import { SkipThrottle } from "@nestjs/throttler"
 import { Roles } from "../auth/roles.decorator"
 import { CreateShiftDto } from "./dto/create-shift.dto"
 import { QueryShiftsDto } from "./dto/query-shifts.dto"
 import { ShiftsService } from "./shifts.service"
 
+@SkipThrottle()
 @ApiTags("shifts")
 @ApiBearerAuth()
 @Controller("shifts")

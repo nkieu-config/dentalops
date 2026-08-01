@@ -10,6 +10,7 @@ import {
   UseInterceptors
 } from "@nestjs/common"
 import { ApiBearerAuth, ApiTags } from "@nestjs/swagger"
+import { SkipThrottle } from "@nestjs/throttler"
 import { Roles } from "../auth/roles.decorator"
 import { IdempotencyInterceptor } from "../common/idempotency.interceptor"
 import { AppointmentsService } from "./appointments.service"
@@ -18,6 +19,7 @@ import { QueryAppointmentsDto } from "./dto/query-appointments.dto"
 import { RescheduleAppointmentDto } from "./dto/reschedule-appointment.dto"
 import { SetStatusDto } from "./dto/set-status.dto"
 
+@SkipThrottle()
 @ApiTags("appointments")
 @ApiBearerAuth()
 @Controller("appointments")

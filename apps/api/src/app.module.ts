@@ -1,7 +1,10 @@
 import { MiddlewareConsumer, Module, NestModule } from "@nestjs/common"
 import { APP_FILTER, APP_GUARD, APP_INTERCEPTOR } from "@nestjs/core"
 import { JwtModule } from "@nestjs/jwt"
+import { ThrottlerGuard, ThrottlerModule } from "@nestjs/throttler"
+import { ThrottlerStorageRedisService } from "@nest-lab/throttler-storage-redis"
 import { SentryModule } from "@sentry/nestjs/setup"
+import type Redis from "ioredis"
 import { AppointmentsModule } from "./appointments/appointments.module"
 import { AuthModule } from "./auth/auth.module"
 import { AvailabilityModule } from "./availability/availability.module"
@@ -16,7 +19,9 @@ import { DirectoryModule } from "./directory/directory.module"
 import { HealthController } from "./health/health.controller"
 import { PatientsModule } from "./patients/patients.module"
 import { PrismaModule } from "./prisma/prisma.module"
-import { RedisModule } from "./redis/redis.module"
+import { PublicModule } from "./public/public.module"
+import { PublicTenantMiddleware } from "./public/public-tenant.middleware"
+import { REDIS, RedisModule } from "./redis/redis.module"
 import { ShiftsModule } from "./shifts/shifts.module"
 import { TenantContextMiddleware } from "./tenant/tenant-context.middleware"
 
@@ -26,12 +31,20 @@ import { TenantContextMiddleware } from "./tenant/tenant-context.middleware"
     PrismaModule,
     RedisModule,
     JwtModule.register({}),
+    ThrottlerModule.forRootAsync({
+      inject: [REDIS],
+      useFactory: (redis: Redis) => ({
+        throttlers: [{ name: "default", ttl: 60_000, limit: 60 }],
+        storage: new ThrottlerStorageRedisService(redis)
+      })
+    }),
     AuthModule,
     ShiftsModule,
     AppointmentsModule,
     AvailabilityModule,
     PatientsModule,
-    DirectoryModule
+    DirectoryModule,
+    PublicModule
   ],
   controllers: [HealthController, LatencyController],
   providers: [
@@ -39,11 +52,13 @@ import { TenantContextMiddleware } from "./tenant/tenant-context.middleware"
     { provide: APP_FILTER, useClass: AppExceptionFilter },
     { provide: APP_GUARD, useClass: JwtAuthGuard },
     { provide: APP_GUARD, useClass: RolesGuard },
+    { provide: APP_GUARD, useClass: ThrottlerGuard },
     { provide: APP_INTERCEPTOR, useClass: LatencyInterceptor }
   ]
 })
 export class AppModule implements NestModule {
   configure(consumer: MiddlewareConsumer) {
     consumer.apply(RequestIdMiddleware, TenantContextMiddleware).forRoutes("*")
+    consumer.apply(PublicTenantMiddleware).forRoutes("public/:clinicSlug")
   }
 }

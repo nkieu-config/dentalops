@@ -1,5 +1,6 @@
 import { Body, Controller, Get, HttpCode, Post, Req, Res } from "@nestjs/common"
 import { ApiBearerAuth, ApiTags } from "@nestjs/swagger"
+import { SkipThrottle } from "@nestjs/throttler"
 import type { Request, Response } from "express"
 import { AuthService } from "./auth.service"
 import { CurrentUser } from "./current-user.decorator"
@@ -19,6 +20,7 @@ const cookieOptions = {
   maxAge: 7 * 24 * 60 * 60 * 1000
 }
 
+@SkipThrottle()
 @ApiTags("auth")
 @Controller("auth")
 export class AuthController {

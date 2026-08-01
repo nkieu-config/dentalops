@@ -1,8 +1,10 @@
 import { Controller, Get, Query } from "@nestjs/common"
 import { ApiBearerAuth, ApiTags } from "@nestjs/swagger"
+import { SkipThrottle } from "@nestjs/throttler"
 import { DirectoryService } from "./directory.service"
 import { QueryStaffDto } from "./dto/query-staff.dto"
 
+@SkipThrottle()
 @ApiTags("directory")
 @ApiBearerAuth()
 @Controller()

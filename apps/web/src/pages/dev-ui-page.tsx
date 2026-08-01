@@ -1,6 +1,13 @@
-import type { Appointment, AppointmentStatus, Shift, StaffMember } from "@dentalops/contracts"
+import type {
+  Appointment,
+  AppointmentStatus,
+  AvailabilitySlot,
+  Shift,
+  StaffMember
+} from "@dentalops/contracts"
 import { AlertTriangle, CalendarX, ServerCrash, WifiOff } from "lucide-react"
 import { useMemo, useState } from "react"
+import { SlotPickerView, type SlotPickerState } from "../components/slot-picker"
 import { Button } from "../components/ui/button"
 import { EmptyState } from "../components/ui/empty-state"
 import { Input } from "../components/ui/input"
@@ -103,6 +110,39 @@ const laneAppointments = [
     durationMin: 45,
     colorIndex: 4
   })
+]
+
+const dragSource = fixtureAppointment({ id: uuid(200), colorIndex: 1 })
+
+const dragPreview = fixtureAppointment({
+  id: uuid(200),
+  startsAt: cardGridDayStart + 0.5 * HOUR,
+  colorIndex: 1
+})
+
+const conflictCard = fixtureAppointment({ id: uuid(201), colorIndex: 2 })
+
+const gallerySlot = (startsAt: string, endsAt: string): AvailabilitySlot => ({
+  dentistId: uuid(700),
+  startsAt,
+  endsAt
+})
+
+const gallerySlots = [
+  gallerySlot("2026-08-03T02:30:00.000Z", "2026-08-03T03:30:00.000Z"),
+  gallerySlot("2026-08-03T03:30:00.000Z", "2026-08-03T04:30:00.000Z"),
+  gallerySlot("2026-08-03T06:00:00.000Z", "2026-08-03T07:00:00.000Z"),
+  gallerySlot("2026-08-03T07:00:00.000Z", "2026-08-03T08:00:00.000Z")
+]
+
+const slotStates: { testId: string; label: string; state: SlotPickerState }[] = [
+  { testId: "slots-loading", label: "Loading", state: { status: "loading" } },
+  {
+    testId: "slots-available",
+    label: "Slots available",
+    state: { status: "ready", slots: gallerySlots }
+  },
+  { testId: "slots-none", label: "None available", state: { status: "ready", slots: [] } }
 ]
 
 const perfDentists = Array.from({ length: 8 }, (_, i) => dentist(10 + i, `Dr. ${i + 1}`))
@@ -249,6 +289,58 @@ export const DevUiPage = () => (
           ))
         )}
       </div>
+      <p className="text-sm text-muted-foreground">
+        Dragging: the source dims to 40% and the preview carries the only shadow allowed inside the
+        grid. Conflict: a destructive ring plus a warning icon, never color alone.
+      </p>
+      <div data-testid="card-states" className="relative h-32 rounded-md border border-border">
+        <AppointmentCard
+          appointment={dragSource}
+          dayStart={cardGridDayStart}
+          lane={0}
+          lanes={3}
+          onClick={noop}
+          dimmed
+        />
+        <AppointmentCard
+          appointment={dragPreview}
+          dayStart={cardGridDayStart}
+          lane={1}
+          lanes={3}
+          onClick={noop}
+          preview
+        />
+        <AppointmentCard
+          appointment={conflictCard}
+          dayStart={cardGridDayStart}
+          lane={2}
+          lanes={3}
+          onClick={noop}
+          conflict
+        />
+      </div>
+    </section>
+    <section className="space-y-3">
+      <h2 className="text-lg font-semibold">SlotPicker</h2>
+      <p className="text-sm text-muted-foreground">
+        Chips are 44px and lining-figured, grouped by Bangkok wall clock. Unavailable times are
+        omitted rather than greyed, and the loading state holds the space with skeletons.
+      </p>
+      <div className="grid gap-4 sm:grid-cols-3">
+        {slotStates.map(({ testId, label, state }) => (
+          <div key={testId} className="space-y-2 rounded-md border border-border p-3">
+            <p className="text-xs font-medium text-muted-foreground">{label}</p>
+            <div data-testid={testId}>
+              <SlotPickerView
+                date={GALLERY_DATE}
+                state={state}
+                onPick={noop}
+                onDateChange={noop}
+              />
+            </div>
+          </div>
+        ))}
+      </div>
     </section>
     <section className="space-y-3">
       <h2 className="text-lg font-semibold">TimeGrid</h2>
@@ -292,7 +384,7 @@ export const DevUiPage = () => (
     <section className="space-y-2">
       <h2 className="text-lg font-semibold">Arriving later</h2>
       <p className="text-sm text-muted-foreground">
-        SlotPicker · CountdownBanner — W6 · ViolationList · ShiftBlock — W7
+        CountdownBanner — W6 · ViolationList · ShiftBlock — W7
       </p>
     </section>
   </div>

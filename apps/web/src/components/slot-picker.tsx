@@ -14,11 +14,23 @@ import { Button } from "./ui/button"
 import { EmptyState } from "./ui/empty-state"
 import { Skeleton } from "./ui/skeleton"
 
+export type SlotPickerState =
+  | { status: "loading" }
+  | { status: "error" }
+  | { status: "ready"; slots: AvailabilitySlot[] }
+
 interface SlotPickerProps {
   serviceId: string
   branchId: string
   dentistId?: string
   date: string
+  onPick: (startsAtIso: string) => void
+  onDateChange: (isoDate: string) => void
+}
+
+interface SlotPickerViewProps {
+  date: string
+  state: SlotPickerState
   onPick: (startsAtIso: string) => void
   onDateChange: (isoDate: string) => void
 }
@@ -54,15 +66,30 @@ export const SlotPicker = ({
       })
   })
 
+  const state = useMemo<SlotPickerState>(() => {
+    if (availability.isPending) return { status: "loading" }
+    if (availability.isError) return { status: "error" }
+    return {
+      status: "ready",
+      slots: (availability.data?.slots ?? []).filter(
+        (s) => dentistId === undefined || s.dentistId === dentistId
+      )
+    }
+  }, [availability.data, availability.isPending, availability.isError, dentistId])
+
+  return <SlotPickerView date={date} state={state} onPick={onPick} onDateChange={onDateChange} />
+}
+
+export const SlotPickerView = ({ date, state, onPick, onDateChange }: SlotPickerViewProps) => {
   const groups = useMemo<SlotGroup[]>(() => {
-    const slots = (availability.data?.slots ?? [])
-      .filter((s) => dentistId === undefined || s.dentistId === dentistId)
+    const slots = (state.status === "ready" ? state.slots : [])
+      .slice()
       .sort((a, b) => Date.parse(a.startsAt) - Date.parse(b.startsAt))
     return [
       { key: "morning", label: "Morning", slots: slots.filter((s) => isMorning(s.startsAt)) },
       { key: "afternoon", label: "Afternoon", slots: slots.filter((s) => !isMorning(s.startsAt)) }
     ].filter((group) => group.slots.length > 0)
-  }, [availability.data, dentistId])
+  }, [state])
 
   return (
     <div className="space-y-3">
@@ -85,17 +112,17 @@ export const SlotPicker = ({
           <ChevronRight className="h-4 w-4" />
         </Button>
       </div>
-      {availability.isPending ? (
+      {state.status === "loading" ? (
         <div className="flex flex-wrap gap-2">
           {Array.from({ length: 8 }, (_, i) => (
             <Skeleton key={i} data-testid="slot-skeleton" className="h-11 w-20" />
           ))}
         </div>
       ) : null}
-      {availability.isError ? (
+      {state.status === "error" ? (
         <EmptyState icon={CalendarX} title="Could not load free slots" hint="Retry shortly" />
       ) : null}
-      {availability.isSuccess && groups.length === 0 ? (
+      {state.status === "ready" && groups.length === 0 ? (
         <EmptyState icon={CalendarX} title="No free slots this day" hint="Try another day" />
       ) : null}
       {groups.map((group) => (

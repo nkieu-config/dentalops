@@ -19,6 +19,49 @@ describe("DevUiPage", () => {
     )
   })
 
+  it("gives the dragged preview the only shadow and dims the card it came from", () => {
+    render(<DevUiPage />)
+    const states = within(screen.getByTestId("card-states"))
+
+    const preview = states.getByTestId("drag-preview")
+    expect(preview.className).toContain("shadow-lg")
+    expect(preview.className).toContain("pointer-events-none")
+    expect(states.getByTestId("appt-f0000000-0000-4000-8000-000000000200").className).toContain(
+      "opacity-40"
+    )
+    expect(states.queryAllByTestId(/^appt-/).filter((el) => el.className.includes("shadow"))).toEqual(
+      []
+    )
+  })
+
+  it("marks the conflict card with a destructive ring and a warning icon", () => {
+    render(<DevUiPage />)
+    const states = within(screen.getByTestId("card-states"))
+
+    const conflict = states.getByTestId("appt-f0000000-0000-4000-8000-000000000201")
+    expect(conflict.className).toContain("ring-2")
+    expect(conflict.className).toContain("ring-destructive")
+    expect(within(conflict).getByLabelText("Conflict")).toBeInTheDocument()
+  })
+
+  it("renders the SlotPicker loading, populated and empty states without a server", () => {
+    render(<DevUiPage />)
+
+    expect(within(screen.getByTestId("slots-loading")).getAllByTestId("slot-skeleton")).toHaveLength(
+      8
+    )
+
+    const available = within(screen.getByTestId("slots-available"))
+    expect(available.getAllByTestId("slot")).toHaveLength(4)
+    expect(within(available.getByTestId("group-morning")).getAllByRole("button")).toHaveLength(2)
+    expect(within(available.getByTestId("group-afternoon")).getAllByRole("button")).toHaveLength(2)
+    expect(available.getByRole("button", { name: "13:00" })).toBeInTheDocument()
+
+    const none = within(screen.getByTestId("slots-none"))
+    expect(none.getByText("No free slots this day")).toBeInTheDocument()
+    expect(none.queryAllByTestId("slot")).toHaveLength(0)
+  })
+
   it("shows the overlapping fixture pair side by side in the TimeGrid section", () => {
     render(<DevUiPage />)
     const grid = within(screen.getByTestId("lane-grid"))
@@ -48,7 +91,7 @@ describe("DevUiPage", () => {
   it("names the components that arrive in later weeks", () => {
     render(<DevUiPage />)
     expect(
-      screen.getByText("SlotPicker · CountdownBanner — W6 · ViolationList · ShiftBlock — W7")
+      screen.getByText("CountdownBanner — W6 · ViolationList · ShiftBlock — W7")
     ).toBeInTheDocument()
   })
 })

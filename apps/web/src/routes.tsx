@@ -3,6 +3,8 @@ import { lazy, Suspense, type ReactNode } from "react"
 import { createBrowserRouter, Navigate } from "react-router"
 import { OutOfScope } from "./components/shell/out-of-scope"
 import { Skeleton } from "./components/ui/skeleton"
+import { LoginPage } from "./features/auth/login-page"
+import { SignupPage } from "./features/auth/signup-page"
 import { BookingPage } from "./features/booking/booking-page"
 import { ManagePage } from "./features/booking/manage-page"
 import { LandingPage } from "./pages/landing-page"
@@ -43,6 +45,8 @@ const deferred = (node: ReactNode) => <Suspense fallback={<Loading />}>{node}</S
 
 export const router = createBrowserRouter([
   { path: "/", element: <LandingPage /> },
+  { path: "/login", element: <LoginPage /> },
+  { path: "/signup", element: <SignupPage /> },
   { path: "/book/:clinicSlug", element: <BookingPage /> },
   { path: "/manage/:token", element: <ManagePage /> },
   {

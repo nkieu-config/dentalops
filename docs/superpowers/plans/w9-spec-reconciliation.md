@@ -18,6 +18,15 @@
 - Every new endpoint is registered in the isolation registry of `apps/api/test/tenant-isolation.spec.ts`, or its test `every discovered route is declared in the isolation registry` fails.
 - `PrismaPromise` is lazy: any `tenantContext.run(store, fn)` must use an `async` callback with the query `await`ed **inside** it.
 - Turbo caches gates. Run every gate with `--force` and check the exit code explicitly (`echo "exit=$?"`), never through a pipe into `grep`.
+- Fixture shapes this plan's hand-written specs get wrong, found while executing Task 1 — check them before running any new spec:
+  - `prisma.patient.create` requires `email`; `Patient.email` is non-nullable (`apps/api/prisma/schema.prisma:160`).
+  - `POST /auth/login` requires `clinicSlug` as well as `email` and `password` (`apps/api/src/auth/dto/login.dto.ts`), and matches `/^[a-z0-9-]{3,40}$/`.
+- Corrections found while executing Task 3:
+  - Jest reads its environment from `apps/api/.env` (Prisma's loader, relative to the schema), never from the repo-root `.env`. A variable added only at the root is invisible to the API suite.
+  - `turbo.json`'s `test` task filters the environment. A new variable must be listed there or `pnpm test` cannot see it in CI.
+  - The request id lives on `req.id`, set by `RequestIdMiddleware` (`apps/api/src/common/request-id.middleware.ts:8`) — there is no `req.requestId`.
+  - `AuditService.list` scopes on `currentTenant()`, so a spec calling it outside an HTTP request must wrap the call in `tenantContext.run`.
+  - `MongoClient.connect()` rejects when Mongo is unreachable, which would fail app bootstrap. `mongoProvider` catches it and yields `null`, so a dead Mongo degrades to a no-op instead of taking the API down.
 
 ---
 
@@ -643,7 +652,12 @@ describe("audit log", () => {
     serviceId = (await prisma.service.findFirstOrThrow({ where: { tenantId: tenant.id } })).id
     patientId = (
       await prisma.patient.create({
-        data: { tenantId: tenant.id, name: "Ploy", phone: `07${Date.now() % 100000000}` }
+        data: {
+          tenantId: tenant.id,
+          name: "Ploy",
+          phone: `07${Date.now() % 100000000}`,
+          email: `ploy@${slug}.local`
+        }
       })
     ).id
   })

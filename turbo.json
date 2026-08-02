@@ -3,7 +3,7 @@
   "tasks": {
     "build": { "dependsOn": ["^build"], "outputs": ["dist/**"] },
     "typecheck": { "dependsOn": ["^build"] },
-    "test": { "dependsOn": ["^build"], "env": ["DATABASE_URL", "DIRECT_URL", "JWT_SECRET", "JWT_REFRESH_SECRET", "REDIS_URL"] },
+    "test": { "dependsOn": ["^build"], "env": ["DATABASE_URL", "DIRECT_URL", "JWT_SECRET", "JWT_REFRESH_SECRET", "REDIS_URL", "MONGODB_URL"] },
     "dev": { "cache": false, "persistent": true }
   }
 }

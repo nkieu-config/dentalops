@@ -29,12 +29,22 @@ jobs:
           --health-interval 5s
           --health-timeout 3s
           --health-retries 20
+      mongo:
+        image: mongo:7
+        ports:
+          - 27017:27017
+        options: >-
+          --health-cmd "mongosh --quiet --eval 'db.runCommand({ ping: 1 })'"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 20
     env:
       DATABASE_URL: postgresql://dentalops:dentalops@localhost:5432/dentalops
       DIRECT_URL: postgresql://dentalops:dentalops@localhost:5432/dentalops
       JWT_SECRET: ci-test-secret
       JWT_REFRESH_SECRET: ci-test-refresh-secret
       REDIS_URL: redis://localhost:6379
+      MONGODB_URL: mongodb://localhost:27017/dentalops_ci
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4

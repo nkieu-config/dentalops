@@ -6,6 +6,8 @@ import { ThrottlerStorageRedisService } from "@nest-lab/throttler-storage-redis"
 import { SentryModule } from "@sentry/nestjs/setup"
 import type Redis from "ioredis"
 import { AppointmentsModule } from "./appointments/appointments.module"
+import { AuditInterceptor } from "./audit/audit.interceptor"
+import { AuditModule } from "./audit/audit.module"
 import { DemoModule } from "./demo/demo.module"
 import { AuthModule } from "./auth/auth.module"
 import { AvailabilityModule } from "./availability/availability.module"
@@ -33,6 +35,7 @@ import { TenantContextMiddleware } from "./tenant/tenant-context.middleware"
     SentryModule.forRoot(),
     PrismaModule,
     RedisModule,
+    AuditModule,
     JwtModule.register({}),
     ThrottlerModule.forRootAsync({
       inject: [REDIS],
@@ -58,7 +61,8 @@ import { TenantContextMiddleware } from "./tenant/tenant-context.middleware"
     { provide: APP_GUARD, useClass: JwtAuthGuard },
     { provide: APP_GUARD, useClass: RolesGuard },
     { provide: APP_GUARD, useClass: ThrottlerGuard },
-    { provide: APP_INTERCEPTOR, useClass: LatencyInterceptor }
+    { provide: APP_INTERCEPTOR, useClass: LatencyInterceptor },
+    { provide: APP_INTERCEPTOR, useClass: AuditInterceptor }
   ]
 })
 export class AppModule implements NestModule {

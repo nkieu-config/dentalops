@@ -15,7 +15,7 @@ export class TenantContextMiddleware implements NestMiddleware {
     try {
       const payload = this.jwt.verify<JwtPayload>(token, { secret: process.env.JWT_SECRET })
       tenantContext.run(
-        { tenantId: payload.tenantId, userId: payload.sub, role: payload.role },
+        { tenantId: payload.tenantId, userId: payload.sub, role: payload.role, name: payload.name },
         next
       )
     } catch {

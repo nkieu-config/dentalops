@@ -1,5 +1,6 @@
 import { Injectable } from "@nestjs/common"
-import { Prisma, Resource, ResourceType } from "@prisma/client"
+import { AppointmentStatus, Prisma, Resource, ResourceType } from "@prisma/client"
+import { auditActor, AuditService } from "../audit/audit.service"
 import { AvailabilityCache } from "../availability/availability.cache"
 import { AppException } from "../common/app.exception"
 import { PrismaService } from "../prisma/prisma.service"
@@ -34,7 +35,8 @@ export class AppointmentsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly realtime: RealtimeGateway,
-    private readonly cache: AvailabilityCache
+    private readonly cache: AvailabilityCache,
+    private readonly audit: AuditService
   ) {}
 
   private announce(
@@ -355,6 +357,7 @@ export class AppointmentsService {
   }
 
   async setStatus(id: string, dto: SetStatusDto) {
+    let statusBefore: AppointmentStatus | undefined
     const updated = await this.prisma.scoped.$transaction(async (tx) => {
       const current = await tx.appointment.findUnique({ where: { id } })
       if (!current) throw new AppException(404, "NOT_FOUND", "Appointment not found")
@@ -373,6 +376,7 @@ export class AppointmentsService {
           `Cannot ${dto.status} a ${current.status} appointment`
         )
       }
+      statusBefore = current.status
       await tx.appointment.update({
         where: { id },
         data: { status: dto.status, version: { increment: 1 } }
@@ -384,6 +388,15 @@ export class AppointmentsService {
         })
       }
       return tx.appointment.findUniqueOrThrow({ where: { id }, include: APPOINTMENT_INCLUDE })
+    })
+    this.audit.record({
+      tenantId: updated.tenantId,
+      actor: auditActor(),
+      action: "appointment.status",
+      entity: { type: "appointment", id: updated.id },
+      before: { status: statusBefore },
+      after: { status: updated.status },
+      requestId: ""
     })
     await this.cache.invalidateWindows(updated.tenantId, [updated])
     this.announce(updated, "status")

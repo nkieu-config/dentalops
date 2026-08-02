@@ -30,6 +30,9 @@ export class PublicTenantMiddleware implements NestMiddleware {
       select: { id: true }
     })
     if (!tenant) throw clinicNotFound()
-    tenantContext.run({ tenantId: tenant.id, userId: "public", role: "public" }, () => next())
+    tenantContext.run(
+      { tenantId: tenant.id, userId: "public", role: "public", name: "Guest" },
+      () => next()
+    )
   }
 }

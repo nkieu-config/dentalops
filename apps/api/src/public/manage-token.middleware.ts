@@ -18,6 +18,9 @@ export class ManageTokenMiddleware implements NestMiddleware {
 
   async use(req: Request, _res: Response, next: NextFunction) {
     const claims = await this.manageTokens.verify(tokenFromRequest(req))
-    tenantContext.run({ tenantId: claims.tenantId, userId: "public", role: "public" }, () => next())
+    tenantContext.run(
+      { tenantId: claims.tenantId, userId: "public", role: "public", name: "Guest" },
+      () => next()
+    )
   }
 }

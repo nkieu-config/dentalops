@@ -4,7 +4,10 @@ import { tenantContext } from "../src/tenant/tenant-context"
 const prisma = new PrismaService()
 
 const asTenant = <T>(tenantId: string, fn: () => Promise<T>) =>
-  tenantContext.run({ tenantId, userId: "test-user", role: "owner" }, async () => await fn())
+  tenantContext.run(
+    { tenantId, userId: "test-user", role: "owner", name: "Test User" },
+    async () => await fn()
+  )
 
 describe("tenant extension", () => {
   let tenantA: string

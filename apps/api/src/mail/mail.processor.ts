@@ -31,7 +31,7 @@ export class MailProcessor implements OnModuleDestroy {
 
   process(data: ConfirmationJobData): Promise<void> {
     return tenantContext.run(
-      { tenantId: data.tenantId, userId: "mail", role: "system" },
+      { tenantId: data.tenantId, userId: "mail", role: "system", name: "Mail worker" },
       async () => {
         const appointment = await this.prisma.scoped.appointment.findUnique({
           where: { id: data.appointmentId },

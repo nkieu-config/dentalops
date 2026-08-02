@@ -41,7 +41,7 @@ export class HorizonProcessor implements OnModuleDestroy {
 
     for (const { tenantId } of tenants) {
       const result = await tenantContext.run(
-        { tenantId, userId: "horizon", role: "system" },
+        { tenantId, userId: "horizon", role: "system", name: "Horizon worker" },
         async () => await this.series.extendHorizon(now)
       )
       summary.series += result.series

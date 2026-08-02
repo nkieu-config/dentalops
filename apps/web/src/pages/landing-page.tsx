@@ -3,7 +3,7 @@ import { useMutation } from "@tanstack/react-query"
 import { useNavigate } from "react-router"
 import { toast } from "sonner"
 import { Button } from "../components/ui/button"
-import { api } from "../lib/api"
+import { api, ApiError } from "../lib/api"
 import { setSession } from "../lib/session"
 
 const roles = [
@@ -25,7 +25,14 @@ export const LandingPage = () => {
       setSession(session, { demo: true })
       void navigate("/app/timeline")
     },
-    onError: () => toast.error("Demo login failed — is the API awake?")
+    onError: (error) => {
+      const asleep = !(error instanceof ApiError) || error.status >= 500
+      toast.error(
+        asleep
+          ? "The demo API is waking up — free hosting sleeps after inactivity. Give it about a minute and try again."
+          : error.message
+      )
+    }
   })
 
   return (

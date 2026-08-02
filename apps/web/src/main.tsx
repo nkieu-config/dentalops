@@ -12,7 +12,17 @@ import { router } from "./routes"
 initTheme()
 
 if (import.meta.env.VITE_SENTRY_DSN) {
-  Sentry.init({ dsn: import.meta.env.VITE_SENTRY_DSN })
+  Sentry.init({
+    dsn: import.meta.env.VITE_SENTRY_DSN,
+    sendDefaultPii: false,
+    beforeBreadcrumb: (breadcrumb) => {
+      if (breadcrumb.category === "fetch" || breadcrumb.category === "xhr") {
+        const data = breadcrumb.data as { url?: string } | undefined
+        if (data?.url) data.url = data.url.split("?")[0] ?? data.url
+      }
+      return breadcrumb
+    }
+  })
 }
 
 const client = new QueryClient({

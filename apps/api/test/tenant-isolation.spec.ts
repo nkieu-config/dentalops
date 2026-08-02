@@ -17,7 +17,10 @@ const REGISTRY: Record<string, Expectation> = {
   "GET /auth/me": "auth-only",
   "GET /shifts": "filtered",
   "POST /shifts": "auth-only",
+  "POST /shifts/series": "auth-only",
   "DELETE /shifts/:id": "not-found",
+  "PATCH /shift-series/:id": "not-found",
+  "DELETE /shift-series/:id": "not-found",
   "GET /appointments": "filtered",
   "POST /appointments": "auth-only",
   "POST /appointments/series": "auth-only",
@@ -41,7 +44,8 @@ const REGISTRY: Record<string, Expectation> = {
 
 const BODY_BY_ROUTE: Record<string, object> = {
   "PATCH /appointments/:id": { version: 0 },
-  "PATCH /appointments/:id/status": { status: "cancelled" }
+  "PATCH /appointments/:id/status": { status: "cancelled" },
+  "PATCH /shift-series/:id": { scope: "all" }
 }
 
 interface DiscoveredRoute {

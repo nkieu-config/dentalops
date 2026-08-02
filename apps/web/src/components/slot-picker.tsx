@@ -102,7 +102,7 @@ export const SlotPickerView = ({ date, state, onPick, onDateChange }: SlotPicker
         >
           <ChevronLeft className="h-4 w-4" />
         </Button>
-        <span className="text-sm font-medium tabular-nums">{fmtDay(date)}</span>
+        <span className="text-base font-medium tabular-nums">{fmtDay(date)}</span>
         <Button
           variant="ghost"
           size="icon"
@@ -127,7 +127,7 @@ export const SlotPickerView = ({ date, state, onPick, onDateChange }: SlotPicker
       ) : null}
       {groups.map((group) => (
         <div key={group.key} data-testid={`group-${group.key}`} className="space-y-1.5">
-          <p className="text-xs font-medium text-muted-foreground">{group.label}</p>
+          <p className="text-base font-medium text-muted-foreground">{group.label}</p>
           <div className="flex flex-wrap gap-2">
             {group.slots.map((s) => (
               <button
@@ -135,7 +135,7 @@ export const SlotPickerView = ({ date, state, onPick, onDateChange }: SlotPicker
                 type="button"
                 data-testid="slot"
                 onClick={() => onPick(s.startsAt)}
-                className="min-h-11 min-w-20 cursor-pointer rounded-md border border-border px-3 text-sm tabular-nums hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                className="min-h-11 min-w-20 cursor-pointer rounded-md border border-border px-3 text-base tabular-nums hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               >
                 {fmtTime(Date.parse(s.startsAt))}
               </button>

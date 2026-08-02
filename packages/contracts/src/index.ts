@@ -24,3 +24,10 @@ export type {
   Patient,
   PatientPage
 } from "./scheduling"
+export {
+  publicClinicSchema,
+  publicHoldSchema,
+  publicAppointmentSchema,
+  publicBookingSchema
+} from "./public"
+export type { PublicClinic, PublicHold, PublicAppointment, PublicBooking } from "./public"

@@ -104,8 +104,8 @@ pnpm build       # turbo build, respecting the dependency graph
 pnpm --filter @dentalops/web e2e   # playwright, all three journeys
 ```
 
-`pnpm test` runs **517 tests across 76 files** — 214 Jest specs against real Postgres, Redis and
-MongoDB in Docker, 240 Vitest tests in the web app, 60 in the availability engine and 3 in contracts.
+`pnpm test` runs **520 tests across 76 files** — 216 Jest specs against real Postgres, Redis and
+MongoDB in Docker, 240 Vitest tests in the web app, 60 in the availability engine and 4 in contracts.
 `pnpm --filter @dentalops/web e2e` adds **15 Playwright checks**: the three journeys below plus the
 accessibility sweep.
 
@@ -155,7 +155,9 @@ Worth saying plainly, because the gaps are choices rather than oversights:
 - **A dead Mongo costs about five seconds at boot.** If `MONGODB_URL` is set but points at an
   unreachable server, the driver spends its full 5 s server-selection timeout before the provider
   gives up, and only then does the audit log degrade to a no-op. The API still starts and bookings
-  still work — but that wait is paid on every boot until the URL is fixed or removed.
+  still work — but that wait is paid on every boot until the URL is fixed or removed. Because that
+  degradation is deliberately silent, `GET /api/v1/health` reports `auditLog: "connected" | "disabled"`
+  so a misconfigured deployment is visible without reading logs.
 - **Free-tier cold starts.** The API sleeps after inactivity, so the first request of the day takes
   about a minute. Documented rather than hidden, because it is the cost of $0/month hosting.
 - **Shifts drag between days, not between staff.** `PATCH /shifts/:id` accepts times, not a new

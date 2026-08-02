@@ -86,7 +86,7 @@ caveats and the honest reading — a 100% cache-hit workload is not real traffic
 
 ```bash
 pnpm install
-docker compose up -d      # postgres 16, mongodb 7, redis 7
+docker compose up -d      # postgres 16, redis 7, mailpit
 cp .env.example .env      # then fill in the connection strings
 pnpm dev
 ```
@@ -133,7 +133,13 @@ Worth saying plainly, because the gaps are choices rather than oversights:
 - **No payments, no insurance, no clinical records.** This is scheduling.
 - **The audit log is designed but not built.** The MongoDB collection and its write path are
   specified in the design doc and were cut when the week they belonged to filled up. Mongo is
-  therefore absent from the stack table above rather than listed as if it were carrying load.
+  therefore absent from the stack table, from `docker-compose.yml` and from the deploy config,
+  rather than left running as if it were carrying load.
+- **No patients screen and no settings screen.** Patients are created, matched and tenant-scoped by
+  the API on every booking, and branches, services, resources and staff are real records behind a
+  working API — but the screens for browsing and editing them were cut so the eight weeks could
+  finish the scheduling core. The app says so where those screens would have been, rather than
+  showing an empty page.
 - **Free-tier cold starts.** The API sleeps after inactivity, so the first request of the day takes
   about a minute. Documented rather than hidden, because it is the cost of $0/month hosting.
 - **Shifts drag between days, not between staff.** `PATCH /shifts/:id` accepts times, not a new

@@ -1,5 +1,7 @@
+import { Settings, Users } from "lucide-react"
 import { lazy, Suspense, type ReactNode } from "react"
 import { createBrowserRouter, Navigate } from "react-router"
+import { OutOfScope } from "./components/shell/out-of-scope"
 import { Skeleton } from "./components/ui/skeleton"
 import { BookingPage } from "./features/booking/booking-page"
 import { ManagePage } from "./features/booking/manage-page"
@@ -19,10 +21,6 @@ const RosterRoute = lazy(() =>
 )
 const DevUiPage = lazy(() =>
   import("./pages/dev-ui-page").then((m) => ({ default: m.DevUiPage }))
-)
-
-const Placeholder = ({ label }: { label: string }) => (
-  <div className="p-8 text-muted-foreground">{label}</div>
 )
 
 const Loading = () => (
@@ -49,8 +47,26 @@ export const router = createBrowserRouter([
       { index: true, element: <Navigate to="/app/timeline" replace /> },
       { path: "timeline", element: deferred(<TimelinePage />) },
       { path: "roster", element: deferred(<RosterRoute />) },
-      { path: "patients", element: <Placeholder label="Patients — arrives in W6" /> },
-      { path: "settings", element: <Placeholder label="Settings — arrives in W6" /> }
+      {
+        path: "patients",
+        element: (
+          <OutOfScope
+            icon={Users}
+            title="The patients screen is not part of this build"
+            reason="Patients are created, matched and tenant-scoped by the API on every booking, and that path is tested. The screen for browsing them was cut so the eight weeks could finish the scheduling core instead."
+          />
+        )
+      },
+      {
+        path: "settings",
+        element: (
+          <OutOfScope
+            icon={Settings}
+            title="The settings screen is not part of this build"
+            reason="Branches, services, resources and staff are real records with a working API behind them. An editor for them was cut so the eight weeks could finish the scheduling core instead."
+          />
+        )
+      }
     ]
   },
   { path: "/dev/ui", element: deferred(<DevUiPage />) }

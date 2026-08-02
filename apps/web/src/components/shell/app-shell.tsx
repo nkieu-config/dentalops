@@ -1,20 +1,32 @@
+import type { AuthSession } from "@dentalops/contracts"
 import { CalendarDays, ClipboardList, Moon, Settings, Users } from "lucide-react"
+import type { LucideIcon } from "lucide-react"
 import { NavLink, Outlet, useNavigate } from "react-router"
 import { cn } from "../../lib/cn"
-import { isDemo, logout, useSession } from "../../lib/session"
+import { canManageRoster, isDemo, logout, useSession } from "../../lib/session"
 import { toggleTheme } from "../../lib/theme"
 import { Button } from "../ui/button"
 
-const navItems = [
+interface NavItem {
+  to: string
+  label: string
+  icon: LucideIcon
+  visible?: (session: AuthSession | null) => boolean
+}
+
+const navItems: NavItem[] = [
   { to: "/app/timeline", label: "Timeline", icon: CalendarDays },
-  { to: "/app/roster", label: "Roster", icon: ClipboardList },
+  { to: "/app/roster", label: "Roster", icon: ClipboardList, visible: canManageRoster },
   { to: "/app/patients", label: "Patients", icon: Users },
   { to: "/app/settings", label: "Settings", icon: Settings }
 ]
 
-const NavList = ({ railOnly }: { railOnly: boolean }) => (
+export const visibleNavItems = (session: AuthSession | null): NavItem[] =>
+  navItems.filter((item) => item.visible?.(session) ?? true)
+
+const NavList = ({ items, railOnly }: { items: NavItem[]; railOnly: boolean }) => (
   <nav className="flex flex-col gap-1 p-2">
-    {navItems.map(({ to, label, icon: Icon }) => (
+    {items.map(({ to, label, icon: Icon }) => (
       <NavLink
         key={to}
         to={to}
@@ -37,6 +49,7 @@ const NavList = ({ railOnly }: { railOnly: boolean }) => (
 export const AppShell = () => {
   const session = useSession()
   const navigate = useNavigate()
+  const items = visibleNavItems(session)
 
   return (
     <div className="flex min-h-dvh flex-col">
@@ -66,10 +79,10 @@ export const AppShell = () => {
       <div className="flex min-h-0 flex-1">
         <aside className="hidden w-14 shrink-0 border-r border-border md:block lg:w-60">
           <div className="lg:hidden">
-            <NavList railOnly />
+            <NavList items={items} railOnly />
           </div>
           <div className="hidden lg:block">
-            <NavList railOnly={false} />
+            <NavList items={items} railOnly={false} />
           </div>
         </aside>
         <main className="min-w-0 flex-1 pb-bottomnav md:pb-0">
@@ -77,7 +90,7 @@ export const AppShell = () => {
         </main>
       </div>
       <nav className="fixed inset-x-0 bottom-0 z-30 flex h-bottomnav border-t border-border bg-background md:hidden">
-        {navItems.map(({ to, label, icon: Icon }) => (
+        {items.map(({ to, label, icon: Icon }) => (
           <NavLink
             key={to}
             to={to}

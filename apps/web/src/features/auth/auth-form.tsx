@@ -65,15 +65,28 @@ export const FormError = ({ message }: { message: string | null }): ReactElement
 export interface SubmitButtonProps {
   pending: boolean
   pendingLabel: string
+  disabled?: boolean
+  title?: string
+  describedBy?: string
   children: ReactNode
 }
 
 export const SubmitButton = ({
   pending,
   pendingLabel,
+  disabled = false,
+  title,
+  describedBy,
   children
 }: SubmitButtonProps): ReactElement => (
-  <Button type="submit" className="h-11 w-full sm:h-10" disabled={pending} aria-busy={pending}>
+  <Button
+    type="submit"
+    className="h-11 w-full sm:h-10"
+    disabled={pending || disabled}
+    aria-busy={pending}
+    title={title}
+    aria-describedby={describedBy}
+  >
     {pending ? pendingLabel : children}
   </Button>
 )

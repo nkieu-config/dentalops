@@ -1,6 +1,6 @@
 import { authSessionSchema } from "@dentalops/contracts"
 import { useMutation } from "@tanstack/react-query"
-import { useNavigate } from "react-router"
+import { Link, useNavigate } from "react-router"
 import { toast } from "sonner"
 import { Button } from "../components/ui/button"
 import { api, ApiError } from "../lib/api"
@@ -59,6 +59,16 @@ export const LandingPage = () => {
       </div>
       <p className="text-center text-xs text-muted-foreground">
         A demo clinic with seeded appointments. Data resets periodically.
+      </p>
+      <p className="text-center text-sm text-muted-foreground">
+        Already have a clinic?{" "}
+        <Link className="underline underline-offset-4 hover:text-foreground" to="/login">
+          Sign in
+        </Link>{" "}
+        ·{" "}
+        <Link className="underline underline-offset-4 hover:text-foreground" to="/signup">
+          Create a clinic
+        </Link>
       </p>
     </main>
   )

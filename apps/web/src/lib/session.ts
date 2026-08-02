@@ -44,6 +44,13 @@ export const canManageRoster = (current: AuthSession | null): boolean =>
 
 export const useCanManageRoster = (): boolean => canManageRoster(useSession())
 
+const staffRoles: ReadonlySet<UserRole> = new Set<UserRole>(["owner"])
+
+export const canManageStaff = (current: AuthSession | null): boolean =>
+  current !== null && staffRoles.has(current.user.role)
+
+export const useCanManageStaff = (): boolean => canManageStaff(useSession())
+
 const activityRoles: ReadonlySet<UserRole> = new Set<UserRole>(["owner"])
 
 export const canViewActivity = (current: AuthSession | null): boolean =>

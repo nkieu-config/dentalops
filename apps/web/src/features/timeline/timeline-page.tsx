@@ -1,14 +1,17 @@
 import type { Appointment, StaffMember } from "@dentalops/contracts"
-import { CalendarX } from "lucide-react"
+import { CalendarX, UserPlus } from "lucide-react"
 import { useEffect, useMemo, useRef, useState } from "react"
 import { useSearchParams } from "react-router"
+import { OFFLINE_MESSAGE } from "../../components/shell/offline-banner"
+import { Button } from "../../components/ui/button"
 import { EmptyState } from "../../components/ui/empty-state"
 import { NativeSelect } from "../../components/ui/native-select"
 import { Skeleton } from "../../components/ui/skeleton"
 import { useRealtime } from "../../lib/realtime"
-import { useCanBook } from "../../lib/session"
+import { useCanBook, useCanManageStaff } from "../../lib/session"
 import { useMediaQuery } from "../../lib/use-media-query"
 import { useOnline } from "../../lib/use-online"
+import { StaffDialog } from "../staff/staff-dialog"
 import { AgendaView } from "./agenda-view"
 import { AppointmentCard } from "./appointment-card"
 import { AppointmentDrawer } from "./appointment-drawer"
@@ -27,6 +30,7 @@ import { useRescheduleAppointment } from "./use-reschedule"
 
 const CONFLICT_HIGHLIGHT_MS = 2500
 const ARRIVAL_HIGHLIGHT_MS = 1500
+const OFFLINE_REASON_ID = "add-staff-offline-reason"
 
 type TimelineMode = "sm" | "md" | "lg"
 
@@ -82,8 +86,10 @@ export const TimelinePage = () => {
   const [arrivedId, setArrivedId] = useState<string | null>(null)
   const [announcement, setAnnouncement] = useState("")
   const [hiddenColumns, setHiddenColumns] = useState<ReadonlySet<string>>(() => new Set())
+  const [addingStaff, setAddingStaff] = useState(false)
   const online = useOnline()
   const canCreate = useCanBook() && online
+  const canAddStaff = useCanManageStaff()
   const mode = useTimelineMode()
   const columnEls = useRef(new Map<string, HTMLDivElement>())
 
@@ -186,6 +192,36 @@ export const TimelinePage = () => {
   }
   if (branches.isError || dentists.isError || (columnMode === "chair" && chairs.isError)) {
     return <EmptyState icon={CalendarX} title="Could not load the clinic" hint="Retry shortly" />
+  }
+  if (allDentists.length === 0) {
+    return (
+      <div className="flex flex-col gap-2 p-4">
+        <EmptyState
+          icon={UserPlus}
+          title="No dentists yet"
+          hint="Add your first colleague to start building a schedule"
+        />
+        {canAddStaff ? (
+          <div className="flex flex-col items-center gap-2">
+            <Button
+              className="min-h-11"
+              onClick={() => setAddingStaff(true)}
+              disabled={!online}
+              title={online ? undefined : OFFLINE_MESSAGE}
+              aria-describedby={online ? undefined : OFFLINE_REASON_ID}
+            >
+              Add a colleague
+            </Button>
+            {online ? null : (
+              <p id={OFFLINE_REASON_ID} className="text-sm font-medium text-destructive">
+                {OFFLINE_MESSAGE}
+              </p>
+            )}
+          </div>
+        ) : null}
+        {addingStaff ? <StaffDialog onClose={() => setAddingStaff(false)} /> : null}
+      </div>
+    )
   }
 
   return (

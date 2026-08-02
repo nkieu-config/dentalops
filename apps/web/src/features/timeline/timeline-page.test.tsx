@@ -647,4 +647,134 @@ describe("TimelinePage", () => {
     expect(card.className).toContain("appointment-arrive")
     expect(screen.getByText("A new booking just arrived on this day")).toBeInTheDocument()
   })
+
+  describe("a clinic with no dentists yet", () => {
+    const emptyClinic = (staff: () => unknown[]) => [
+      http.get(`${API}/branches`, () =>
+        HttpResponse.json([{ id: branchId, name: "Sukhumvit", openingHours: {} }])
+      ),
+      http.get(`${API}/staff`, () => HttpResponse.json(staff())),
+      http.get(`${API}/shifts`, () => HttpResponse.json([])),
+      http.get(`${API}/appointments`, () => HttpResponse.json([]))
+    ]
+
+    it("shows skeletons, not an empty clinic, while the staff list is still loading", async () => {
+      let releaseStaff = () => {}
+      const staffArrived = new Promise<void>((resolve) => {
+        releaseStaff = resolve
+      })
+      server.use(
+        http.get(`${API}/branches`, () =>
+          HttpResponse.json([{ id: branchId, name: "Sukhumvit", openingHours: {} }])
+        ),
+        http.get(`${API}/shifts`, () => HttpResponse.json([])),
+        http.get(`${API}/availability`, () => HttpResponse.json({ slots: [] })),
+        http.get(`${API}/appointments`, () => HttpResponse.json([])),
+        http.get(`${API}/staff`, async () => {
+          await staffArrived
+          return HttpResponse.json([{ id: dentistId, name: "Dr. Anong", role: "dentist", isActive: true }])
+        })
+      )
+      mount("owner")
+
+      await new Promise((resolve) => setTimeout(resolve, 150))
+      expect(document.querySelectorAll(".animate-pulse").length).toBeGreaterThan(0)
+      expect(screen.queryByText("No dentists yet")).not.toBeInTheDocument()
+
+      releaseStaff()
+      expect(await screen.findByTestId(`overlay-${dentistId}`)).toBeInTheDocument()
+      expect(screen.queryByText("No dentists yet")).not.toBeInTheDocument()
+    })
+
+    it("tells an owner what to do and offers the doing", async () => {
+      let staff: unknown[] = []
+      const posted: unknown[] = []
+      server.use(
+        ...emptyClinic(() => staff),
+        http.post(`${API}/staff`, async ({ request }) => {
+          posted.push(await request.json())
+          staff = [{ id: dentistId, name: "Dr. Anong", role: "dentist", isActive: true }]
+          return HttpResponse.json({
+            id: dentistId,
+            name: "Dr. Anong",
+            role: "dentist",
+            isActive: true
+          })
+        })
+      )
+      mount("owner")
+
+      expect(await screen.findByText("No dentists yet")).toBeInTheDocument()
+      expect(
+        screen.getByText("Add your first colleague to start building a schedule")
+      ).toBeInTheDocument()
+      expect(screen.queryByTestId("timegrid-scroll")).not.toBeInTheDocument()
+
+      await userEvent.click(screen.getByRole("button", { name: "Add a colleague" }))
+      const dialog = await screen.findByRole("dialog")
+      expect(dialog).toHaveTextContent("Add a colleague")
+
+      await userEvent.type(screen.getByLabelText("Name"), "Dr. Anong")
+      await userEvent.type(screen.getByLabelText("Email"), "anong@brightsmile.test")
+      await userEvent.type(screen.getByLabelText("Password"), "correct-horse")
+      await userEvent.click(screen.getByRole("button", { name: "Add colleague" }))
+
+      await waitFor(() =>
+        expect(posted).toEqual([
+          {
+            name: "Dr. Anong",
+            email: "anong@brightsmile.test",
+            password: "correct-horse",
+            role: "dentist"
+          }
+        ])
+      )
+      expect(await screen.findByTestId(`col-${dentistId}`)).toBeInTheDocument()
+      expect(screen.queryByText("No dentists yet")).not.toBeInTheDocument()
+    })
+
+    it("gives a receptionist the same explanation without a button she cannot use", async () => {
+      server.use(...emptyClinic(() => []))
+      mount("receptionist")
+
+      expect(await screen.findByText("No dentists yet")).toBeInTheDocument()
+      expect(
+        screen.getByText("Add your first colleague to start building a schedule")
+      ).toBeInTheDocument()
+      expect(screen.queryByRole("button", { name: "Add a colleague" })).not.toBeInTheDocument()
+    })
+
+    it("withdraws the add affordance while the browser is offline", async () => {
+      server.use(...emptyClinic(() => []))
+      mount("owner")
+
+      await screen.findByText("No dentists yet")
+      const add = screen.getByRole("button", { name: "Add a colleague" })
+      expect(add).toBeEnabled()
+
+      goOffline()
+      expect(screen.getByRole("button", { name: "Add a colleague" })).toBeDisabled()
+      expect(screen.getByRole("button", { name: "Add a colleague" })).toHaveAccessibleDescription(
+        /offline/
+      )
+
+      goOnline()
+      expect(screen.getByRole("button", { name: "Add a colleague" })).toBeEnabled()
+    })
+
+    it("never shows the first-run prompt to the seeded demo clinic", async () => {
+      server.use(
+        ...directory([
+          { id: dentistId, name: "Somchai Wattana" },
+          { id: otherDentistId, name: "Ploy Siriwan" }
+        ]),
+        http.get(`${API}/appointments`, () => HttpResponse.json([]))
+      )
+      mount("owner")
+
+      expect(await screen.findByTestId(`col-${dentistId}`)).toBeInTheDocument()
+      expect(screen.queryByText("No dentists yet")).not.toBeInTheDocument()
+      expect(screen.queryByRole("button", { name: "Add a colleague" })).not.toBeInTheDocument()
+    })
+  })
 })

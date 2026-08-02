@@ -87,6 +87,36 @@ describe("demo reset", () => {
     expect(attached).toBeGreaterThan(10)
   })
 
+  it("keeps every shift at the branch its series claims", async () => {
+    const tenant = await prisma.tenant.findUniqueOrThrow({ where: { slug: "demo-clinic" } })
+    const allSeries = await prisma.shiftSeries.findMany({ where: { tenantId: tenant.id } })
+    expect(allSeries.length).toBeGreaterThan(0)
+
+    for (const series of allSeries) {
+      const elsewhere = await prisma.shift.count({
+        where: { seriesId: series.id, branchId: { not: series.branchId } }
+      })
+      expect(elsewhere).toBe(0)
+    }
+  })
+
+  it("never puts two dentists on the same chair at the same branch", async () => {
+    const tenant = await prisma.tenant.findUniqueOrThrow({ where: { slug: "demo-clinic" } })
+    const overlaps = await prisma.$queryRaw<Array<{ count: bigint }>>`
+      SELECT count(*)::bigint AS count
+      FROM resource_claims a
+      JOIN resource_claims b
+        ON a.resource_id = b.resource_id
+       AND a.appointment_id < b.appointment_id
+       AND a.starts_at < b.ends_at
+       AND b.starts_at < a.ends_at
+      WHERE a.tenant_id = ${tenant.id}::uuid
+        AND a.status = 'active'
+        AND b.status = 'active'
+    `
+    expect(Number(overlaps[0]?.count ?? 0)).toBe(0)
+  })
+
   it("leaves other tenants untouched when the demo tenant is rebuilt", async () => {
     const tenant = await prisma.tenant.findUnique({ where: { slug: otherSlug } })
     expect(tenant).not.toBeNull()

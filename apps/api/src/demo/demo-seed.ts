@@ -206,11 +206,13 @@ export async function seedDemoTenant(client: PrismaClient): Promise<DemoSeedCoun
   const xrayBusy = new Map<string, [number, number][]>()
   const midnightUtc = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate())
 
+  const branchForDentist = (dentistIndex: number) => branches[dentistIndex % branches.length]
+
   const seriesByDentist = new Map<string, string>()
   for (const [dentistIndex, dentistId] of dentistIds.entries()) {
     const pattern = SHIFT_PATTERNS[dentistIndex]
     if (!pattern) continue
-    const branch = branches[dentistIndex % branches.length]
+    const branch = branchForDentist(dentistIndex)
     if (!branch) continue
     const series = await prisma.shiftSeries.create({
       data: {
@@ -255,7 +257,7 @@ export async function seedDemoTenant(client: PrismaClient): Promise<DemoSeedCoun
       const pattern = SHIFT_PATTERNS[dentistIndex]
       if (!pattern || !pattern.weekdays.includes(weekday)) continue
 
-      const branch = branches[(offset + SEED_WINDOW_DAYS + dentistIndex) % branches.length]
+      const branch = branchForDentist(dentistIndex)
       if (!branch) continue
       const chairs = chairsByBranch.get(branch.id)
       const xrayId = xrayByBranch.get(branch.id)

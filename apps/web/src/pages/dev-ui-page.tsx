@@ -3,7 +3,8 @@ import type {
   AppointmentStatus,
   AvailabilitySlot,
   Shift,
-  StaffMember
+  StaffMember,
+  Violation
 } from "@dentalops/contracts"
 import { AlertTriangle, CalendarX, ServerCrash, WifiOff } from "lucide-react"
 import { useMemo, useState } from "react"
@@ -16,6 +17,8 @@ import { Skeleton } from "../components/ui/skeleton"
 import { CountdownBanner } from "../features/booking/countdown-banner"
 import { SlotStep } from "../features/booking/steps/slot-step"
 import type { WizardRecovery } from "../features/booking/wizard-reducer"
+import { ShiftBlock } from "../features/roster/shift-block"
+import { ViolationList, type ViolationLink } from "../features/roster/violation-list"
 import { AppointmentCard } from "../features/timeline/appointment-card"
 import { bkkDayStart } from "../features/timeline/lib/geometry"
 import { layoutByDentist } from "../features/timeline/lib/lanes"
@@ -319,6 +322,88 @@ const PerfSection = () => {
   )
 }
 
+const rosterStaffName = (staffId: string) =>
+  laneDentists.find((member) => member.id === staffId)?.name ?? "Unknown staff"
+
+interface ShiftStateFixture {
+  testId: string
+  label: string
+  shift: Shift
+  conflicting?: boolean
+  dragging?: boolean
+}
+
+const shiftStates: ShiftStateFixture[] = [
+  { testId: "shift-state-saved", label: "Saved", shift: shiftFor(laneDentists[0]!, 9, 17, 30) },
+  {
+    testId: "shift-state-dragging",
+    label: "Dragging — live validating",
+    shift: shiftFor(laneDentists[0]!, 9, 17, 31),
+    dragging: true
+  },
+  {
+    testId: "shift-state-recurring",
+    label: "Recurring",
+    shift: { ...shiftFor(laneDentists[0]!, 9, 13, 32), seriesId: uuid(400) }
+  },
+  {
+    testId: "shift-state-conflicting",
+    label: "Conflicting",
+    shift: shiftFor(laneDentists[1]!, 13, 20, 33),
+    conflicting: true
+  }
+]
+
+const outsideShiftViolation: Violation = {
+  rule: "appointment_outside_shift",
+  severity: "block",
+  staffId: laneDentists[0]!.id,
+  detail: "2 confirmed appointments fall outside the rostered shifts",
+  appointmentIds: [uuid(101), uuid(102)]
+}
+
+const weeklyHoursViolation: Violation = {
+  rule: "weekly_hours_exceeded",
+  severity: "warn",
+  staffId: laneDentists[0]!.id,
+  detail: `3060 minutes rostered in the week of ${GALLERY_DATE}, over the 2880 minute limit`
+}
+
+const restViolation: Violation = {
+  rule: "insufficient_rest",
+  severity: "warn",
+  staffId: laneDentists[1]!.id,
+  detail: "540 minutes of rest before the next shift, under the 660 minute minimum"
+}
+
+const violationLink = (violation: Violation): ViolationLink | null => {
+  const ids = violation.appointmentIds ?? []
+  if (ids.length === 0) return null
+  return {
+    href: `/app/timeline?d=${GALLERY_DATE}&b=${uuid(900)}`,
+    label: `View ${ids.length} appointments`
+  }
+}
+
+const violationStates: { testId: string; label: string; violations: Violation[] }[] = [
+  { testId: "violations-state-clean", label: "Clean", violations: [] },
+  {
+    testId: "violations-state-warnings",
+    label: "Warnings only",
+    violations: [weeklyHoursViolation, restViolation]
+  },
+  {
+    testId: "violations-state-blocking",
+    label: "Blocking",
+    violations: [outsideShiftViolation]
+  },
+  {
+    testId: "violations-state-mixed",
+    label: "Mixed",
+    violations: [outsideShiftViolation, weeklyHoursViolation, restViolation]
+  }
+]
+
 export const DevUiPage = () => (
   <div className="mx-auto max-w-4xl space-y-10 p-8">
     <h1 className="text-2xl font-semibold">/dev/ui</h1>
@@ -455,6 +540,55 @@ export const DevUiPage = () => (
     </section>
     <PerfSection />
     <section className="space-y-3">
+      <h2 className="text-lg font-semibold">ShiftBlock</h2>
+      <p className="text-sm text-muted-foreground">
+        The roster grid is categorical — rows are staff, columns are days — so a block states its
+        hours instead of encoding them as a height. A shift from a series badges it, a conflicting
+        shift takes a destructive ring plus an icon rather than colour alone, and a dragging shift
+        goes dashed while <code>POST /roster/validate</code> answers.
+      </p>
+      <div data-testid="shift-states" className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        {shiftStates.map(({ testId, label, shift, conflicting, dragging }) => (
+          <div key={testId} className="space-y-2 rounded-md border border-border p-3">
+            <p className="text-xs font-medium text-muted-foreground">{label}</p>
+            <div data-testid={testId}>
+              <ShiftBlock
+                shift={shift}
+                staffName={rosterStaffName(shift.staffId)}
+                onEdit={noop}
+                onMoveStart={noop}
+                conflicting={conflicting}
+                dragging={dragging}
+              />
+            </div>
+          </div>
+        ))}
+      </div>
+    </section>
+    <section className="space-y-3">
+      <h2 className="text-lg font-semibold">ViolationList</h2>
+      <p className="text-sm text-muted-foreground">
+        Blocking violations carry <code>--destructive</code> and warnings <code>--warning</code>,
+        each with its own icon and a count. Blocking always sorts above warnings because only
+        blocking disables Save, and a violation that names appointments links to them on the
+        timeline.
+      </p>
+      <div className="grid gap-4 sm:grid-cols-2">
+        {violationStates.map(({ testId, label, violations }) => (
+          <div key={testId} className="space-y-2 rounded-md border border-border p-3">
+            <p className="text-xs font-medium text-muted-foreground">{label}</p>
+            <div data-testid={testId}>
+              <ViolationList
+                violations={violations}
+                staffName={rosterStaffName}
+                linkFor={violationLink}
+              />
+            </div>
+          </div>
+        ))}
+      </div>
+    </section>
+    <section className="space-y-3">
       <h2 className="text-lg font-semibold">Empty and error states</h2>
       <div className="grid gap-4 sm:grid-cols-2">
         <div className="rounded-md border border-border">
@@ -480,9 +614,9 @@ export const DevUiPage = () => (
       </div>
     </section>
     <section className="space-y-2">
-      <h2 className="text-lg font-semibold">Arriving later</h2>
+      <h2 className="text-lg font-semibold">Inventory</h2>
       <p className="text-sm text-muted-foreground">
-        ViolationList · ShiftBlock — W7
+        Every component in MASTER §6 is on this page — nothing outstanding.
       </p>
     </section>
   </div>

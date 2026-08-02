@@ -6,7 +6,7 @@ Multi-tenant appointment and roster scheduling for dental clinics — double-boo
 
 **Live:** https://trydentalops.vercel.app · **API health:** https://dentalops-api.onrender.com/api/v1/health
 
-> **Status: Week 0 of 8.** The walking skeleton is deployed — every layer of the stack is wired end to end and green in CI, but the product features are not built yet. Follow the design doc below to see where this is going.
+> **Status: Week 6 of 8.** Staff scheduling and public booking are live. Patients book from a phone with no account; the slot is held in Redis for five minutes and the booking appears on the front-desk timeline over Socket.IO without a reload. Remaining: recurrence and rostering (W7), then measurement and optimisation (W8).
 
 ## What this is
 
@@ -24,7 +24,9 @@ Three things carry the weight:
 |---|---|
 | [Design](docs/superpowers/specs/dentalops-design.md) | Scope, architecture decisions and rejected alternatives, data model, API surface, UX flows, testing strategy, 8-week plan |
 | [Design system](docs/design-system/MASTER.md) | Tokens, breakpoint map, wireframes for the three flagship screens |
-| [W0 plan](docs/superpowers/plans/w0-foundation.md) | Task-by-task implementation plan for the foundation |
+| [Booking](docs/booking.md) | How a booking happens, lock ordering, status semantics, idempotency, and the public hold lifecycle |
+| [Availability](docs/availability.md) | The three correctness layers, what a slot requires, and why chairs are matched per-unit |
+| [Plans](docs/superpowers/plans/) | Task-by-task implementation plans, W0 through W6 |
 
 ## Stack
 
@@ -40,7 +42,6 @@ Three things carry the weight:
 ## Development
 
 ```bash
-corepack enable
 pnpm install
 docker compose up -d      # postgres 16, mongodb 7, redis 7
 cp .env.example .env      # then fill in the connection strings

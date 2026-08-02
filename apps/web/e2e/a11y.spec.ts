@@ -79,7 +79,12 @@ test.describe("landing and public booking", () => {
       await expectClean(page)
 
       await page.getByTestId("any-dentist-option").click()
-      await page.waitForSelector("[data-testid='group-morning'], [data-testid='slot-skeleton']")
+      await expect(
+        page
+          .locator("[data-testid^='group-']")
+          .or(page.getByText("No free slots this day"))
+          .first()
+      ).toBeVisible()
       await expectClean(page)
     })
   }

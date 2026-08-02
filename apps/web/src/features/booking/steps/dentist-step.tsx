@@ -61,7 +61,7 @@ export const DentistStep = ({ dentists, onChoose }: DentistStepProps) => (
       ))}
     </ul>
     <p className="text-base text-muted-foreground">
-      Pick anyone, or let the clinic book you with the first dentist free at the time you choose.
+      Pick anyone, or let the clinic give you whichever dentist has the lightest day.
     </p>
   </div>
 )

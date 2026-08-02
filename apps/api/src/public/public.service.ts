@@ -28,6 +28,12 @@ const PUBLIC_APPOINTMENT_SELECT = {
   patient: { select: { id: true, name: true } }
 } satisfies Prisma.AppointmentSelect
 
+interface PublicSlot {
+  dentistId: string
+  startsAt: string
+  endsAt: string
+}
+
 export interface PublicClinic {
   id: string
   name: string
@@ -44,6 +50,31 @@ export const bkkDayWindow = (date: string): { from: number; to: number } => {
   }
   const from = utcMidnight - BKK_OFFSET_MS
   return { from, to: from + DAY_MS }
+}
+
+const isLighterLoad = (
+  candidate: PublicSlot,
+  incumbent: PublicSlot,
+  bookedMinutes: Map<string, number>
+): boolean => {
+  const candidateLoad = bookedMinutes.get(candidate.dentistId) ?? 0
+  const incumbentLoad = bookedMinutes.get(incumbent.dentistId) ?? 0
+  if (candidateLoad !== incumbentLoad) return candidateLoad < incumbentLoad
+  return candidate.dentistId < incumbent.dentistId
+}
+
+export const leastBookedPerStart = (
+  slots: PublicSlot[],
+  bookedMinutes: Map<string, number>
+): PublicSlot[] => {
+  const chosen = new Map<string, PublicSlot>()
+  for (const slot of slots) {
+    const incumbent = chosen.get(slot.startsAt)
+    if (!incumbent || isLighterLoad(slot, incumbent, bookedMinutes)) {
+      chosen.set(slot.startsAt, slot)
+    }
+  }
+  return [...chosen.values()].sort((a, b) => a.startsAt.localeCompare(b.startsAt))
 }
 
 @Injectable()
@@ -103,16 +134,53 @@ export class PublicService {
       window.to,
       query.exceptHoldId
     )
-    if (held.size === 0) return { slots }
+    const free =
+      held.size === 0
+        ? slots
+        : slots.filter((slot) => {
+            const taken = held.get(slot.dentistId)
+            if (!taken) return true
+            const spanned = spannedSlotIndexes(Date.parse(slot.startsAt), Date.parse(slot.endsAt))
+            return !spanned.some((index) => taken.has(index))
+          })
 
-    return {
-      slots: slots.filter((slot) => {
-        const taken = held.get(slot.dentistId)
-        if (!taken) return true
-        const spanned = spannedSlotIndexes(Date.parse(slot.startsAt), Date.parse(slot.endsAt))
-        return !spanned.some((index) => taken.has(index))
-      })
+    if (query.dentistId) return { slots: free }
+    return { slots: await this.assignLeastBookedDentist(free, window) }
+  }
+
+  private async assignLeastBookedDentist(
+    slots: PublicSlot[],
+    window: { from: number; to: number }
+  ): Promise<PublicSlot[]> {
+    const dentistIds = [...new Set(slots.map((slot) => slot.dentistId))]
+    if (dentistIds.length < 2) return slots
+    return leastBookedPerStart(slots, await this.bookedMinutesByDentist(dentistIds, window))
+  }
+
+  private async bookedMinutesByDentist(
+    dentistIds: string[],
+    window: { from: number; to: number }
+  ): Promise<Map<string, number>> {
+    const booked = await this.prisma.scoped.appointment.findMany({
+      where: {
+        dentistId: { in: dentistIds },
+        status: "confirmed",
+        startsAt: { lt: new Date(window.to) },
+        endsAt: { gt: new Date(window.from) }
+      },
+      select: { dentistId: true, startsAt: true, endsAt: true }
+    })
+
+    const minutes = new Map<string, number>(dentistIds.map((id) => [id, 0]))
+    for (const appointment of booked) {
+      const start = Math.max(appointment.startsAt.getTime(), window.from)
+      const end = Math.min(appointment.endsAt.getTime(), window.to)
+      minutes.set(
+        appointment.dentistId,
+        (minutes.get(appointment.dentistId) ?? 0) + (end - start) / 60_000
+      )
     }
+    return minutes
   }
 
   async createHold(body: CreateHoldDto) {

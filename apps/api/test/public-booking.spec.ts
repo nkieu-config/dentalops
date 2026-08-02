@@ -12,9 +12,12 @@ import { expectStatus } from "./utils/expect-status"
 
 const THROTTLER_KEY_PATTERN = "*:default}:*"
 const BKK_DATE = "2027-06-07"
+const TIE_DATE = "2027-06-08"
 const DURATION_MIN = 45
 
-const utc = (hour: number, minute = 0) => new Date(Date.UTC(2027, 5, 7, hour, minute)).toISOString()
+const utcOn = (day: number, hour: number, minute = 0) =>
+  new Date(Date.UTC(2027, 5, day, hour, minute)).toISOString()
+const utc = (hour: number, minute = 0) => utcOn(7, hour, minute)
 
 interface Clinic {
   slug: string
@@ -23,6 +26,15 @@ interface Clinic {
   serviceId: string
   dentistId: string
   ownerToken: string
+}
+
+interface PairClinic {
+  slug: string
+  tenantId: string
+  branchId: string
+  serviceId: string
+  busyDentistId: string
+  lightDentistId: string
 }
 
 interface PublicAppointment {
@@ -49,8 +61,10 @@ describe("public booking confirm and manage links", () => {
   let jwt: JwtService
   let alpha: Clinic
   let beta: Clinic
+  let gamma: PairClinic
   const alphaSlug = `book-alpha-${Date.now()}`
   const betaSlug = `book-beta-${Date.now()}`
+  const gammaSlug = `book-gamma-${Date.now()}`
 
   const clearThrottleState = async () => {
     const keys = await redis.keys(THROTTLER_KEY_PATTERN)
@@ -98,6 +112,109 @@ describe("public booking confirm and manage links", () => {
       dentistId: dentist.id,
       ownerToken: signup.body.accessToken as string
     }
+  }
+
+  const provisionPair = async (slug: string, email: string): Promise<PairClinic> => {
+    const signup = await request(server).post("/auth/signup").send({
+      clinicName: `Load ${slug}`,
+      slug,
+      email,
+      password: "s3cure-pass",
+      name: "Load Owner"
+    })
+    expectStatus(signup, 200)
+    const tenantId = signup.body.user.tenantId as string
+
+    const branch = await prisma.branch.findFirstOrThrow({ where: { tenantId } })
+    const service = await prisma.service.create({
+      data: { tenantId, name: "Load Probe", durationMin: DURATION_MIN, bufferMin: 0 }
+    })
+    const [busy, light] = await Promise.all(
+      ["Dr. Busy", "Dr. Light"].map((name, index) =>
+        prisma.user.create({
+          data: {
+            tenantId,
+            email: `dentist-${index}@${slug}.local`,
+            passwordHash: "x",
+            name,
+            role: "dentist"
+          }
+        })
+      )
+    )
+    const patient = await prisma.patient.create({
+      data: {
+        tenantId,
+        name: "Load Patient",
+        phone: "0800000000",
+        email: `load@${slug}.local`
+      }
+    })
+
+    await prisma.shift.createMany({
+      data: [busy!.id, light!.id].flatMap((staffId) =>
+        [7, 8].map((day) => ({
+          tenantId,
+          staffId,
+          branchId: branch.id,
+          startsAt: new Date(utcOn(day, 2)),
+          endsAt: new Date(utcOn(day, 13))
+        }))
+      )
+    })
+
+    const book = (
+      dentistId: string,
+      day: number,
+      hour: number,
+      status: "confirmed" | "cancelled"
+    ) =>
+      prisma.appointment.create({
+        data: {
+          tenantId,
+          branchId: branch.id,
+          serviceId: service.id,
+          dentistId,
+          patientId: patient.id,
+          startsAt: new Date(utcOn(day, hour)),
+          endsAt: new Date(utcOn(day, hour, 45)),
+          status
+        }
+      })
+
+    await Promise.all([
+      book(busy!.id, 7, 2, "confirmed"),
+      book(busy!.id, 7, 3, "confirmed"),
+      book(busy!.id, 7, 4, "confirmed"),
+      book(light!.id, 7, 2, "confirmed"),
+      book(light!.id, 7, 3, "cancelled"),
+      book(light!.id, 7, 4, "cancelled"),
+      book(light!.id, 7, 5, "cancelled"),
+      book(busy!.id, 8, 2, "confirmed"),
+      book(light!.id, 8, 2, "confirmed")
+    ])
+
+    return {
+      slug,
+      tenantId,
+      branchId: branch.id,
+      serviceId: service.id,
+      busyDentistId: busy!.id,
+      lightDentistId: light!.id
+    }
+  }
+
+  const publicSlots = async (clinic: PairClinic, date: string, dentistId?: string) => {
+    const res = await request(server)
+      .get(`/public/${clinic.slug}/availability`)
+      .query({
+        serviceId: clinic.serviceId,
+        branchId: clinic.branchId,
+        date,
+        ...(dentistId ? { dentistId } : {})
+      })
+    expectStatus(res, 200)
+    return availabilityResponseSchema.parse(res.body).slots
   }
 
   const startsOf = async (clinic: Clinic) => {
@@ -151,16 +268,51 @@ describe("public booking confirm and manage links", () => {
     await clearThrottleState()
     alpha = await provision(alphaSlug, "owner@book-alpha.local")
     beta = await provision(betaSlug, "owner@book-beta.local")
+    gamma = await provisionPair(gammaSlug, "owner@book-gamma.local")
   })
 
   afterAll(async () => {
     await clearThrottleState()
-    await prisma.tenant.deleteMany({ where: { slug: { in: [alphaSlug, betaSlug] } } })
+    await prisma.tenant.deleteMany({
+      where: { slug: { in: [alphaSlug, betaSlug, gammaSlug] } }
+    })
     await app.close()
   })
 
   beforeEach(async () => {
     await clearThrottleState()
+  })
+
+  it("hands every any-dentist slot to the dentist carrying the fewest confirmed minutes", async () => {
+    const slots = await publicSlots(gamma, BKK_DATE)
+
+    expect(slots.length).toBeGreaterThan(0)
+    expect(new Set(slots.map((slot) => slot.dentistId))).toEqual(
+      new Set([gamma.lightDentistId])
+    )
+    expect(new Set(slots.map((slot) => slot.startsAt)).size).toBe(slots.length)
+
+    const lightAlone = await publicSlots(gamma, BKK_DATE, gamma.lightDentistId)
+    expect(slots.map((slot) => slot.startsAt)).toEqual(
+      lightAlone.map((slot) => slot.startsAt)
+    )
+  })
+
+  it("returns the named dentist's own slots untouched when the patient chose one", async () => {
+    const slots = await publicSlots(gamma, BKK_DATE, gamma.busyDentistId)
+
+    expect(slots.length).toBeGreaterThan(0)
+    expect(new Set(slots.map((slot) => slot.dentistId))).toEqual(new Set([gamma.busyDentistId]))
+    expect(slots[0]!.startsAt).toBe(utc(4, 45))
+    expect(slots.map((slot) => slot.startsAt)).toContain(utc(5))
+  })
+
+  it("breaks an equal load on dentistId so the assignment never flaps", async () => {
+    const slots = await publicSlots(gamma, TIE_DATE)
+    const lowest = [gamma.busyDentistId, gamma.lightDentistId].sort()[0]
+
+    expect(slots.length).toBeGreaterThan(0)
+    expect(new Set(slots.map((slot) => slot.dentistId))).toEqual(new Set([lowest]))
   })
 
   it("confirms a held slot into a booking, consumes the hold, and returns a manage token", async () => {

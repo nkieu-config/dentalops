@@ -44,6 +44,13 @@ export const canManageRoster = (current: AuthSession | null): boolean =>
 
 export const useCanManageRoster = (): boolean => canManageRoster(useSession())
 
+const activityRoles: ReadonlySet<UserRole> = new Set<UserRole>(["owner"])
+
+export const canViewActivity = (current: AuthSession | null): boolean =>
+  current !== null && activityRoles.has(current.user.role)
+
+export const useCanViewActivity = (): boolean => canViewActivity(useSession())
+
 let refreshing: Promise<AuthSession | null> | null = null
 
 export const refreshSession = (): Promise<AuthSession | null> => {

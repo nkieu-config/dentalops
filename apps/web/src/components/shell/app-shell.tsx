@@ -3,7 +3,7 @@ import { CalendarDays, ClipboardList, History, Moon, Settings, Users } from "luc
 import type { LucideIcon } from "lucide-react"
 import { NavLink, Outlet, useNavigate } from "react-router"
 import { cn } from "../../lib/cn"
-import { canManageRoster, isDemo, logout, useSession } from "../../lib/session"
+import { canManageRoster, canViewActivity, isDemo, logout, useSession } from "../../lib/session"
 import { toggleTheme } from "../../lib/theme"
 import { Button } from "../ui/button"
 
@@ -17,7 +17,7 @@ interface NavItem {
 const navItems: NavItem[] = [
   { to: "/app/timeline", label: "Timeline", icon: CalendarDays },
   { to: "/app/roster", label: "Roster", icon: ClipboardList, visible: canManageRoster },
-  { to: "/app/activity", label: "Activity", icon: History, visible: canManageRoster },
+  { to: "/app/activity", label: "Activity", icon: History, visible: canViewActivity },
   { to: "/app/patients", label: "Patients", icon: Users },
   { to: "/app/settings", label: "Settings", icon: Settings }
 ]

@@ -2,7 +2,7 @@ import type { UserRole } from "@dentalops/contracts"
 import { render, screen } from "@testing-library/react"
 import { MemoryRouter, Route, Routes } from "react-router"
 import { afterEach, describe, expect, it } from "vitest"
-import { canManageRoster, setSession } from "../../lib/session"
+import { canManageRoster, canViewActivity, setSession } from "../../lib/session"
 import { AppShell, visibleNavItems } from "./app-shell"
 
 const sessionFor = (role: UserRole) => ({
@@ -58,12 +58,15 @@ describe("AppShell navigation", () => {
   })
 
   it("guards every gated destination with the predicate its route uses", () => {
-    const gated = ["/app/roster", "/app/activity"]
+    const gated = [
+      { to: "/app/roster", allows: canManageRoster },
+      { to: "/app/activity", allows: canViewActivity }
+    ]
     for (const role of ["owner", "receptionist", "dentist"] as const) {
       const session = sessionFor(role)
       const shown = visibleNavItems(session).map((item) => item.to)
-      for (const destination of gated) {
-        expect(shown.includes(destination)).toBe(canManageRoster(session))
+      for (const { to, allows } of gated) {
+        expect(shown.includes(to)).toBe(allows(session))
       }
     }
   })

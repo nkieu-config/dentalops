@@ -6,7 +6,7 @@ import { Button } from "../../components/ui/button"
 import { EmptyState } from "../../components/ui/empty-state"
 import { Skeleton } from "../../components/ui/skeleton"
 import { api } from "../../lib/api"
-import { useCanManageRoster } from "../../lib/session"
+import { useCanViewActivity } from "../../lib/session"
 import { bkkDate, fmtDay, fmtTime } from "../timeline/lib/geometry"
 
 const PAGE_SIZE = 25
@@ -180,4 +180,4 @@ export const ActivityPage = () => {
 }
 
 export const ActivityRoute = () =>
-  useCanManageRoster() ? <ActivityPage /> : <Navigate to="/app/timeline" replace />
+  useCanViewActivity() ? <ActivityPage /> : <Navigate to="/app/timeline" replace />

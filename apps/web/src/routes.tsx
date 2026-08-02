@@ -2,6 +2,7 @@ import { createBrowserRouter, Navigate } from "react-router"
 import { AppShell } from "./components/shell/app-shell"
 import { RequireAuth } from "./components/shell/require-auth"
 import { BookingPage } from "./features/booking/booking-page"
+import { ManagePage } from "./features/booking/manage-page"
 import { TimelinePage } from "./features/timeline/timeline-page"
 import { DevUiPage } from "./pages/dev-ui-page"
 import { LandingPage } from "./pages/landing-page"
@@ -13,6 +14,7 @@ const Placeholder = ({ label }: { label: string }) => (
 export const router = createBrowserRouter([
   { path: "/", element: <LandingPage /> },
   { path: "/book/:clinicSlug", element: <BookingPage /> },
+  { path: "/manage/:token", element: <ManagePage /> },
   {
     path: "/app",
     element: (

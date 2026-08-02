@@ -3,11 +3,13 @@ import { render, screen, waitFor } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { MemoryRouter } from "react-router"
 import { Toaster, toast } from "sonner"
-import { afterEach, describe, expect, it } from "vitest"
+import { afterEach, describe, expect, it, vi } from "vitest"
 import { setSession } from "../../lib/session"
 import { API, http, HttpResponse, server } from "../../test/msw"
 import { setViewport, type Viewport } from "../../test/viewport"
 import { TimelinePage } from "./timeline-page"
+
+vi.mock("socket.io-client", async () => await import("../../test/socket-io-stub"))
 
 const branchId = "1f9619ff-8b86-4d01-b42d-00cf4fc964ff"
 const anongId = "2f9619ff-8b86-4d01-b42d-00cf4fc964ff"

@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react"
 import { useSearchParams } from "react-router"
 import { EmptyState } from "../../components/ui/empty-state"
 import { Skeleton } from "../../components/ui/skeleton"
+import { useRealtime } from "../../lib/realtime"
 import { useCanBook } from "../../lib/session"
 import { useMediaQuery } from "../../lib/use-media-query"
 import { AgendaView } from "./agenda-view"
@@ -22,6 +23,7 @@ import { useGridKeyboard } from "./use-grid-keyboard"
 import { useRescheduleAppointment } from "./use-reschedule"
 
 const CONFLICT_HIGHLIGHT_MS = 2500
+const ARRIVAL_HIGHLIGHT_MS = 1500
 
 type TimelineMode = "sm" | "md" | "lg"
 
@@ -73,6 +75,7 @@ export const TimelinePage = () => {
   const [selected, setSelected] = useState<Appointment | null>(null)
   const [draft, setDraft] = useState<CreateDraft | null>(null)
   const [conflictId, setConflictId] = useState<string | null>(null)
+  const [arrivedId, setArrivedId] = useState<string | null>(null)
   const [announcement, setAnnouncement] = useState("")
   const [hiddenColumns, setHiddenColumns] = useState<ReadonlySet<string>>(() => new Set())
   const canCreate = useCanBook()
@@ -95,6 +98,19 @@ export const TimelinePage = () => {
     queryKey: dayKey,
     onConflict: setConflictId,
     onAnnounce: setAnnouncement
+  })
+
+  useRealtime({
+    branchId,
+    queryKey: dayKey,
+    onChange: (event) => {
+      if (event.action !== "created") {
+        setAnnouncement("A booking on this day changed")
+        return
+      }
+      setArrivedId(event.appointmentId)
+      setAnnouncement("A new booking just arrived on this day")
+    }
   })
 
   const keyboard = useGridKeyboard({ reschedule, isBusy })
@@ -124,6 +140,12 @@ export const TimelinePage = () => {
     const timer = setTimeout(() => setConflictId(null), CONFLICT_HIGHLIGHT_MS)
     return () => clearTimeout(timer)
   }, [conflictId])
+
+  useEffect(() => {
+    if (arrivedId === null) return
+    const timer = setTimeout(() => setArrivedId(null), ARRIVAL_HIGHLIGHT_MS)
+    return () => clearTimeout(timer)
+  }, [arrivedId])
 
   const onChange = (next: { date?: string; branchId?: string }) => {
     const merged = new URLSearchParams(params)
@@ -196,6 +218,7 @@ export const TimelinePage = () => {
                 onResizeStart={canCreate ? drag.startResize(a) : undefined}
                 dimmed={drag.preview?.id === a.id}
                 conflict={conflictId === a.id}
+                arrived={arrivedId === a.id}
               />
             )}
             columnPreview={(dentist, ds) =>

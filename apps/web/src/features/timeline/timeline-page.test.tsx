@@ -1,13 +1,17 @@
 import type { UserRole } from "@dentalops/contracts"
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
-import { fireEvent, render, screen, waitFor } from "@testing-library/react"
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { MemoryRouter } from "react-router"
 import { Toaster, toast } from "sonner"
-import { afterEach, describe, expect, it } from "vitest"
+import { afterEach, describe, expect, it, vi } from "vitest"
+import { APPOINTMENT_CHANGED } from "../../lib/realtime"
 import { setSession } from "../../lib/session"
 import { API, http, HttpResponse, server } from "../../test/msw"
+import { fireSocketEvent, resetSocketMock } from "../../test/socket-io-stub"
 import { TimelinePage } from "./timeline-page"
+
+vi.mock("socket.io-client", async () => await import("../../test/socket-io-stub"))
 
 const branchId = "1f9619ff-8b86-4d01-b42d-00cf4fc964ff"
 const dentistId = "2f9619ff-8b86-4d01-b42d-00cf4fc964ff"
@@ -69,7 +73,10 @@ const mount = (role: UserRole = "receptionist") => {
   )
 }
 
-afterEach(() => toast.dismiss())
+afterEach(() => {
+  toast.dismiss()
+  resetSocketMock()
+})
 
 describe("TimelinePage", () => {
   it("renders the grid for the branch and day in the url", async () => {
@@ -409,5 +416,27 @@ describe("TimelinePage", () => {
 
     mount("receptionist")
     expect(await screen.findByTestId(`overlay-${dentistId}`)).toBeInTheDocument()
+  })
+
+  it("shows a phone booking arrive over realtime, animated and announced, with no reload", async () => {
+    const id = "a1000000-0000-4000-8000-000000000031"
+    let booked: unknown[] = []
+    server.use(
+      ...directory([{ id: dentistId, name: "Dr. Anong" }]),
+      http.get(`${API}/appointments`, () => HttpResponse.json(booked))
+    )
+    mount()
+    await screen.findByTestId(`col-${dentistId}`)
+    expect(screen.queryByTestId(`appt-${id}`)).not.toBeInTheDocument()
+
+    booked = [appointment(id, dentistId, "2026-08-03T02:00:00.000Z", "2026-08-03T03:00:00.000Z")]
+    act(() => fireSocketEvent("connect"))
+    act(() =>
+      fireSocketEvent(APPOINTMENT_CHANGED, { appointmentId: id, branchId, action: "created" })
+    )
+
+    const card = await screen.findByTestId(`appt-${id}`)
+    expect(card.className).toContain("appointment-arrive")
+    expect(screen.getByText("A new booking just arrived on this day")).toBeInTheDocument()
   })
 })

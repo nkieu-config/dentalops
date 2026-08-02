@@ -15,6 +15,7 @@ interface AppointmentCardProps {
   dimmed?: boolean
   preview?: boolean
   conflict?: boolean
+  arrived?: boolean
 }
 
 export const AppointmentCard = ({
@@ -27,7 +28,8 @@ export const AppointmentCard = ({
   onResizeStart,
   dimmed = false,
   preview = false,
-  conflict = false
+  conflict = false,
+  arrived = false
 }: AppointmentCardProps) => {
   const start = Date.parse(appointment.startsAt)
   const end = Date.parse(appointment.endsAt)
@@ -54,6 +56,7 @@ export const AppointmentCard = ({
         cancelled && "border-l-border bg-muted text-muted-foreground",
         conflict && "ring-2 ring-destructive",
         dimmed && "opacity-40",
+        arrived && "appointment-arrive",
         preview && "pointer-events-none z-10 shadow-lg"
       )}
       style={{

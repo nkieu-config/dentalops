@@ -1,14 +1,16 @@
 import {
   availabilityResponseSchema,
+  publicAppointmentSchema,
   publicBookingSchema,
   publicClinicSchema,
   publicHoldSchema
 } from "@dentalops/contracts"
-import { useMutation, useQuery } from "@tanstack/react-query"
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { z } from "zod"
 import { api } from "../../lib/api"
 
 export const AVAILABILITY_KEY = "public-availability"
+export const MANAGE_KEY = "public-manage"
 
 interface AvailabilityInput {
   clinicSlug: string
@@ -81,3 +83,17 @@ export const useConfirmBooking = (clinicSlug: string) =>
         body: input
       })
   })
+
+export const useManagedBooking = (token: string) =>
+  useQuery({
+    queryKey: [MANAGE_KEY, token],
+    queryFn: () => api(`/public/manage/${token}`, publicAppointmentSchema)
+  })
+
+export const useCancelBooking = (token: string) => {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: () => api(`/public/manage/${token}/cancel`, z.void(), { method: "POST" }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: [MANAGE_KEY, token] })
+  })
+}

@@ -125,6 +125,15 @@ html { font-feature-settings: "cv11", "tnum"; }
   }
 }
 
+@keyframes appointment-arrive {
+  from { opacity: 0; transform: scale(0.98); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+.appointment-arrive {
+  animation: appointment-arrive 250ms ease-out;
+}
+
 :root {
   --hue0-bg: #f0f9ff; --hue0-border: #0284c7;
   --hue1-bg: #f5f3ff; --hue1-border: #7c3aed;

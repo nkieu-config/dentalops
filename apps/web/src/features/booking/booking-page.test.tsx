@@ -177,6 +177,36 @@ describe("BookingPage", () => {
     })
   })
 
+  it("offers every dentist the clinic returned, with any-available first", async () => {
+    server.use(...handlers())
+    const user = mount()
+    await user.click(await screen.findByRole("button", { name: /Cleaning/ }))
+
+    const options = await screen.findAllByRole("listitem")
+    expect(options.map((option) => option.textContent?.trim())).toEqual([
+      "Any available dentistSoonest booking",
+      "ADr. Anong",
+      "SDr. Somchai"
+    ])
+  })
+
+  it("passes the chosen dentist to the availability query and holds with that dentist", async () => {
+    server.use(...handlers({ slots: () => [slot(somchai, "03:30", "04:15")] }))
+    const user = mount()
+    await user.click(await screen.findByRole("button", { name: /Cleaning/ }))
+    await user.click(await screen.findByRole("button", { name: /Dr. Somchai/ }))
+    await screen.findByTestId("group-morning")
+
+    expect(recorded.availability).toEqual([
+      { serviceId, branchId, date: BKK_DATE, dentistId: somchai }
+    ])
+
+    await user.click(screen.getByRole("button", { name: "10:30" }))
+
+    await waitFor(() => expect(recorded.holds).toHaveLength(1))
+    expect(recorded.holds[0]).toMatchObject({ dentistId: somchai })
+  })
+
   it("holds the slot the moment it is tapped and counts down from the server's expiresAt", async () => {
     server.use(...handlers({ holdTtlMs: 90_000 }))
     const user = mount()

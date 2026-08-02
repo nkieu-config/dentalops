@@ -213,7 +213,10 @@ export const BookingPage = () => {
       ) : null}
 
       {state.step === "dentist" ? (
-        <DentistStep onChoose={(dentistId) => dispatch({ type: "choose-dentist", dentistId })} />
+        <DentistStep
+          dentists={clinic.data?.dentists ?? []}
+          onChoose={(dentistId) => dispatch({ type: "choose-dentist", dentistId })}
+        />
       ) : null}
 
       {state.step === "slot" ? (

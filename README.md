@@ -158,6 +158,15 @@ Worth saying plainly, because the gaps are choices rather than oversights:
   still work — but that wait is paid on every boot until the URL is fixed or removed. Because that
   degradation is deliberately silent, `GET /api/v1/health` reports `auditLog: "connected" | "disabled"`
   so a misconfigured deployment is visible without reading logs.
+
+  The first production deploy hit exactly this, and the error was misleading enough to be worth
+  recording: Atlas answered the TLS handshake with `SSL alert number 80` — `tlsv1 alert internal
+  error`. Nothing was wrong with TLS. Atlas refuses a connection from an IP outside its Network
+  Access list by aborting the handshake rather than by saying so, and the allowlist entry created
+  during setup had been a temporary one, which expires after six hours. Render's free tier has no
+  static outbound IP, so the entry has to be `0.0.0.0/0` and permanent; the security boundary is the
+  database user's password. The client also connects once at boot, so widening the allowlist does
+  nothing until the service restarts.
 - **Free-tier cold starts.** The API sleeps after inactivity, so the first request of the day takes
   about a minute. Documented rather than hidden, because it is the cost of $0/month hosting.
 - **Shifts drag between days, not between staff.** `PATCH /shifts/:id` accepts times, not a new

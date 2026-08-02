@@ -1,11 +1,15 @@
 import { Injectable } from "@nestjs/common"
+import { AvailabilityCache } from "../availability/availability.cache"
 import { AppException } from "../common/app.exception"
 import { PrismaService } from "../prisma/prisma.service"
 import { CreateTimeBlockDto, QueryTimeBlocksDto } from "./dto/create-time-block.dto"
 
 @Injectable()
 export class TimeBlocksService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly cache: AvailabilityCache
+  ) {}
 
   list(query: QueryTimeBlocksDto) {
     return this.prisma.scoped.timeBlock.findMany({
@@ -39,7 +43,7 @@ export class TimeBlocksService {
       if (!branch) throw new AppException(404, "NOT_FOUND", "Branch not found")
     }
 
-    return this.prisma.scoped.timeBlock.create({
+    const block = await this.prisma.scoped.timeBlock.create({
       data: {
         staffId: dto.staffId ?? null,
         branchId: dto.branchId ?? null,
@@ -48,9 +52,13 @@ export class TimeBlocksService {
         endsAt
       } as never
     })
+    await this.cache.invalidateWindows(block.tenantId, [block])
+    return block
   }
 
-  remove(id: string) {
-    return this.prisma.scoped.timeBlock.delete({ where: { id } })
+  async remove(id: string) {
+    const removed = await this.prisma.scoped.timeBlock.delete({ where: { id } })
+    await this.cache.invalidateWindows(removed.tenantId, [removed])
+    return removed
   }
 }

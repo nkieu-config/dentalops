@@ -1,5 +1,6 @@
 import { Injectable } from "@nestjs/common"
 import { Prisma, Resource, ResourceType } from "@prisma/client"
+import { AvailabilityCache } from "../availability/availability.cache"
 import { AppException } from "../common/app.exception"
 import { PrismaService } from "../prisma/prisma.service"
 import { AppointmentAction } from "../realtime/realtime.events"
@@ -31,7 +32,8 @@ type ScopedTransactionClient = Parameters<Parameters<ScopedClient["$transaction"
 export class AppointmentsService {
   constructor(
     private readonly prisma: PrismaService,
-    private readonly realtime: RealtimeGateway
+    private readonly realtime: RealtimeGateway,
+    private readonly cache: AvailabilityCache
   ) {}
 
   private announce(
@@ -87,6 +89,7 @@ export class AppointmentsService {
       () => this.withResourceRetry(() => this.attemptCreate(dto, service.requirements, win)),
       () => this.findDentistConflict(dto.dentistId, win.startsAt, win.endsAt)
     )
+    await this.cache.invalidateWindows(created.tenantId, [created])
     this.announce(created, "created")
     return created
   }
@@ -257,6 +260,10 @@ export class AppointmentsService {
   }
 
   async reschedule(id: string, dto: RescheduleAppointmentDto) {
+    const before = await this.prisma.scoped.appointment.findUnique({
+      where: { id },
+      select: { startsAt: true, endsAt: true }
+    })
     const updated = await this.withConflictIdentity(
       () => this.attemptReschedule(id, dto),
       async () => {
@@ -273,6 +280,10 @@ export class AppointmentsService {
           id
         )
       }
+    )
+    await this.cache.invalidateWindows(
+      updated.tenantId,
+      before ? [before, updated] : [updated]
     )
     this.announce(updated, "rescheduled")
     return updated
@@ -363,6 +374,7 @@ export class AppointmentsService {
       }
       return tx.appointment.findUniqueOrThrow({ where: { id }, include: APPOINTMENT_INCLUDE })
     })
+    await this.cache.invalidateWindows(updated.tenantId, [updated])
     this.announce(updated, "status")
     return updated
   }

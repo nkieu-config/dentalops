@@ -1,6 +1,7 @@
 import { Injectable } from "@nestjs/common"
 import { Interval, expandRecurrence } from "@dentalops/availability"
 import { Appointment, Prisma } from "@prisma/client"
+import { AvailabilityCache } from "../availability/availability.cache"
 import { AppException } from "../common/app.exception"
 import { PrismaService } from "../prisma/prisma.service"
 import { APPOINTMENT_INCLUDE, AppointmentsService } from "./appointments.service"
@@ -60,7 +61,8 @@ const bangkokWeekday = (ms: number): number =>
 export class SeriesService {
   constructor(
     private readonly prisma: PrismaService,
-    private readonly appointments: AppointmentsService
+    private readonly appointments: AppointmentsService,
+    private readonly cache: AvailabilityCache
   ) {}
 
   async create(dto: CreateSeriesDto) {
@@ -104,7 +106,11 @@ export class SeriesService {
       return series.id
     }, TRANSACTION_OPTIONS)
 
-    return { seriesId, appointments: await this.listSeries(seriesId) }
+    const appointments = await this.listSeries(seriesId)
+    const first = appointments[0]
+    if (first) await this.cache.invalidateWindows(first.tenantId, appointments)
+
+    return { seriesId, appointments }
   }
 
   async edit(id: string, dto: EditSeriesDto) {
@@ -155,7 +161,7 @@ export class SeriesService {
       ...new Set([...targets.map((t) => t.dentistId), ...affected.map((a) => a.dentistId)])
     ].sort()
 
-    return this.prisma.scoped.$transaction(async (tx) => {
+    const movedSeriesId = await this.prisma.scoped.$transaction(async (tx) => {
       for (const dentistId of dentistIds) {
         await this.appointments.lockDentist(tx, dentistId)
       }
@@ -186,6 +192,11 @@ export class SeriesService {
       }
       return nextSeriesId
     }, TRANSACTION_OPTIONS)
+
+    const owner = affected[0]
+    if (owner) await this.cache.invalidateWindows(owner.tenantId, [...affected, ...targets])
+
+    return movedSeriesId
   }
 
   private targetOf(

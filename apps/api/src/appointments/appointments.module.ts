@@ -1,4 +1,5 @@
 import { Module } from "@nestjs/common"
+import { AvailabilityModule } from "../availability/availability.module"
 import { RealtimeModule } from "../realtime/realtime.module"
 import { AppointmentsController } from "./appointments.controller"
 import { AppointmentsService } from "./appointments.service"
@@ -6,7 +7,7 @@ import { SeriesController } from "./series.controller"
 import { SeriesService } from "./series.service"
 
 @Module({
-  imports: [RealtimeModule],
+  imports: [AvailabilityModule, RealtimeModule],
   controllers: [AppointmentsController, SeriesController],
   providers: [AppointmentsService, SeriesService],
   exports: [AppointmentsService, SeriesService]

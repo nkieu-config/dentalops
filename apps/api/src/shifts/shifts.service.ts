@@ -1,4 +1,5 @@
 import { Injectable } from "@nestjs/common"
+import { AvailabilityCache } from "../availability/availability.cache"
 import { AppException } from "../common/app.exception"
 import { PrismaService } from "../prisma/prisma.service"
 import { CreateShiftDto } from "./dto/create-shift.dto"
@@ -7,7 +8,10 @@ import { QueryShiftsDto } from "./dto/query-shifts.dto"
 
 @Injectable()
 export class ShiftsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly cache: AvailabilityCache
+  ) {}
 
   list(query: QueryShiftsDto) {
     return this.prisma.scoped.shift.findMany({
@@ -32,7 +36,7 @@ export class ShiftsService {
     const branch = await this.prisma.scoped.branch.findUnique({ where: { id: dto.branchId } })
     if (!branch) throw new AppException(404, "NOT_FOUND", "Branch not found")
 
-    return this.prisma.scoped.shift.create({
+    const shift = await this.prisma.scoped.shift.create({
       data: {
         staffId: dto.staffId,
         branchId: dto.branchId,
@@ -40,6 +44,8 @@ export class ShiftsService {
         endsAt
       } as never
     })
+    await this.cache.invalidateWindows(shift.tenantId, [shift])
+    return shift
   }
 
   async update(id: string, dto: UpdateShiftDto) {
@@ -52,13 +58,17 @@ export class ShiftsService {
       throw new AppException(400, "INVALID_RANGE", "startsAt must be before endsAt")
     }
 
-    return this.prisma.scoped.shift.update({
+    const updated = await this.prisma.scoped.shift.update({
       where: { id },
       data: { startsAt, endsAt, detached: true }
     })
+    await this.cache.invalidateWindows(updated.tenantId, [current, updated])
+    return updated
   }
 
-  remove(id: string) {
-    return this.prisma.scoped.shift.delete({ where: { id } })
+  async remove(id: string) {
+    const removed = await this.prisma.scoped.shift.delete({ where: { id } })
+    await this.cache.invalidateWindows(removed.tenantId, [removed])
+    return removed
   }
 }

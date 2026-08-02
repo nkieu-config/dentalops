@@ -136,15 +136,16 @@ describe("availability", () => {
   })
 
   it("a personal time block is subtracted", async () => {
-    await prisma.timeBlock.create({
-      data: {
-        tenantId,
+    const block = await request(server)
+      .post("/time-blocks")
+      .set("Authorization", `Bearer ${ownerToken}`)
+      .send({
         staffId: dentistIds[3],
         reason: "leave",
-        startsAt: new Date(day2(8)),
-        endsAt: new Date(day2(9))
-      }
-    })
+        startsAt: day2(8),
+        endsAt: day2(9)
+      })
+    expectStatus(block, 201)
     const slots = await getSlots(day2(0), day2(12), dentistIds[3])
     const starts = slots.map((s) => s.startsAt)
     expect(starts).toContain(day2(7))
@@ -154,15 +155,16 @@ describe("availability", () => {
   })
 
   it("a branch-wide block with no staffId hits every dentist", async () => {
-    await prisma.timeBlock.create({
-      data: {
-        tenantId,
+    const block = await request(server)
+      .post("/time-blocks")
+      .set("Authorization", `Bearer ${ownerToken}`)
+      .send({
         branchId,
         reason: "closed",
-        startsAt: new Date(day2(9)),
-        endsAt: new Date(day2(10))
-      }
-    })
+        startsAt: day2(9),
+        endsAt: day2(10)
+      })
+    expectStatus(block, 201)
     const slots = await getSlots(day2(0), day2(12))
     const blockStart = Date.parse(day2(9))
     const blockEnd = Date.parse(day2(10))

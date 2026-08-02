@@ -1,6 +1,7 @@
 import { Injectable } from "@nestjs/common"
 import { expandRecurrence } from "@dentalops/availability"
 import { ShiftSeries } from "@prisma/client"
+import { AvailabilityCache, DatedWindow } from "../availability/availability.cache"
 import { AppException } from "../common/app.exception"
 import { PrismaService } from "../prisma/prisma.service"
 import { CreateShiftSeriesDto } from "./dto/create-shift-series.dto"
@@ -46,7 +47,10 @@ const isShiftConflict = (error: unknown): boolean => {
 
 @Injectable()
 export class ShiftSeriesService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly cache: AvailabilityCache
+  ) {}
 
   async create(dto: CreateShiftSeriesDto) {
     const staff = await this.prisma.scoped.user.findUnique({ where: { id: dto.staffId } })
@@ -86,7 +90,7 @@ export class ShiftSeriesService {
 
     if (dto.scope === "all") {
       const from = Math.max(localDayStart(now), startOfSeries(series))
-      await this.clearFrom(id, from)
+      await this.clearFrom(series.tenantId, id, from)
       const updated = await this.prisma.scoped.shiftSeries.update({ where: { id }, data: rule })
       const result = await this.materialize(updated, from, this.horizonEnd(now))
       return { seriesId: id, ...result }
@@ -107,7 +111,7 @@ export class ShiftSeriesService {
         ...rule
       } as never
     })
-    await this.clearFrom(id, boundary)
+    await this.clearFrom(series.tenantId, id, boundary)
     const result = await this.materialize(next, boundary, this.horizonEnd(now))
     return { seriesId: next.id, ...result }
   }
@@ -117,12 +121,17 @@ export class ShiftSeriesService {
     if (!series) throw new AppException(404, "NOT_FOUND", "Shift series not found")
 
     if (scope === "all") {
+      const cascaded = await this.prisma.scoped.shift.findMany({
+        where: { seriesId: id },
+        select: { startsAt: true, endsAt: true }
+      })
       await this.prisma.scoped.shiftSeries.delete({ where: { id } })
+      await this.cache.invalidateWindows(series.tenantId, cascaded)
       return
     }
 
     const boundary = localDayStart(Date.now())
-    await this.clearFrom(id, boundary)
+    await this.clearFrom(series.tenantId, id, boundary)
     await this.prisma.scoped.shiftSeries.update({
       where: { id },
       data: { endsOn: dateColumn(localDate(boundary - DAY)) }
@@ -148,10 +157,14 @@ export class ShiftSeriesService {
     return localDayStart(now) + HORIZON_DAYS * DAY
   }
 
-  private clearFrom(seriesId: string, from: number) {
-    return this.prisma.scoped.shift.deleteMany({
-      where: { seriesId, detached: false, startsAt: { gte: new Date(from) } }
+  private async clearFrom(tenantId: string, seriesId: string, from: number): Promise<void> {
+    const where = { seriesId, detached: false, startsAt: { gte: new Date(from) } }
+    const doomed = await this.prisma.scoped.shift.findMany({
+      where,
+      select: { startsAt: true, endsAt: true }
     })
+    await this.prisma.scoped.shift.deleteMany({ where })
+    await this.cache.invalidateWindows(tenantId, doomed)
   }
 
   private async topUp(series: ShiftSeries, now: number): Promise<MaterializeResult> {
@@ -190,7 +203,7 @@ export class ShiftSeriesService {
       present.filter((shift) => shift.detached).map((shift) => localDate(shift.startsAt.getTime()))
     )
 
-    let created = 0
+    const materialized: DatedWindow[] = []
     let skipped = 0
     for (const occurrence of occurrences) {
       if (taken.has(occurrence.start) || excepted.has(localDate(occurrence.start))) {
@@ -198,7 +211,7 @@ export class ShiftSeriesService {
         continue
       }
       try {
-        await this.prisma.scoped.shift.create({
+        const shift = await this.prisma.scoped.shift.create({
           data: {
             staffId: series.staffId,
             branchId: series.branchId,
@@ -207,12 +220,13 @@ export class ShiftSeriesService {
             endsAt: new Date(occurrence.end)
           } as never
         })
-        created++
+        materialized.push(shift)
       } catch (error) {
         if (!isShiftConflict(error)) throw error
         skipped++
       }
     }
-    return { created, skipped }
+    await this.cache.invalidateWindows(series.tenantId, materialized)
+    return { created: materialized.length, skipped }
   }
 }

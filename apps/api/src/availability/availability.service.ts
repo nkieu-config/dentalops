@@ -2,6 +2,8 @@ import { Injectable } from "@nestjs/common"
 import { Interval, ResourceUnit, computeSlots } from "@dentalops/availability"
 import { AppException } from "../common/app.exception"
 import { PrismaService } from "../prisma/prisma.service"
+import { currentTenant } from "../tenant/tenant-context"
+import { AvailabilityCache } from "./availability.cache"
 import { QueryAvailabilityDto } from "./dto/query-availability.dto"
 
 const MINUTE = 60_000
@@ -20,7 +22,10 @@ const toUnit = (r: { id: string; claims: { startsAt: Date; endsAt: Date }[] }): 
 
 @Injectable()
 export class AvailabilityService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly cache: AvailabilityCache
+  ) {}
 
   async slots(q: QueryAvailabilityDto) {
     const from = Date.parse(q.from)
@@ -29,6 +34,19 @@ export class AvailabilityService {
     if (to - from > MAX_RANGE_MS) {
       throw new AppException(400, "RANGE_TOO_LARGE", "Window must be 31 days or less")
     }
+
+    const tenant = currentTenant()
+    const cached = tenant
+      ? await this.cache.read({
+          tenantId: tenant.tenantId,
+          branchId: q.branchId,
+          serviceId: q.serviceId,
+          dentistId: q.dentistId,
+          from,
+          to
+        })
+      : null
+    if (cached?.slots) return { slots: cached.slots }
 
     const service = await this.prisma.scoped.service.findUnique({
       where: { id: q.serviceId },
@@ -91,7 +109,7 @@ export class AvailabilityService {
       })
     ])
 
-    const slots = computeSlots({
+    const computed = computeSlots({
       window: { start: from, end: to },
       stepMin: STEP_MIN,
       durationMin: service.durationMin,
@@ -110,12 +128,13 @@ export class AvailabilityService {
       )
     })
 
-    return {
-      slots: slots.map((s) => ({
-        dentistId: s.staffId,
-        startsAt: new Date(s.start).toISOString(),
-        endsAt: new Date(s.end).toISOString()
-      }))
-    }
+    const slots = computed.map((s) => ({
+      dentistId: s.staffId,
+      startsAt: new Date(s.start).toISOString(),
+      endsAt: new Date(s.end).toISOString()
+    }))
+    if (cached?.entryKey) await this.cache.write(cached.entryKey, slots)
+
+    return { slots }
   }
 }

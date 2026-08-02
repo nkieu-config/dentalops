@@ -1,5 +1,6 @@
 import { Inject, Module, OnModuleDestroy } from "@nestjs/common"
 import Redis from "ioredis"
+import { AvailabilityModule } from "../availability/availability.module"
 import { HorizonProcessor } from "../roster/horizon.processor"
 import { HorizonQueue } from "../roster/horizon.queue"
 import { createHorizonRedis, HORIZON_REDIS } from "../roster/horizon.redis"
@@ -9,6 +10,7 @@ import { ShiftsController } from "./shifts.controller"
 import { ShiftsService } from "./shifts.service"
 
 @Module({
+  imports: [AvailabilityModule],
   controllers: [ShiftsController, ShiftSeriesController],
   providers: [
     ShiftsService,

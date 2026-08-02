@@ -16,6 +16,8 @@ services:
         sync: false
       - key: DIRECT_URL
         sync: false
+      - key: MONGODB_URL
+        sync: false
       - key: REDIS_URL
         sync: false
       - key: SENTRY_DSN

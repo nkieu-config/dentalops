@@ -13,7 +13,8 @@ export const publicClinicSchema = z.object({
       durationMin: z.number().int(),
       colorIndex: z.number().int()
     })
-  )
+  ),
+  dentists: z.array(z.object({ id: z.uuid(), name: z.string() }))
 })
 
 export const publicHoldSchema = z.object({

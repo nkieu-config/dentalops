@@ -32,6 +32,7 @@ export interface PublicClinic {
   slug: string
   branches: Array<{ id: string; name: string }>
   services: Array<{ id: string; name: string; durationMin: number; colorIndex: number }>
+  dentists: Array<{ id: string; name: string }>
 }
 
 export const bkkDayWindow = (date: string): { from: number; to: number } => {
@@ -58,7 +59,7 @@ export class PublicService {
     const ctx = currentTenant()
     if (!ctx) throw new AppException(404, "CLINIC_NOT_FOUND", "Clinic not found")
 
-    const [tenant, branches, services] = await Promise.all([
+    const [tenant, branches, services, dentists] = await Promise.all([
       this.prisma.tenant.findUnique({
         where: { id: ctx.tenantId },
         select: { id: true, name: true, slug: true }
@@ -71,11 +72,16 @@ export class PublicService {
         where: { isActive: true },
         select: { id: true, name: true, durationMin: true, colorIndex: true },
         orderBy: { name: "asc" }
+      }),
+      this.prisma.scoped.user.findMany({
+        where: { role: "dentist", isActive: true },
+        select: { id: true, name: true },
+        orderBy: { name: "asc" }
       })
     ])
     if (!tenant) throw new AppException(404, "CLINIC_NOT_FOUND", "Clinic not found")
 
-    return { ...tenant, branches, services }
+    return { ...tenant, branches, services, dentists }
   }
 
   async availableSlots(query: QueryPublicAvailabilityDto) {

@@ -16,6 +16,7 @@ interface ClinicResponse {
   slug: string
   branches: Array<{ id: string; name: string }>
   services: Array<{ id: string; name: string; durationMin: number; colorIndex: number }>
+  dentists: Array<{ id: string; name: string }>
 }
 
 @Public()
@@ -96,6 +97,30 @@ describe("public clinic endpoint", () => {
       expect(typeof service.colorIndex).toBe("number")
     }
     expect(res.request.getHeader("authorization")).toBeUndefined()
+  })
+
+  it("exposes active dentists so a patient can choose one, without leaking credentials", async () => {
+    const res = await request(server).get("/public/demo-clinic")
+    expectStatus(res, 200)
+    const body = res.body as ClinicResponse
+    expect(body.dentists.length).toBeGreaterThan(0)
+    for (const dentist of body.dentists) {
+      expect(Object.keys(dentist).sort()).toEqual(["id", "name"])
+    }
+    const raw = JSON.stringify(body)
+    expect(raw).not.toContain("passwordHash")
+    expect(raw).not.toContain("@")
+  })
+
+  it("never exposes another tenant's dentists", async () => {
+    const res = await request(server).get(`/public/${otherSlug}`)
+    expectStatus(res, 200)
+    const body = res.body as ClinicResponse
+    const demo = await request(server).get("/public/demo-clinic")
+    const demoNames = (demo.body as ClinicResponse).dentists.map((d) => d.name)
+    for (const dentist of body.dentists) {
+      expect(demoNames).not.toContain(dentist.name)
+    }
   })
 
   it("omits inactive services", async () => {

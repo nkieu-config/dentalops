@@ -28,6 +28,7 @@ import { PublicTenantMiddleware } from "./public/public-tenant.middleware"
 import { REDIS, RedisModule } from "./redis/redis.module"
 import { RosterModule } from "./roster/roster.module"
 import { ShiftsModule } from "./shifts/shifts.module"
+import { StaffModule } from "./staff/staff.module"
 import { TenantContextMiddleware } from "./tenant/tenant-context.middleware"
 
 @Module({
@@ -51,6 +52,7 @@ import { TenantContextMiddleware } from "./tenant/tenant-context.middleware"
     AvailabilityModule,
     PatientsModule,
     DirectoryModule,
+    StaffModule,
     PublicModule,
     DemoModule
   ],

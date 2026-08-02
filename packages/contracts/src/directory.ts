@@ -14,6 +14,13 @@ export const staffMemberSchema = z.object({
   isActive: z.boolean()
 })
 
+export const createStaffSchema = z.object({
+  name: z.string().min(1).max(80),
+  email: z.email(),
+  password: z.string().min(8).max(72),
+  role: z.enum(["dentist", "receptionist"])
+})
+
 export const serviceSummarySchema = z.object({
   id: z.uuid(),
   name: z.string(),
@@ -34,6 +41,7 @@ export const resourceSchema = z.object({
 
 export type Branch = z.infer<typeof branchSchema>
 export type StaffMember = z.infer<typeof staffMemberSchema>
+export type CreateStaff = z.infer<typeof createStaffSchema>
 export type ServiceSummary = z.infer<typeof serviceSummarySchema>
 export type ResourceType = z.infer<typeof resourceTypeSchema>
 export type Resource = z.infer<typeof resourceSchema>

@@ -46,6 +46,7 @@ const REGISTRY: Record<string, Expectation> = {
   "POST /public/manage/:token/reschedule": "public",
   "GET /branches": "filtered",
   "GET /staff": "filtered",
+  "POST /staff": "auth-only",
   "GET /services": "filtered",
   "GET /resources": "filtered",
   "GET /audit-logs": "filtered"

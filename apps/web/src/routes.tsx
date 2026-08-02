@@ -3,6 +3,7 @@ import { AppShell } from "./components/shell/app-shell"
 import { RequireAuth } from "./components/shell/require-auth"
 import { BookingPage } from "./features/booking/booking-page"
 import { ManagePage } from "./features/booking/manage-page"
+import { RosterRoute } from "./features/roster/roster-page"
 import { TimelinePage } from "./features/timeline/timeline-page"
 import { DevUiPage } from "./pages/dev-ui-page"
 import { LandingPage } from "./pages/landing-page"
@@ -25,7 +26,7 @@ export const router = createBrowserRouter([
     children: [
       { index: true, element: <Navigate to="/app/timeline" replace /> },
       { path: "timeline", element: <TimelinePage /> },
-      { path: "roster", element: <Placeholder label="Roster — arrives in W7" /> },
+      { path: "roster", element: <RosterRoute /> },
       { path: "patients", element: <Placeholder label="Patients — arrives in W6" /> },
       { path: "settings", element: <Placeholder label="Settings — arrives in W6" /> }
     ]

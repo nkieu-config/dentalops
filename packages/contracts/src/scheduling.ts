@@ -5,7 +5,8 @@ export const shiftSchema = z.looseObject({
   staffId: z.uuid(),
   branchId: z.uuid(),
   startsAt: z.iso.datetime(),
-  endsAt: z.iso.datetime()
+  endsAt: z.iso.datetime(),
+  seriesId: z.uuid().nullable().optional()
 })
 
 export const appointmentStatusSchema = z.enum([

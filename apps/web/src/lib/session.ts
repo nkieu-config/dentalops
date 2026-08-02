@@ -37,6 +37,13 @@ export const canBook = (current: AuthSession | null): boolean =>
 
 export const useCanBook = (): boolean => canBook(useSession())
 
+const rosterRoles: ReadonlySet<UserRole> = new Set<UserRole>(["owner"])
+
+export const canManageRoster = (current: AuthSession | null): boolean =>
+  current !== null && rosterRoles.has(current.user.role)
+
+export const useCanManageRoster = (): boolean => canManageRoster(useSession())
+
 let refreshing: Promise<AuthSession | null> | null = null
 
 export const refreshSession = (): Promise<AuthSession | null> => {

@@ -25,6 +25,13 @@ export type {
   PatientPage
 } from "./scheduling"
 export {
+  violationSeveritySchema,
+  violationSchema,
+  rosterValidationSchema,
+  draftShiftSchema
+} from "./roster"
+export type { ViolationSeverity, Violation, RosterValidation, DraftShift } from "./roster"
+export {
   publicClinicSchema,
   publicHoldSchema,
   publicAppointmentSchema,

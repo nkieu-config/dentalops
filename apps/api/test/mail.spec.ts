@@ -63,6 +63,7 @@ describe("confirmation email", () => {
   const transport = new RecordingTransport()
   const slug = `mail-clinic-${Date.now()}`
   const clinicName = `Booking ${slug}`
+  let tenantId: string
   let branchId: string
   let serviceId: string
   let dentistId: string
@@ -104,7 +105,7 @@ describe("confirmation email", () => {
       name: "Mail Owner"
     })
     expectStatus(signup, 200)
-    const tenantId = signup.body.user.tenantId as string
+    tenantId = signup.body.user.tenantId as string
 
     const branch = await prisma.branch.findFirstOrThrow({ where: { tenantId } })
     const service = await prisma.service.create({
@@ -220,7 +221,7 @@ describe("confirmation email", () => {
     expect(transport.sentTo(address)).toHaveLength(0)
 
     const stored = await prisma.appointment.findMany({
-      where: { patient: { phone: "0830000003" } }
+      where: { tenantId, patient: { phone: "0830000003" } }
     })
     expect(stored).toHaveLength(1)
     expect(stored[0]!.status).toBe("confirmed")
@@ -240,7 +241,7 @@ describe("confirmation email", () => {
     }
 
     const stored = await prisma.appointment.findMany({
-      where: { patient: { phone: "0830000004" } }
+      where: { tenantId, patient: { phone: "0830000004" } }
     })
     expect(stored).toHaveLength(1)
     expect(stored[0]!.status).toBe("confirmed")

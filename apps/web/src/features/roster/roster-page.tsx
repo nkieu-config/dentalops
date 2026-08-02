@@ -124,7 +124,8 @@ export const RosterPage = () => {
       const interval = shiftFormInterval(pending)
       if (!interval || branchId === undefined) return
       if (pending.shiftId) {
-        await api(`/shifts/${pending.shiftId}`, z.void(), { method: "DELETE" })
+        await api(`/shifts/${pending.shiftId}`, shiftSchema, { method: "PATCH", body: interval })
+        return
       }
       await api("/shifts", shiftSchema, {
         method: "POST",

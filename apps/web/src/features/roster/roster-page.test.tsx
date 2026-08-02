@@ -82,6 +82,7 @@ interface RosterState {
   bodies: DraftBody[]
   deleted: string[]
   created: unknown[]
+  patched: Array<{ id: string; body: unknown }>
 }
 
 const useHandlers = (state: RosterState) => {
@@ -105,6 +106,15 @@ const useHandlers = (state: RosterState) => {
         drafted.length > 0 ? drafted : state.shifts.filter((s) => s.staffId === anongId)
       return HttpResponse.json({ violations: covers(effective) ? [] : [outsideShift] })
     }),
+    http.patch(`${API}/shifts/:id`, async ({ params, request }) => {
+      const id = String(params.id)
+      const body = (await request.json()) as { startsAt: string; endsAt: string }
+      state.patched.push({ id, body })
+      const existing = state.shifts.find((s) => s.id === id)
+      const updated = shift(id, existing?.staffId ?? anongId, body.startsAt, body.endsAt)
+      state.shifts = state.shifts.map((s) => (s.id === id ? updated : s))
+      return HttpResponse.json(updated)
+    }),
     http.delete(`${API}/shifts/:id`, ({ params }) => {
       state.deleted.push(String(params.id))
       state.shifts = state.shifts.filter((s) => s.id !== String(params.id))
@@ -124,7 +134,8 @@ const freshState = (shifts = savedShifts()): RosterState => ({
   shifts,
   bodies: [],
   deleted: [],
-  created: []
+  created: [],
+  patched: []
 })
 
 const mount = (viewport: Viewport, role: UserRole = "owner") => {
@@ -231,7 +242,7 @@ describe("RosterPage", () => {
     expect(link).toHaveAttribute("href", `/app/timeline?d=2026-08-03&b=${branchId}`)
   })
 
-  it("saves an edited shift by replacing it and closes the dialog", async () => {
+  it("edits a shift in place, never deleting it first, and closes the dialog", async () => {
     const state = freshState()
     useHandlers(state)
     mount("lg")
@@ -242,14 +253,16 @@ describe("RosterPage", () => {
     await waitFor(() => expect(save).toBeEnabled())
     await userEvent.click(save)
 
-    await waitFor(() => expect(state.created).toHaveLength(1))
-    expect(state.deleted).toEqual([monShiftId])
-    expect(state.created[0]).toEqual({
-      staffId: anongId,
-      branchId,
-      startsAt: "2026-08-03T02:00:00.000Z",
-      endsAt: "2026-08-03T11:00:00.000Z"
+    await waitFor(() => expect(state.patched).toHaveLength(1))
+    expect(state.patched[0]).toEqual({
+      id: monShiftId,
+      body: {
+        startsAt: "2026-08-03T02:00:00.000Z",
+        endsAt: "2026-08-03T11:00:00.000Z"
+      }
     })
+    expect(state.deleted).toEqual([])
+    expect(state.created).toEqual([])
     await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument())
   })
 

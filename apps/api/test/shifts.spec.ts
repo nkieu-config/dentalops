@@ -115,6 +115,40 @@ describe("shifts endpoints", () => {
     await request(server).get("/shifts").expect(401)
   })
 
+  it("edits a shift in place instead of losing it to a delete-then-create", async () => {
+    const created = await request(server)
+      .post("/shifts")
+      .set("Authorization", `Bearer ${ownerToken}`)
+      .send({ staffId, branchId, startsAt: at(9, 2), endsAt: at(9, 10) })
+    expectStatus(created, 201)
+
+    const patched = await request(server)
+      .patch(`/shifts/${created.body.id}`)
+      .set("Authorization", `Bearer ${ownerToken}`)
+      .send({ endsAt: at(9, 8) })
+    expectStatus(patched, 200)
+    expect(patched.body.id).toBe(created.body.id)
+    expect(patched.body.startsAt).toBe(at(9, 2))
+    expect(patched.body.endsAt).toBe(at(9, 8))
+  })
+
+  it("rejects an edit that inverts the shift and leaves the row untouched", async () => {
+    const created = await request(server)
+      .post("/shifts")
+      .set("Authorization", `Bearer ${ownerToken}`)
+      .send({ staffId, branchId, startsAt: at(10, 2), endsAt: at(10, 10) })
+    expectStatus(created, 201)
+
+    const res = await request(server)
+      .patch(`/shifts/${created.body.id}`)
+      .set("Authorization", `Bearer ${ownerToken}`)
+      .send({ endsAt: at(10, 1) })
+    expect(res.status).toBe(400)
+
+    const after = await prisma.shift.findUnique({ where: { id: created.body.id } })
+    expect(after!.endsAt.toISOString()).toBe(at(10, 10))
+  })
+
   it("deleting a shift frees the slot", async () => {
     const list = await request(server)
       .get("/shifts")

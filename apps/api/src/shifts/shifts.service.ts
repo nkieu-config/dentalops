@@ -2,6 +2,7 @@ import { Injectable } from "@nestjs/common"
 import { AppException } from "../common/app.exception"
 import { PrismaService } from "../prisma/prisma.service"
 import { CreateShiftDto } from "./dto/create-shift.dto"
+import { UpdateShiftDto } from "./dto/update-shift.dto"
 import { QueryShiftsDto } from "./dto/query-shifts.dto"
 
 @Injectable()
@@ -38,6 +39,22 @@ export class ShiftsService {
         startsAt,
         endsAt
       } as never
+    })
+  }
+
+  async update(id: string, dto: UpdateShiftDto) {
+    const current = await this.prisma.scoped.shift.findUnique({ where: { id } })
+    if (!current) throw new AppException(404, "NOT_FOUND", "Shift not found")
+
+    const startsAt = dto.startsAt ? new Date(dto.startsAt) : current.startsAt
+    const endsAt = dto.endsAt ? new Date(dto.endsAt) : current.endsAt
+    if (startsAt >= endsAt) {
+      throw new AppException(400, "INVALID_RANGE", "startsAt must be before endsAt")
+    }
+
+    return this.prisma.scoped.shift.update({
+      where: { id },
+      data: { startsAt, endsAt, detached: true }
     })
   }
 

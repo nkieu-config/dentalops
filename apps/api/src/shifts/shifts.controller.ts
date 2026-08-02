@@ -1,10 +1,11 @@
-import { Body, Controller, Delete, Get, HttpCode, Param, ParseUUIDPipe, Post, Query } from "@nestjs/common"
+import { Body, Controller, Delete, Get, HttpCode, Param, ParseUUIDPipe, Patch, Post, Query } from "@nestjs/common"
 import { ApiBearerAuth, ApiTags } from "@nestjs/swagger"
 import { SkipThrottle } from "@nestjs/throttler"
 import { Roles } from "../auth/roles.decorator"
 import { CreateShiftDto } from "./dto/create-shift.dto"
 import { CreateShiftSeriesDto } from "./dto/create-shift-series.dto"
 import { QueryShiftsDto } from "./dto/query-shifts.dto"
+import { UpdateShiftDto } from "./dto/update-shift.dto"
 import { ShiftSeriesService } from "./shift-series.service"
 import { ShiftsService } from "./shifts.service"
 
@@ -33,6 +34,12 @@ export class ShiftsController {
   @Roles("owner")
   createSeries(@Body() dto: CreateShiftSeriesDto) {
     return this.series.create(dto)
+  }
+
+  @Patch(":id")
+  @Roles("owner")
+  update(@Param("id", ParseUUIDPipe) id: string, @Body() dto: UpdateShiftDto) {
+    return this.shifts.update(id, dto)
   }
 
   @Delete(":id")

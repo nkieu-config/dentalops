@@ -18,6 +18,7 @@ const REGISTRY: Record<string, Expectation> = {
   "GET /shifts": "filtered",
   "POST /shifts": "auth-only",
   "POST /shifts/series": "auth-only",
+  "PATCH /shifts/:id": "not-found",
   "DELETE /shifts/:id": "not-found",
   "PATCH /shift-series/:id": "not-found",
   "DELETE /shift-series/:id": "not-found",

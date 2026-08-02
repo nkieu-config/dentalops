@@ -12,7 +12,8 @@ describe("package surface", () => {
       "normalize",
       "overlaps",
       "subtract",
-      "unitFree"
+      "unitFree",
+      "validateRoster"
     ])
   })
 })

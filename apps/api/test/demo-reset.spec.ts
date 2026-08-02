@@ -53,10 +53,38 @@ describe("demo reset", () => {
     expect(counts.patients).toBe(120)
     expect(counts.shifts).toBeGreaterThan(300)
     expect(counts.appointments).toBeGreaterThan(1000)
+    expect(counts.appointmentSeries).toBeGreaterThan(0)
+    expect(counts.shiftSeries).toBeGreaterThan(0)
 
     const tenant = await prisma.tenant.findUnique({ where: { slug: "demo-clinic" } })
     expect(tenant).not.toBeNull()
     expect(await prisma.patient.count({ where: { tenantId: tenant!.id } })).toBe(counts.patients)
+  })
+
+  it("seeds an ortho series a visitor can actually see on the timeline", async () => {
+    const tenant = await prisma.tenant.findUniqueOrThrow({ where: { slug: "demo-clinic" } })
+    const series = await prisma.appointmentSeries.findFirstOrThrow({
+      where: { tenantId: tenant.id },
+      include: { appointments: { orderBy: { startsAt: "asc" } } }
+    })
+    expect(series.freq).toBe("weekly")
+    expect(series.appointments.length).toBeGreaterThanOrEqual(6)
+    expect(series.count).toBe(series.appointments.length)
+
+    const upcoming = series.appointments.filter((a) => a.startsAt > new Date())
+    expect(upcoming.length).toBeGreaterThan(0)
+
+    const spacing = series.appointments
+      .slice(1)
+      .map((a, i) => a.startsAt.getTime() - series.appointments[i]!.startsAt.getTime())
+    expect(new Set(spacing)).toEqual(new Set([7 * 24 * 60 * 60 * 1000]))
+  })
+
+  it("attaches materialized shifts to a recurring series", async () => {
+    const tenant = await prisma.tenant.findUniqueOrThrow({ where: { slug: "demo-clinic" } })
+    const series = await prisma.shiftSeries.findFirstOrThrow({ where: { tenantId: tenant.id } })
+    const attached = await prisma.shift.count({ where: { seriesId: series.id } })
+    expect(attached).toBeGreaterThan(10)
   })
 
   it("leaves other tenants untouched when the demo tenant is rebuilt", async () => {

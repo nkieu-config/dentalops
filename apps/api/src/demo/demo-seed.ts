@@ -87,6 +87,8 @@ export interface DemoSeedCounts {
   patients: number
   shifts: number
   appointments: number
+  appointmentSeries: number
+  shiftSeries: number
 }
 
 export async function seedDemoTenant(client: PrismaClient): Promise<DemoSeedCounts> {
@@ -204,6 +206,46 @@ export async function seedDemoTenant(client: PrismaClient): Promise<DemoSeedCoun
   const xrayBusy = new Map<string, [number, number][]>()
   const midnightUtc = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate())
 
+  const seriesByDentist = new Map<string, string>()
+  for (const [dentistIndex, dentistId] of dentistIds.entries()) {
+    const pattern = SHIFT_PATTERNS[dentistIndex]
+    if (!pattern) continue
+    const branch = branches[dentistIndex % branches.length]
+    if (!branch) continue
+    const series = await prisma.shiftSeries.create({
+      data: {
+        tenantId: tenant.id,
+        staffId: dentistId,
+        branchId: branch.id,
+        freq: "weekly",
+        interval: 1,
+        byWeekday: pattern.weekdays,
+        timeStart: `${String(pattern.startHourUtc).padStart(2, "0")}:00`,
+        durationMin: pattern.durationMin,
+        startsOn: new Date(midnightUtc - SEED_WINDOW_DAYS * DAY_MS)
+      }
+    })
+    seriesByDentist.set(dentistId, series.id)
+  }
+
+  const orthoService = services.find((s) => s.name === "Ortho adjustment")
+  const orthoDentistId = dentistIds[0]
+  const orthoPatientId = patientIds[0]
+  const ORTHO_WEEKDAY = 3
+  const orthoSeries =
+    orthoService && orthoDentistId && orthoPatientId
+      ? await prisma.appointmentSeries.create({
+          data: {
+            tenantId: tenant.id,
+            freq: "weekly",
+            interval: 1,
+            byWeekday: [ORTHO_WEEKDAY],
+            count: 0
+          }
+        })
+      : null
+  let orthoCount = 0
+
   for (let offset = -SEED_WINDOW_DAYS; offset <= SEED_WINDOW_DAYS; offset++) {
     const dayStart = midnightUtc + offset * DAY_MS
     const weekday = new Date(dayStart).getUTCDay()
@@ -226,12 +268,49 @@ export async function seedDemoTenant(client: PrismaClient): Promise<DemoSeedCoun
         tenantId: tenant.id,
         staffId: dentistId,
         branchId: branch.id,
+        seriesId: seriesByDentist.get(dentistId),
         startsAt: new Date(shiftStart),
         endsAt: new Date(shiftEnd)
       })
 
       const target = 2 + randomInt(4)
       let cursor = shiftStart
+
+      if (
+        orthoSeries &&
+        orthoService &&
+        orthoPatientId &&
+        dentistId === orthoDentistId &&
+        weekday === ORTHO_WEEKDAY
+      ) {
+        const orthoEnd = cursor + orthoService.durationMin * MINUTE_MS
+        const orthoChairEnd = orthoEnd + orthoService.bufferMin * MINUTE_MS
+        const orthoId = randomUuid()
+        const orthoStatus: AppointmentStatus = orthoEnd < now.getTime() ? "completed" : "confirmed"
+        batch.appointments.push({
+          id: orthoId,
+          tenantId: tenant.id,
+          branchId: branch.id,
+          seriesId: orthoSeries.id,
+          serviceId: orthoService.id,
+          dentistId,
+          patientId: orthoPatientId,
+          startsAt: new Date(cursor),
+          endsAt: new Date(orthoEnd),
+          status: orthoStatus
+        })
+        batch.claims.push({
+          tenantId: tenant.id,
+          appointmentId: orthoId,
+          resourceId: chairId,
+          startsAt: new Date(cursor),
+          endsAt: new Date(orthoChairEnd),
+          status: "active"
+        })
+        orthoCount++
+        cursor = orthoChairEnd
+      }
+
       for (let n = 0; n < target; n++) {
         let service = pick(services)
         let needsXray = equipmentServiceIds.has(service.id)
@@ -295,6 +374,13 @@ export async function seedDemoTenant(client: PrismaClient): Promise<DemoSeedCoun
     if (batch.appointments.length > 0) batches.push(batch)
   }
 
+  if (orthoSeries) {
+    await prisma.appointmentSeries.update({
+      where: { id: orthoSeries.id },
+      data: { count: orthoCount }
+    })
+  }
+
   await prisma.shift.createMany({ data: shiftRows })
 
   const allAppointments = batches.flatMap((b) => b.appointments)
@@ -321,7 +407,9 @@ export async function seedDemoTenant(client: PrismaClient): Promise<DemoSeedCoun
   return {
     patients: patientRows.length,
     shifts: shiftRows.length,
-    appointments: appointmentCount
+    appointments: appointmentCount,
+    appointmentSeries: orthoSeries ? 1 : 0,
+    shiftSeries: seriesByDentist.size
   }
 }
 

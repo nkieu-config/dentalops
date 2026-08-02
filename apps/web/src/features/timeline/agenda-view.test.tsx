@@ -3,7 +3,7 @@ import { render, screen } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { describe, expect, it, vi } from "vitest"
 import { AgendaView } from "./agenda-view"
-import { bkkToday } from "./lib/geometry"
+import { bkkShiftDate, bkkToday } from "./lib/geometry"
 
 const anong: StaffMember = {
   id: "2f9619ff-8b86-4d01-b42d-00cf4fc964ff",
@@ -142,7 +142,7 @@ describe("AgendaView", () => {
     const past = appointment(id("07"), anong.id, new Date(Date.now() - 7_200_000).toISOString(), new Date(Date.now() - 3_600_000).toISOString())
     const future = appointment(id("08"), anong.id, new Date(Date.now() + 3_600_000).toISOString(), new Date(Date.now() + 7_200_000).toISOString())
 
-    const other = mount({ appointments: [past, future], date: "2026-08-03" })
+    const other = mount({ appointments: [past, future], date: bkkShiftDate(bkkToday(), 1) })
     expect(screen.queryByTestId("now-divider")).not.toBeInTheDocument()
     other.unmount()
 

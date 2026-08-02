@@ -6,8 +6,9 @@ import type {
   StaffMember,
   Violation
 } from "@dentalops/contracts"
-import { AlertTriangle, CalendarX, ServerCrash, WifiOff } from "lucide-react"
+import { AlertTriangle, CalendarX, ServerCrash } from "lucide-react"
 import { useMemo, useState } from "react"
+import { OfflineBannerView } from "../components/shell/offline-banner"
 import { SlotPickerView, type SlotPickerState } from "../components/slot-picker"
 import { Button } from "../components/ui/button"
 import { EmptyState } from "../components/ui/empty-state"
@@ -608,9 +609,17 @@ export const DevUiPage = () => (
             hint="The server could not answer — retry shortly"
           />
         </div>
-        <div className="rounded-md border border-border">
-          <EmptyState icon={WifiOff} title="You are offline" hint="Changes resume when you reconnect" />
-        </div>
+      </div>
+    </section>
+    <section className="space-y-3">
+      <h2 className="text-lg font-semibold">Offline banner</h2>
+      <p className="text-sm text-muted-foreground">
+        The real <code>OfflineBanner</code> the shell renders, shown here in its offline state. While
+        it is up the roster's Save and the timeline's create, drag and keyboard-nudge affordances are
+        withdrawn, so nothing can be queued against a server the browser cannot reach.
+      </p>
+      <div className="overflow-hidden rounded-md border border-border">
+        <OfflineBannerView />
       </div>
     </section>
     <section className="space-y-2">

@@ -1,4 +1,5 @@
 import type { StaffMember, Violation } from "@dentalops/contracts"
+import { OFFLINE_MESSAGE } from "../../components/shell/offline-banner"
 import { Button } from "../../components/ui/button"
 import { Input } from "../../components/ui/input"
 import { Label } from "../../components/ui/label"
@@ -7,6 +8,8 @@ import { Sheet } from "../../components/ui/sheet"
 import { shiftFormInterval, type ShiftForm } from "./hooks"
 import { ViolationList, type ViolationLink } from "./violation-list"
 
+const OFFLINE_REASON_ID = "shift-dialog-offline-reason"
+
 interface ShiftDialogProps {
   value: ShiftForm | null
   staff: StaffMember[]
@@ -14,6 +17,7 @@ interface ShiftDialogProps {
   blocked: boolean
   settling: boolean
   saving: boolean
+  offline: boolean
   staffName: (staffId: string) => string
   linkFor: (violation: Violation) => ViolationLink | null
   onChange: (next: ShiftForm) => void
@@ -29,6 +33,7 @@ export const ShiftDialog = ({
   blocked,
   settling,
   saving,
+  offline,
   staffName,
   linkFor,
   onChange,
@@ -96,9 +101,21 @@ export const ShiftDialog = ({
         <section aria-label="Draft validation" className="rounded-md border border-border p-3">
           <ViolationList violations={violations} staffName={staffName} linkFor={linkFor} />
         </section>
+        {offline ? (
+          <p id={OFFLINE_REASON_ID} className="text-xs font-medium text-destructive">
+            {OFFLINE_MESSAGE}
+          </p>
+        ) : null}
         <div className="flex flex-wrap items-center gap-2">
           {value.shiftId ? (
-            <Button variant="destructive" className="min-h-11" onClick={onDelete} disabled={saving}>
+            <Button
+              variant="destructive"
+              className="min-h-11"
+              onClick={onDelete}
+              disabled={saving || offline}
+              title={offline ? OFFLINE_MESSAGE : undefined}
+              aria-describedby={offline ? OFFLINE_REASON_ID : undefined}
+            >
               Delete
             </Button>
           ) : null}
@@ -109,7 +126,9 @@ export const ShiftDialog = ({
           <Button
             className="min-h-11"
             onClick={onSave}
-            disabled={blocked || settling || saving || shiftFormInterval(value) === null}
+            disabled={blocked || settling || saving || offline || shiftFormInterval(value) === null}
+            title={offline ? OFFLINE_MESSAGE : undefined}
+            aria-describedby={offline ? OFFLINE_REASON_ID : undefined}
           >
             Save
           </Button>

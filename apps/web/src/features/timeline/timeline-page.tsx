@@ -7,6 +7,7 @@ import { Skeleton } from "../../components/ui/skeleton"
 import { useRealtime } from "../../lib/realtime"
 import { useCanBook } from "../../lib/session"
 import { useMediaQuery } from "../../lib/use-media-query"
+import { useOnline } from "../../lib/use-online"
 import { AgendaView } from "./agenda-view"
 import { AppointmentCard } from "./appointment-card"
 import { AppointmentDrawer } from "./appointment-drawer"
@@ -78,7 +79,8 @@ export const TimelinePage = () => {
   const [arrivedId, setArrivedId] = useState<string | null>(null)
   const [announcement, setAnnouncement] = useState("")
   const [hiddenColumns, setHiddenColumns] = useState<ReadonlySet<string>>(() => new Set())
-  const canCreate = useCanBook()
+  const online = useOnline()
+  const canCreate = useCanBook() && online
   const mode = useTimelineMode()
   const columnEls = useRef(new Map<string, HTMLDivElement>())
 
@@ -113,7 +115,7 @@ export const TimelinePage = () => {
     }
   })
 
-  const keyboard = useGridKeyboard({ reschedule, isBusy })
+  const keyboard = useGridKeyboard({ reschedule, isBusy: (id) => !online || isBusy(id) })
 
   const drag = useDragMove({
     dentistIds,

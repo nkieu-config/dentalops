@@ -3,7 +3,9 @@ import { render, screen } from "@testing-library/react"
 import { MemoryRouter, Route, Routes } from "react-router"
 import { afterEach, describe, expect, it } from "vitest"
 import { canManageRoster, canViewActivity, setSession } from "../../lib/session"
+import { goOffline, goOnline, setOnLine } from "../../test/network"
 import { AppShell, visibleNavItems } from "./app-shell"
+import { OFFLINE_MESSAGE } from "./offline-banner"
 
 const sessionFor = (role: UserRole) => ({
   accessToken: "token",
@@ -80,5 +82,36 @@ describe("AppShell navigation", () => {
       expect(item.className).toContain("min-w-0")
       expect(item.querySelector("span")?.className).toContain("truncate")
     }
+  })
+})
+
+describe("AppShell offline banner", () => {
+  it("stays out of the way while the browser is online", () => {
+    mount("owner")
+    expect(screen.queryByTestId("offline-banner")).not.toBeInTheDocument()
+  })
+
+  it("announces the loss of the network and clears itself when it returns", () => {
+    mount("owner")
+
+    goOffline()
+    const banner = screen.getByTestId("offline-banner")
+    expect(banner).toHaveTextContent(OFFLINE_MESSAGE)
+    const region = screen.getByRole("status")
+    expect(region).toHaveAttribute("aria-live", "polite")
+    expect(region.contains(banner)).toBe(true)
+
+    goOnline()
+    expect(screen.queryByTestId("offline-banner")).not.toBeInTheDocument()
+  })
+
+  it("sits above the topbar, so nothing it warns about scrolls out from under it", () => {
+    setOnLine(false)
+    mount("owner")
+    const banner = screen.getByTestId("offline-banner")
+    const topbar = screen.getByRole("banner")
+    expect(
+      banner.compareDocumentPosition(topbar) & Node.DOCUMENT_POSITION_FOLLOWING
+    ).toBeTruthy()
   })
 })

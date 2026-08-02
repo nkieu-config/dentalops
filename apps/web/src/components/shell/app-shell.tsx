@@ -6,6 +6,7 @@ import { cn } from "../../lib/cn"
 import { canManageRoster, canViewActivity, isDemo, logout, useSession } from "../../lib/session"
 import { toggleTheme } from "../../lib/theme"
 import { Button } from "../ui/button"
+import { OfflineBanner } from "./offline-banner"
 
 interface NavItem {
   to: string
@@ -54,6 +55,7 @@ export const AppShell = () => {
 
   return (
     <div className="flex min-h-dvh flex-col">
+      <OfflineBanner />
       {isDemo() ? (
         <div className="bg-warning px-4 py-1 text-center text-xs font-medium text-warning-foreground">
           Demo mode — the clinic data rebuilds itself every 6 hours

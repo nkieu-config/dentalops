@@ -4,8 +4,10 @@ import { fireEvent, render, screen, waitFor, within } from "@testing-library/rea
 import userEvent from "@testing-library/user-event"
 import { MemoryRouter, Route, Routes } from "react-router"
 import { describe, expect, it } from "vitest"
+import { OFFLINE_MESSAGE } from "../../components/shell/offline-banner"
 import { setSession } from "../../lib/session"
 import { API, http, HttpResponse, server } from "../../test/msw"
+import { goOffline, goOnline } from "../../test/network"
 import { setViewport, type Viewport } from "../../test/viewport"
 import { RosterRoute } from "./roster-page"
 
@@ -328,6 +330,41 @@ describe("RosterPage", () => {
       expect(screen.getByTestId(`shift-${monShiftId}`)).toHaveAttribute("data-conflicting", "true")
     )
     expect(screen.getByTestId(`shift-${somchaiShiftId}`)).not.toHaveAttribute("data-conflicting")
+  })
+
+  it("disables Save while offline, says why, and restores it on reconnect", async () => {
+    const state = freshState()
+    useHandlers(state)
+    mount("lg")
+
+    const dialog = await openMondayShift()
+    const save = within(dialog).getByRole("button", { name: "Save" })
+    await waitFor(() => expect(save).toBeEnabled())
+
+    goOffline()
+    expect(save).toBeDisabled()
+    expect(save).toHaveAccessibleDescription(OFFLINE_MESSAGE)
+    expect(save).toHaveAttribute("title", OFFLINE_MESSAGE)
+    expect(within(dialog).getByRole("button", { name: "Delete" })).toBeDisabled()
+
+    await userEvent.click(save)
+    expect(state.patched).toEqual([])
+    expect(state.created).toEqual([])
+
+    goOnline()
+    await waitFor(() => expect(save).toBeEnabled())
+    expect(save).not.toHaveAttribute("title")
+  })
+
+  it("withdraws the shift drag handle while offline so no move can be started", async () => {
+    useHandlers(freshState())
+    mount("lg")
+
+    const block = await screen.findByTestId(`shift-${monShiftId}`)
+    expect(block.classList.contains("cursor-grab")).toBe(true)
+
+    goOffline()
+    expect(screen.getByTestId(`shift-${monShiftId}`).classList.contains("cursor-grab")).toBe(false)
   })
 
   it("sends a receptionist back to the timeline instead of the roster", async () => {

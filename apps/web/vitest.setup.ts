@@ -3,6 +3,7 @@ import { cleanup } from "@testing-library/react"
 import { afterAll, afterEach, beforeAll } from "vitest"
 import { setSession } from "./src/lib/session"
 import { server } from "./src/test/msw"
+import { resetNetwork } from "./src/test/network"
 import { matchesViewport, resetViewport, subscribeViewport } from "./src/test/viewport"
 
 class NoopResizeObserver implements ResizeObserver {
@@ -81,6 +82,7 @@ afterEach(() => {
   server.resetHandlers()
   setSession(null)
   resetViewport()
+  resetNetwork()
 })
 
 afterAll(() => {

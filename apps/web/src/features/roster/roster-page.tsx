@@ -13,6 +13,7 @@ import { Skeleton } from "../../components/ui/skeleton"
 import { api, ApiError } from "../../lib/api"
 import { useCanManageRoster } from "../../lib/session"
 import { useMediaQuery } from "../../lib/use-media-query"
+import { useOnline } from "../../lib/use-online"
 import { useBranches, useDentists } from "../timeline/hooks"
 import { bkkDate, bkkShiftDate, bkkToday, fmtDay } from "../timeline/lib/geometry"
 import {
@@ -60,6 +61,7 @@ export const RosterPage = () => {
   const [dayOffset, setDayOffset] = useState(0)
   const [dropped, setDropped] = useState<ShiftDraft | null>(null)
   const mode = useRosterMode()
+  const online = useOnline()
   const queryClient = useQueryClient()
   const dayEls = useRef(new Map<string, HTMLElement>())
 
@@ -398,7 +400,7 @@ export const RosterPage = () => {
                         onEdit={(picked) => {
                           if (!drag.consumeDrag()) setForm(shiftToForm(picked))
                         }}
-                        onMoveStart={drag.startMove(shift, date)}
+                        onMoveStart={online ? drag.startMove(shift, date) : undefined}
                         conflicting={blockedStaff.has(member.id)}
                         dragging={moving?.shiftId === shift.id}
                       />
@@ -434,6 +436,7 @@ export const RosterPage = () => {
         blocked={validation.blocking.length > 0}
         settling={validation.isSettling}
         saving={save.isPending || remove.isPending}
+        offline={!online}
         staffName={staffName}
         linkFor={linkFor}
         onChange={setForm}

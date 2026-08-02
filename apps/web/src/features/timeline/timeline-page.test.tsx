@@ -8,6 +8,7 @@ import { afterEach, describe, expect, it, vi } from "vitest"
 import { APPOINTMENT_CHANGED } from "../../lib/realtime"
 import { setSession } from "../../lib/session"
 import { API, http, HttpResponse, server } from "../../test/msw"
+import { goOffline, goOnline } from "../../test/network"
 import { fireSocketEvent, resetSocketMock } from "../../test/socket-io-stub"
 import { TimelinePage } from "./timeline-page"
 
@@ -416,6 +417,49 @@ describe("TimelinePage", () => {
 
     mount("receptionist")
     expect(await screen.findByTestId(`overlay-${dentistId}`)).toBeInTheDocument()
+  })
+
+  it("withdraws every write affordance while the browser is offline", async () => {
+    const id = "a1000000-0000-4000-8000-000000000041"
+    const bodies: unknown[] = []
+    server.use(
+      ...directory([{ id: dentistId, name: "Dr. Anong" }]),
+      http.get(`${API}/appointments`, () =>
+        HttpResponse.json([
+          appointment(id, dentistId, "2026-08-03T02:00:00.000Z", "2026-08-03T03:00:00.000Z")
+        ])
+      ),
+      http.patch(`${API}/appointments/${id}`, async ({ request }) => {
+        bodies.push(await request.json())
+        return HttpResponse.json(
+          appointment(id, dentistId, "2026-08-03T02:00:00.000Z", "2026-08-03T03:00:00.000Z")
+        )
+      })
+    )
+    mount("receptionist")
+    const card = await screen.findByTestId(`appt-${id}`)
+    expect(screen.getByTestId(`overlay-${dentistId}`)).toBeInTheDocument()
+
+    goOffline()
+    expect(screen.queryByTestId(`overlay-${dentistId}`)).not.toBeInTheDocument()
+
+    fireEvent.pointerDown(card, { button: 0, clientX: 10, clientY: 576 })
+    fireEvent.pointerMove(window, { clientX: 10, clientY: 640 })
+    expect(screen.queryByTestId("drag-preview")).not.toBeInTheDocument()
+    fireEvent.pointerUp(window)
+
+    card.focus()
+    fireEvent.keyDown(card, { key: "ArrowDown", shiftKey: true })
+    await Promise.resolve()
+    expect(bodies).toEqual([])
+
+    goOnline()
+    expect(await screen.findByTestId(`overlay-${dentistId}`)).toBeInTheDocument()
+    card.focus()
+    fireEvent.keyDown(card, { key: "ArrowDown", shiftKey: true })
+    await waitFor(() =>
+      expect(bodies).toEqual([{ version: 1, startsAt: "2026-08-03T02:15:00.000Z" }])
+    )
   })
 
   it("shows a phone booking arrive over realtime, animated and announced, with no reload", async () => {

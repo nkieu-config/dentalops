@@ -2,6 +2,7 @@ import { render, screen, within } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { MemoryRouter } from "react-router"
 import { describe, expect, it } from "vitest"
+import { OFFLINE_MESSAGE } from "../components/shell/offline-banner"
 import { DevUiPage } from "./dev-ui-page"
 
 const renderGallery = () =>
@@ -191,6 +192,11 @@ describe("DevUiPage", () => {
     expect(
       mixedBlocking.compareDocumentPosition(mixedWarnings) & Node.DOCUMENT_POSITION_FOLLOWING
     ).toBeTruthy()
+  })
+
+  it("shows the shell's own offline banner rather than a copy that could drift", () => {
+    renderGallery()
+    expect(screen.getByTestId("offline-banner")).toHaveTextContent(OFFLINE_MESSAGE)
   })
 
   it("reports the MASTER §6 inventory as complete", () => {

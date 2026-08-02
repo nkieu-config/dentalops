@@ -54,7 +54,28 @@ pnpm lint        # eslint across the workspace
 pnpm typecheck   # tsc --noEmit in every package
 pnpm test        # vitest (web, packages) + jest (api)
 pnpm build       # turbo build, respecting the dependency graph
+pnpm --filter @dentalops/web e2e   # playwright, both journeys
 ```
+
+Two Playwright journeys run on every push, with no retries:
+
+- **J1 — phone to desk.** Two browser contexts in one test: a 390px phone books
+  through the public wizard while a desktop context sits logged in on the staff
+  timeline. The assertion is that the appointment appears on the desk **without a
+  reload**, so a passing run means Socket.IO actually delivered.
+- **J2 — drag to reschedule.** A staff drag moves an appointment optimistically,
+  and a second drag onto a slot someone else has taken rolls back to where it
+  came from.
+
+### Email costs nothing and is still real
+
+`MailTransport` is an interface with two implementations chosen at construction:
+`SmtpTransport` when `SMTP_URL` is set, and a structured logging transport
+otherwise. Only that last hop is pluggable — the BullMQ queue, the retry policy
+(3 attempts, exponential backoff) and the in-process worker are the real thing
+either way, and they are exercised by the test suite and by every local booking.
+`docker compose` also brings up mailpit, so local development can see actual
+rendered mail at http://localhost:8026 without a paid provider or an account.
 
 ## Layout
 

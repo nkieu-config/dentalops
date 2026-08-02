@@ -42,6 +42,73 @@ the update is `WHERE id AND version`, and zero rows updated means
 409 `STALE_VERSION` with the current version in `details`. This is the
 contract the timeline's optimistic drag-and-drop rolls back on.
 
+## Public booking
+
+A patient books at `/book/:clinicSlug` with no account. Public routes carry no
+JWT, so tenant scope comes from the slug: `PublicTenantMiddleware` resolves it
+and runs the request inside the same `AsyncLocalStorage` context the
+authenticated path uses. Everything downstream — `prisma.scoped`, the
+availability engine, `AppointmentsService.create` — is the code staff already
+use, not a parallel implementation without tenant safety.
+
+### Hold lifecycle
+
+A hold is a set of **slot keys**, not a range query. Time is bucketed into
+15-minute slots; a hold owns `hold:{tenantId}:{dentistId}:{slotIndex}` for
+every slot its window spans, where `startIndex = floor(startMs / 900000)` and
+`endIndex = ceil(endMs / 900000) - 1`.
+
+1. **Acquire.** One Lua script checks every key and only then sets every key,
+   with the holdId as the value and a 300s TTL. Lua runs atomically, so no
+   other client can interleave between the check loop and the set loop — two
+   concurrent holds on overlapping windows cannot both win, and the loser gets
+   409 `SLOT_HELD`. It is deliberately *not* a per-key `SET NX` with
+   compensating deletes: that shape can delete another hold's keys if it ever
+   runs non-atomically.
+2. **Observe.** Public availability calls the shared engine unchanged and then
+   subtracts held slots with an `MGET` of computed keys — bounded because the
+   endpoint asks for one Bangkok day. `exceptHoldId` lets a caller see its own
+   held slot as free, which is what makes the countdown screen and reschedule
+   work.
+3. **Expire.** The TTL is the whole cleanup story. There is no sweeper job and
+   nothing to reconcile; keys simply stop existing. The wizard's countdown is
+   driven by the server's `expiresAt`, never a timer seeded at mount, so a
+   backgrounded phone cannot drift into believing it still holds the slot.
+4. **Release.** Also a Lua script, and for the mirror-image reason: a blind
+   `DEL` would, if the TTL had already lapsed and a different hold had taken
+   those slots, delete the new owner's keys. Release deletes a key only when
+   its value equals the releasing holdId. The wizard releases on back-out and
+   the server releases after a successful confirm.
+
+### Holds are a courtesy, the constraint is the authority
+
+A hold makes the common case pleasant — a patient filling in their name does
+not lose the slot to someone browsing. It is not a lock, and nothing in the
+booking path trusts it. Confirm goes through the same `AppointmentsService`
+and the same `EXCLUDE USING GIST` constraints as a staff booking, so the
+database still has the final say and can still answer 409 `SLOT_CONFLICT`.
+
+The consequence is deliberate: **staff availability does not subtract holds.**
+Staff booking is privileged by design, so a receptionist taking a phone call
+sees and can book a slot a web patient is holding. If they do, the patient's
+confirm loses to the constraint and the wizard shows the recovery state ("that
+time was just booked", nearest free slot, pick another) rather than a raw
+error. The alternative — letting an anonymous 5-minute Redis key block the
+front desk — trades a real, present patient for a maybe.
+
+The same recovery state covers a lapsed hold (409 `HOLD_EXPIRED`), so both
+failure modes are one screen the patient can act on.
+
+### After confirm
+
+Confirm upserts the patient by `(tenantId, phone)` — first name wins, a rename
+is a staff action — books through the constrained path, releases the hold, and
+returns a manage token. The token is a JWT with `purpose: "manage"` and a
+30-day expiry; `verify` rejects any other purpose, so an access token can never
+be replayed as a manage link. The confirmation email is enqueued on BullMQ
+**after commit**, and enqueue failures are swallowed inside the queue wrapper:
+email must never fail a booking that the database already accepted.
+
 ## Idempotency
 
 Mutating booking routes accept an `Idempotency-Key` header. First call

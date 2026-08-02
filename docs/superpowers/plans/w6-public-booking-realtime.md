@@ -36,7 +36,7 @@
 
 **Interfaces:**
 - Consumes: `prisma` (unscoped, **only** inside the middleware to resolve slug → tenantId), `tenantContext`, `Public()`.
-- Produces: `PublicTenantMiddleware` bound to `public/:clinicSlug/*` — resolves the slug, 404s `CLINIC_NOT_FOUND` on miss, and runs the rest of the request inside `tenantContext.run({ tenantId, userId: "public", role: "public" }, next)`. `GET /public/:clinicSlug` → `{ id, name, slug, branches: [{id,name}], services: [{id,name,durationMin,colorIndex}] }` (active only). Global `ThrottlerGuard` at 60 req/min per IP with a Redis store, `@SkipThrottle()` on everything except `/public/*`.
+- Produces: `PublicTenantMiddleware` bound to `public/:clinicSlug/*` — resolves the slug, 404s `CLINIC_NOT_FOUND` on miss, and runs the rest of the request inside `tenantContext.run({ tenantId, userId: "public", role: "public" }, next)`. `GET /public/:clinicSlug` → `{ id, name, slug, branches: [{id,name}], services: [{id,name,durationMin,colorIndex}] }` (active only). **The shipped response also carries `dentists: [{id,name}]`** — this line was copied from the design doc's API surface, which omits them, but step 2 of the wizard is "choose a dentist", and the wizard cannot ask without a list. Added in Task 6 rather than invented there; the fixture in `booking-page.test.tsx` had to grow the same field. Global `ThrottlerGuard` at 60 req/min per IP with a Redis store, `@SkipThrottle()` on everything except `/public/*`.
 
 - [ ] **Step 1: Dependencies**
 
@@ -234,7 +234,7 @@ git commit -m "feat(api): public booking confirm with patient upsert and signed 
 - Consumes: `bullmq`, its **own** ioredis connection (`maxRetriesPerRequest: null`).
 - Produces: `MailQueue.enqueueConfirmation({ appointmentId })`; a worker in the same process that loads the appointment, renders subject/text/html, and hands it to a transport. `MailTransport` is an interface with two implementations selected at construction: `SmtpTransport` when `SMTP_URL` is set, else `LogTransport` (structured `console.log`, no external dependency, no cost). Jobs use `attempts: 3`, exponential backoff, `removeOnComplete: 50`.
 
-Zero-budget note to state in the README later: the queue, retries, and worker are real; only the final hop is pluggable. `docker-compose` gains mailpit so local development sees actual rendered mail at `http://localhost:8025`.
+Zero-budget note to state in the README later: the queue, retries, and worker are real; only the final hop is pluggable. `docker-compose` gains mailpit so local development sees actual rendered mail — **published on host ports 1026/8026, not mailpit's defaults**, so the UI is `http://localhost:8026`.
 
 - [ ] **Step 1: Spec**
 
@@ -307,6 +307,8 @@ Behaviour the tests must pin:
 
 Public styling: body ≥16px (`text-base`), chips ≥44px, `tabular-nums`, `min-h-dvh`.
 
+**Deviation from MASTER §5.3, recorded there:** the wireframe lists named dentists first and "⚡ Any available" last; the shipped step puts "Any available" first, as the fastest path and the most common choice for a walk-in. MASTER now carries a "Deliberate deviations from this wireframe" table under §5.3 so the design system and the code agree.
+
 - [ ] **Step 1: TDD the reducer**, then the countdown, then the page. Full pipeline. Commit:
 
 ```bash
@@ -341,7 +343,7 @@ The arriving card must animate per MASTER §2: 250ms fade + a `0.98 → 1` scale
 **Interfaces:**
 - Produces: J1 — two browser contexts in one test. Context A (mobile viewport, 390×844) walks the public wizard as a patient. Context B (desktop) is logged in as owner on the timeline for the same day and branch. The assertion is that B shows the new appointment **without reloading**.
 
-Determinism, same discipline as J2: pick the dentist with no shift on the target Monday via the existing `findFreeDentist` helper, `clearColumn` first, and drive the wizard by role/name rather than by position. The realtime assertion must have a generous `expect(...).toBeVisible({ timeout: 10_000 })` but **must not** reload B — reloading would make the test pass without realtime working. Add a second assertion that B's toast/announcement region mentions the arrival, so a silent cache refetch cannot satisfy it.
+Determinism, same discipline as J2: `clearColumn` first, and drive the wizard by role/name rather than by position. **`findFreeDentist` cannot be used here.** J2 wants a dentist with no shift so nothing collides; the public wizard wants the opposite, because public availability intersects shifts — an unrostered dentist is offered *no* slots and the wizard dead-ends. J1 therefore adds `findRosteredDentist`, which returns a dentist with a shift on the target Monday **and that shift's branch** (the wizard picks a branch first, and it must be the one the shift is on), clears that dentist's column, and takes the first chip rather than a fixed time — the shift's start is not knowable in advance. A day-stepping loop walks the picker to the target Monday because the wizard opens on today. The realtime assertion must have a generous `expect(...).toBeVisible({ timeout: 10_000 })` but **must not** reload B — reloading would make the test pass without realtime working. Add a second assertion that B's toast/announcement region mentions the arrival, so a silent cache refetch cannot satisfy it.
 
 Run 3× locally, no retries.
 
@@ -359,6 +361,8 @@ Run 3× locally, no retries.
 - [ ] README: note that the mail transport is pluggable and defaults to logging, so the queue is real and the cost is zero.
 - [ ] Sync this plan with execution findings.
 - [ ] Full pipeline including both e2e journeys, push, watch CI, report.
+
+**No CI change was needed for J1.** The workflow's last test step is `pnpm --filter @dentalops/web e2e`, and `playwright.config.ts` sets `testDir: "./e2e"` with no `testMatch` filter, so adding `public-booking.spec.ts` to that directory put J1 in CI the moment Task 8 landed. Both journeys run with `retries: 0`.
 
 ---
 

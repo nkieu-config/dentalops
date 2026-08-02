@@ -349,6 +349,12 @@ Expired state replaces the grid, never a silent failure:
 
 Slot buttons: 44px min height, `tabular-nums`, disabled slots omitted rather than greyed (a grid of greyed slots reads as broken). Desktop is the same column at `max-w-md`, centered.
 
+#### Deliberate deviations from this wireframe
+
+| Wireframe says | We ship | Why |
+|---|---|---|
+| Named dentists first, **⚡ Any available** last | **⚡ Any available first**, named dentists below it | The wireframe orders by specificity; the wizard orders by intent. A walk-in booking a cleaning has no dentist in mind — "any available" is both the fastest path to a slot and the most common choice, so it goes where the thumb already is. Patients who *do* want Dr. Anong are looking for a name and will scan past one card to find it, which is a cheaper cost than making the majority scroll a roster to reach the option they wanted. |
+
 ### 5.4 Roster editor — `≥ 1024`
 
 ```

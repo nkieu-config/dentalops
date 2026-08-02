@@ -62,6 +62,41 @@ describe("DevUiPage", () => {
     expect(none.queryAllByTestId("slot")).toHaveLength(0)
   })
 
+  it("renders the countdown at its normal, urgent and expired urgencies", () => {
+    render(<DevUiPage />)
+
+    const normal = within(screen.getByTestId("countdown-normal")).getByTestId("hold-countdown")
+    expect(normal).toHaveAttribute("data-urgency", "normal")
+    expect(normal).toHaveTextContent("Holding 10:30 for")
+
+    expect(
+      within(screen.getByTestId("countdown-urgent")).getByTestId("hold-countdown")
+    ).toHaveAttribute("data-urgency", "urgent")
+
+    const expired = within(screen.getByTestId("countdown-expired")).getByTestId("hold-countdown")
+    expect(expired).toHaveAttribute("data-urgency", "expired")
+    expect(expired).toHaveTextContent("Your hold expired")
+  })
+
+  it("shows the slot picker while a hold is being acquired and both recovery states", () => {
+    render(<DevUiPage />)
+
+    const pending = within(screen.getByTestId("hold-pending"))
+    expect(pending.getAllByTestId("slot")).toHaveLength(4)
+    expect(pending.getByText("Holding that time for you…")).toBeInTheDocument()
+
+    const expired = within(screen.getByTestId("hold-expired"))
+    expect(expired.getByText("Your hold expired")).toBeInTheDocument()
+    expect(expired.getByText("10:30 was taken.")).toBeInTheDocument()
+    expect(expired.getByText("13:00")).toBeInTheDocument()
+    expect(expired.queryAllByTestId("slot")).toHaveLength(0)
+
+    const taken = within(screen.getByTestId("hold-taken"))
+    expect(taken.getByText("That time was just booked")).toBeInTheDocument()
+    expect(taken.queryByText(/Nearest free/)).not.toBeInTheDocument()
+    expect(taken.getByRole("button", { name: "Pick another time" })).toBeInTheDocument()
+  })
+
   it("shows the overlapping fixture pair side by side in the TimeGrid section", () => {
     render(<DevUiPage />)
     const grid = within(screen.getByTestId("lane-grid"))
@@ -90,8 +125,6 @@ describe("DevUiPage", () => {
 
   it("names the components that arrive in later weeks", () => {
     render(<DevUiPage />)
-    expect(
-      screen.getByText("CountdownBanner — W6 · ViolationList · ShiftBlock — W7")
-    ).toBeInTheDocument()
+    expect(screen.getByText("ViolationList · ShiftBlock — W7")).toBeInTheDocument()
   })
 })

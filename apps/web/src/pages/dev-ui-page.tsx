@@ -13,6 +13,9 @@ import { EmptyState } from "../components/ui/empty-state"
 import { Input } from "../components/ui/input"
 import { Label } from "../components/ui/label"
 import { Skeleton } from "../components/ui/skeleton"
+import { CountdownBanner } from "../features/booking/countdown-banner"
+import { SlotStep } from "../features/booking/steps/slot-step"
+import type { WizardRecovery } from "../features/booking/wizard-reducer"
 import { AppointmentCard } from "../features/timeline/appointment-card"
 import { bkkDayStart } from "../features/timeline/lib/geometry"
 import { layoutByDentist } from "../features/timeline/lib/lanes"
@@ -144,6 +147,100 @@ const slotStates: { testId: string; label: string; state: SlotPickerState }[] = 
   },
   { testId: "slots-none", label: "None available", state: { status: "ready", slots: [] } }
 ]
+
+const holdStartsAt = gallerySlots[1]!.startsAt
+
+const countdownStates = [
+  { testId: "countdown-normal", label: "Over 2 minutes", offsetMs: 292_000 },
+  { testId: "countdown-urgent", label: "Under a minute", offsetMs: 45_000 },
+  { testId: "countdown-expired", label: "Expired", offsetMs: -1_000 }
+]
+
+interface HoldRecoveryFixture {
+  testId: string
+  label: string
+  recovery: WizardRecovery
+  nearestFree: string | null
+}
+
+const holdRecoveries: HoldRecoveryFixture[] = [
+  {
+    testId: "hold-expired",
+    label: "Hold expired",
+    recovery: { reason: "expired", startsAt: holdStartsAt },
+    nearestFree: gallerySlots[2]!.startsAt
+  },
+  {
+    testId: "hold-taken",
+    label: "Lost the race — 409 SLOT_CONFLICT",
+    recovery: { reason: "taken", startsAt: holdStartsAt },
+    nearestFree: null
+  }
+]
+
+const HoldSection = () => {
+  const [base] = useState(() => Date.now())
+
+  return (
+    <section className="space-y-3">
+      <h2 className="text-lg font-semibold">Hold countdown and recovery</h2>
+      <p className="text-sm text-muted-foreground">
+        The countdown runs off the server's <code>expiresAt</code>, never a local timer seeded at
+        mount, and turns destructive under a minute. Because a hold is only a courtesy over the
+        database constraint, both ways it can end — the TTL lapsing and staff winning the race — get
+        a recovery state that replaces the picker instead of failing silently.
+      </p>
+      <div className="grid gap-4 sm:grid-cols-3">
+        {countdownStates.map(({ testId, label, offsetMs }) => (
+          <div key={testId} className="space-y-2 rounded-md border border-border p-3">
+            <p className="text-xs font-medium text-muted-foreground">{label}</p>
+            <div data-testid={testId}>
+              <CountdownBanner
+                expiresAt={new Date(base + offsetMs).toISOString()}
+                startsAt={holdStartsAt}
+                onExpire={noop}
+              />
+            </div>
+          </div>
+        ))}
+      </div>
+      <div className="grid gap-4 sm:grid-cols-3">
+        <div className="space-y-2 rounded-md border border-border p-3">
+          <p className="text-xs font-medium text-muted-foreground">Acquiring the hold</p>
+          <div data-testid="hold-pending">
+            <SlotStep
+              date={GALLERY_DATE}
+              state={{ status: "ready", slots: gallerySlots }}
+              recovery={null}
+              nearestFree={null}
+              holding
+              onPick={noop}
+              onDateChange={noop}
+              onPickAnother={noop}
+            />
+          </div>
+        </div>
+        {holdRecoveries.map(({ testId, label, recovery, nearestFree }) => (
+          <div key={testId} className="space-y-2 rounded-md border border-border p-3">
+            <p className="text-xs font-medium text-muted-foreground">{label}</p>
+            <div data-testid={testId}>
+              <SlotStep
+                date={GALLERY_DATE}
+                state={{ status: "ready", slots: gallerySlots }}
+                recovery={recovery}
+                nearestFree={nearestFree}
+                holding={false}
+                onPick={noop}
+                onDateChange={noop}
+                onPickAnother={noop}
+              />
+            </div>
+          </div>
+        ))}
+      </div>
+    </section>
+  )
+}
 
 const perfDentists = Array.from({ length: 8 }, (_, i) => dentist(10 + i, `Dr. ${i + 1}`))
 
@@ -342,6 +439,7 @@ export const DevUiPage = () => (
         ))}
       </div>
     </section>
+    <HoldSection />
     <section className="space-y-3">
       <h2 className="text-lg font-semibold">TimeGrid</h2>
       <p className="text-sm text-muted-foreground">
@@ -384,7 +482,7 @@ export const DevUiPage = () => (
     <section className="space-y-2">
       <h2 className="text-lg font-semibold">Arriving later</h2>
       <p className="text-sm text-muted-foreground">
-        CountdownBanner — W6 · ViolationList · ShiftBlock — W7
+        ViolationList · ShiftBlock — W7
       </p>
     </section>
   </div>

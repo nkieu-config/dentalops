@@ -23,6 +23,7 @@ import { ManageTokenMiddleware } from "./public/manage-token.middleware"
 import { PublicModule } from "./public/public.module"
 import { PublicTenantMiddleware } from "./public/public-tenant.middleware"
 import { REDIS, RedisModule } from "./redis/redis.module"
+import { RosterModule } from "./roster/roster.module"
 import { ShiftsModule } from "./shifts/shifts.module"
 import { TenantContextMiddleware } from "./tenant/tenant-context.middleware"
 
@@ -41,6 +42,7 @@ import { TenantContextMiddleware } from "./tenant/tenant-context.middleware"
     }),
     AuthModule,
     ShiftsModule,
+    RosterModule,
     AppointmentsModule,
     AvailabilityModule,
     PatientsModule,

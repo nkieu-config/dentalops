@@ -279,7 +279,12 @@ const GalleryGrid = ({ testId, dentists, shifts, appointments }: GalleryGridProp
     >
       <TimeGrid
         date={GALLERY_DATE}
-        dentists={dentists}
+        columns={dentists.map((dentist) => ({
+          id: dentist.id,
+          name: dentist.name,
+          staffId: dentist.id
+        }))}
+        columnOf={(appointment) => appointment.dentistId}
         shifts={shifts}
         appointments={appointments}
         renderAppointment={(appointment, dayStart) => (

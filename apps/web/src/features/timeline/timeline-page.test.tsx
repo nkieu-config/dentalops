@@ -20,6 +20,25 @@ const otherDentistId = "8f9619ff-8b86-4d01-b42d-00cf4fc964ff"
 const serviceId = "5f9619ff-8b86-4d01-b42d-00cf4fc964ff"
 const patientId = "6f9619ff-8b86-4d01-b42d-00cf4fc964ff"
 
+const chairOneId = "c1000000-0000-4000-8000-000000000001"
+const chairTwoId = "c1000000-0000-4000-8000-000000000002"
+
+const claim = (resourceId: string, status: "active" | "released" = "active") => ({
+  id: `a1000000-0000-4000-8000-0000000000${resourceId.slice(-2)}`,
+  resourceId,
+  startsAt: "2026-08-03T02:00:00.000Z",
+  endsAt: "2026-08-03T03:10:00.000Z",
+  status
+})
+
+const chairs = () =>
+  http.get(`${API}/resources`, () =>
+    HttpResponse.json([
+      { id: chairOneId, name: "Chair 1", type: "chair", branchId },
+      { id: chairTwoId, name: "Chair 2", type: "chair", branchId }
+    ])
+  )
+
 const appointment = (
   id: string,
   dentist: string,
@@ -53,7 +72,7 @@ const directory = (dentists: { id: string; name: string }[]) => [
   http.get(`${API}/availability`, () => HttpResponse.json({ slots: [] }))
 ]
 
-const mount = (role: UserRole = "receptionist") => {
+const mount = (role: UserRole = "receptionist", entry = "/app/timeline?d=2026-08-03") => {
   setSession({
     accessToken: "t1",
     user: {
@@ -66,7 +85,7 @@ const mount = (role: UserRole = "receptionist") => {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   return render(
     <QueryClientProvider client={client}>
-      <MemoryRouter initialEntries={["/app/timeline?d=2026-08-03"]}>
+      <MemoryRouter initialEntries={[entry]}>
         <TimelinePage />
       </MemoryRouter>
       <Toaster />
@@ -460,6 +479,151 @@ describe("TimelinePage", () => {
     await waitFor(() =>
       expect(bodies).toEqual([{ version: 1, startsAt: "2026-08-03T02:15:00.000Z" }])
     )
+  })
+
+  it("seats every card in the chair it holds when the columns switch to chairs", async () => {
+    const inChairOne = "a1000000-0000-4000-8000-000000000051"
+    const inChairTwo = "a1000000-0000-4000-8000-000000000052"
+    server.use(
+      ...directory([{ id: dentistId, name: "Dr. Anong" }]),
+      chairs(),
+      http.get(`${API}/appointments`, () =>
+        HttpResponse.json([
+          {
+            ...appointment(
+              inChairOne,
+              dentistId,
+              "2026-08-03T02:00:00.000Z",
+              "2026-08-03T03:00:00.000Z"
+            ),
+            claims: [claim(chairOneId)]
+          },
+          {
+            ...appointment(
+              inChairTwo,
+              dentistId,
+              "2026-08-03T04:00:00.000Z",
+              "2026-08-03T05:00:00.000Z"
+            ),
+            claims: [claim(chairTwoId)]
+          }
+        ])
+      )
+    )
+    mount("receptionist", "/app/timeline?d=2026-08-03&c=chair")
+
+    expect(await screen.findByText("Chair 1")).toBeInTheDocument()
+    expect(screen.getByText("Chair 2")).toBeInTheDocument()
+    expect(screen.queryByText("Dr. Anong")).not.toBeInTheDocument()
+    expect(screen.getByTestId(`col-${chairOneId}`)).toContainElement(
+      screen.getByTestId(`appt-${inChairOne}`)
+    )
+    expect(screen.getByTestId(`col-${chairTwoId}`)).toContainElement(
+      screen.getByTestId(`appt-${inChairTwo}`)
+    )
+    expect(screen.queryByTestId("unseated-notice")).not.toBeInTheDocument()
+  })
+
+  it("refuses every drag in chair mode because no api can move an appointment between chairs", async () => {
+    const id = "a1000000-0000-4000-8000-000000000053"
+    const bodies: unknown[] = []
+    server.use(
+      ...directory([{ id: dentistId, name: "Dr. Anong" }]),
+      chairs(),
+      http.get(`${API}/appointments`, () =>
+        HttpResponse.json([
+          {
+            ...appointment(id, dentistId, "2026-08-03T02:00:00.000Z", "2026-08-03T03:00:00.000Z"),
+            claims: [claim(chairOneId)]
+          }
+        ])
+      ),
+      http.patch(`${API}/appointments/${id}`, async ({ request }) => {
+        bodies.push(await request.json())
+        return HttpResponse.json(
+          appointment(id, dentistId, "2026-08-03T03:00:00.000Z", "2026-08-03T04:00:00.000Z")
+        )
+      })
+    )
+    mount("receptionist", "/app/timeline?d=2026-08-03&c=chair")
+
+    const card = await screen.findByTestId(`appt-${id}`)
+    expect(screen.queryByTestId(`resize-${id}`)).not.toBeInTheDocument()
+    expect(screen.queryByTestId(`overlay-${chairOneId}`)).not.toBeInTheDocument()
+    expect(screen.queryByTestId(`overlay-${dentistId}`)).not.toBeInTheDocument()
+
+    fireEvent.pointerDown(card, { button: 0, clientX: 10, clientY: 576 })
+    fireEvent.pointerMove(window, { clientX: 400, clientY: 704 })
+    fireEvent.pointerUp(window)
+    expect(screen.getByTestId(`col-${chairOneId}`)).toContainElement(
+      screen.getByTestId(`appt-${id}`)
+    )
+
+    await userEvent.selectOptions(screen.getByLabelText("Column grouping"), "dentist")
+    const sameCard = await screen.findByTestId(`appt-${id}`)
+    fireEvent.pointerDown(sameCard, { button: 0, clientX: 10, clientY: 576 })
+    fireEvent.pointerMove(window, { clientX: 10, clientY: 640 })
+    expect(screen.getByTestId("drag-preview")).toBeInTheDocument()
+    fireEvent.pointerUp(window)
+
+    await waitFor(() =>
+      expect(bodies).toEqual([{ version: 1, startsAt: "2026-08-03T03:00:00.000Z" }])
+    )
+  })
+
+  it("says an appointment is missing rather than letting a released chair swallow it", async () => {
+    const seated = "a1000000-0000-4000-8000-000000000054"
+    const cancelled = "a1000000-0000-4000-8000-000000000055"
+    server.use(
+      ...directory([{ id: dentistId, name: "Dr. Anong" }]),
+      chairs(),
+      http.get(`${API}/appointments`, () =>
+        HttpResponse.json([
+          {
+            ...appointment(seated, dentistId, "2026-08-03T02:00:00.000Z", "2026-08-03T03:00:00.000Z"),
+            claims: [claim(chairOneId)]
+          },
+          {
+            ...appointment(
+              cancelled,
+              dentistId,
+              "2026-08-03T04:00:00.000Z",
+              "2026-08-03T05:00:00.000Z"
+            ),
+            status: "cancelled",
+            claims: [claim(chairTwoId, "released")]
+          }
+        ])
+      )
+    )
+    mount("receptionist", "/app/timeline?d=2026-08-03&c=chair")
+
+    expect(await screen.findByTestId(`appt-${seated}`)).toBeInTheDocument()
+    expect(screen.queryByTestId(`appt-${cancelled}`)).not.toBeInTheDocument()
+    const notice = screen.getByTestId("unseated-notice")
+    expect(notice).toHaveTextContent("1 appointment is hidden here")
+    expect(notice).toHaveTextContent("Switch to dentist columns to see it")
+  })
+
+  it("switches the columns back and forth from the toolbar and keeps it in the url", async () => {
+    server.use(
+      ...directory([{ id: dentistId, name: "Dr. Anong" }]),
+      chairs(),
+      http.get(`${API}/appointments`, () => HttpResponse.json([]))
+    )
+    mount()
+
+    expect(await screen.findByText("Dr. Anong")).toBeInTheDocument()
+    const toggle = screen.getByLabelText("Column grouping")
+    expect(toggle).toHaveValue("dentist")
+
+    await userEvent.selectOptions(toggle, "chair")
+    expect(await screen.findByText("Chair 1")).toBeInTheDocument()
+    expect(screen.queryByText("Dr. Anong")).not.toBeInTheDocument()
+
+    await userEvent.selectOptions(screen.getByLabelText("Column grouping"), "dentist")
+    expect(await screen.findByText("Dr. Anong")).toBeInTheDocument()
+    expect(screen.getByTestId(`overlay-${dentistId}`)).toBeInTheDocument()
   })
 
   it("shows a phone booking arrive over realtime, animated and announced, with no reload", async () => {

@@ -1,5 +1,6 @@
 import { Injectable } from "@nestjs/common"
 import { PrismaService } from "../prisma/prisma.service"
+import { QueryResourcesDto } from "./dto/query-resources.dto"
 import { QueryStaffDto } from "./dto/query-staff.dto"
 
 @Injectable()
@@ -31,6 +32,14 @@ export class DirectoryService {
         colorIndex: true,
         isActive: true
       },
+      orderBy: { name: "asc" }
+    })
+  }
+
+  resources(query: QueryResourcesDto) {
+    return this.prisma.scoped.resource.findMany({
+      where: { branchId: query.branchId, type: query.type, isActive: true },
+      select: { id: true, name: true, type: true, branchId: true },
       orderBy: { name: "asc" }
     })
   }

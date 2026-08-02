@@ -10,6 +10,12 @@ const dentist: StaffMember = {
   isActive: true
 }
 
+const dentistColumn = { id: dentist.id, name: dentist.name, staffId: dentist.id }
+const byDentist = (appointment: Appointment) => appointment.dentistId
+
+const chairId = "cf9619ff-8b86-4d01-b42d-00cf4fc964ff"
+const chairColumn = { id: chairId, name: "Chair 1" }
+
 const shift = (startsAt: string, endsAt: string): Shift =>
   ({
     id: "7f9619ff-8b86-4d01-b42d-00cf4fc964ff",
@@ -24,7 +30,8 @@ describe("TimeGrid", () => {
     render(
       <TimeGrid
         date="2026-08-03"
-        dentists={[dentist]}
+        columns={[dentistColumn]}
+        columnOf={byDentist}
         shifts={[shift("2026-08-03T02:00:00.000Z", "2026-08-03T10:00:00.000Z")]}
         appointments={[]}
         renderAppointment={() => null}
@@ -40,7 +47,8 @@ describe("TimeGrid", () => {
     render(
       <TimeGrid
         date="2026-08-03"
-        dentists={[dentist]}
+        columns={[dentistColumn]}
+        columnOf={byDentist}
         shifts={[]}
         appointments={[]}
         renderAppointment={() => null}
@@ -61,12 +69,68 @@ describe("TimeGrid", () => {
     render(
       <TimeGrid
         date="2026-08-03"
-        dentists={[dentist]}
+        columns={[dentistColumn]}
+        columnOf={byDentist}
         shifts={[]}
         appointments={[appointment]}
         renderAppointment={(a) => <div key={a.id}>card-{a.id}</div>}
       />
     )
     expect(screen.getByText(`card-${appointment.id}`)).toBeInTheDocument()
+  })
+
+  it("shades nothing on a column that has no staff to be off shift", () => {
+    render(
+      <TimeGrid
+        date="2026-08-03"
+        columns={[chairColumn]}
+        columnOf={() => chairId}
+        shifts={[shift("2026-08-03T02:00:00.000Z", "2026-08-03T10:00:00.000Z")]}
+        appointments={[]}
+        renderAppointment={() => null}
+      />
+    )
+    expect(screen.queryAllByTestId("offshift")).toHaveLength(0)
+    expect(screen.getByText("Chair 1")).toBeInTheDocument()
+  })
+
+  it("places a card by the column the mapper names, not by its dentist", () => {
+    const appointment = {
+      id: "9f9619ff-8b86-4d01-b42d-00cf4fc964ff",
+      dentistId: dentist.id,
+      startsAt: "2026-08-03T02:00:00.000Z",
+      endsAt: "2026-08-03T03:00:00.000Z"
+    } as Appointment
+    render(
+      <TimeGrid
+        date="2026-08-03"
+        columns={[chairColumn]}
+        columnOf={() => chairId}
+        shifts={[]}
+        appointments={[appointment]}
+        renderAppointment={(a) => <div key={a.id}>card-{a.id}</div>}
+      />
+    )
+    expect(screen.getByTestId(`col-${chairId}`)).toHaveTextContent(`card-${appointment.id}`)
+  })
+
+  it("drops a card no column claims", () => {
+    const appointment = {
+      id: "9f9619ff-8b86-4d01-b42d-00cf4fc964ff",
+      dentistId: dentist.id,
+      startsAt: "2026-08-03T02:00:00.000Z",
+      endsAt: "2026-08-03T03:00:00.000Z"
+    } as Appointment
+    render(
+      <TimeGrid
+        date="2026-08-03"
+        columns={[chairColumn]}
+        columnOf={() => null}
+        shifts={[]}
+        appointments={[appointment]}
+        renderAppointment={(a) => <div key={a.id}>card-{a.id}</div>}
+      />
+    )
+    expect(screen.queryByText(`card-${appointment.id}`)).not.toBeInTheDocument()
   })
 })

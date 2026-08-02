@@ -3,6 +3,7 @@ import { CalendarX } from "lucide-react"
 import { useEffect, useMemo, useRef, useState } from "react"
 import { useSearchParams } from "react-router"
 import { EmptyState } from "../../components/ui/empty-state"
+import { NativeSelect } from "../../components/ui/native-select"
 import { Skeleton } from "../../components/ui/skeleton"
 import { useRealtime } from "../../lib/realtime"
 import { useCanBook } from "../../lib/session"
@@ -13,11 +14,12 @@ import { AppointmentCard } from "./appointment-card"
 import { AppointmentDrawer } from "./appointment-drawer"
 import { ColumnPicker } from "./column-picker"
 import { CreateDrawer, type CreateDraft } from "./create-drawer"
-import { useAppointments, useBranches, useDentists, useShifts } from "./hooks"
+import { useAppointments, useBranches, useChairs, useDentists, useShifts } from "./hooks"
 import { bkkDayStart, bkkToday, msToY } from "./lib/geometry"
 import { layoutByDentist } from "./lib/lanes"
 import { TimeGrid } from "./time-grid"
 import { TimelineToolbar } from "./timeline-toolbar"
+import { columnModeFrom, useColumnMode } from "./use-column-mode"
 import { useDragCreate } from "./use-drag-create"
 import { useDragMove } from "./use-drag-move"
 import { useGridKeyboard } from "./use-grid-keyboard"
@@ -71,6 +73,7 @@ export const TimelinePage = () => {
   const branchId = params.get("b") ?? branches.data?.[0]?.id
   const dayStart = bkkDayStart(date)
   const dentists = useDentists()
+  const chairs = useChairs(branchId, columnModeFrom(params) === "chair")
   const shifts = useShifts(branchId, dayStart)
   const appointments = useAppointments(branchId, dayStart)
   const [selected, setSelected] = useState<Appointment | null>(null)
@@ -89,11 +92,26 @@ export const TimelinePage = () => {
     [appointments.data]
   )
   const allDentists = useMemo(() => dentists.data ?? [], [dentists.data])
-  const gridDentists = useMemo(
-    () => (mode === "md" ? allDentists.filter((d) => !hiddenColumns.has(d.id)) : allDentists),
-    [allDentists, hiddenColumns, mode]
+  const allChairs = useMemo(() => chairs.data ?? [], [chairs.data])
+  const {
+    mode: columnMode,
+    setMode: setColumnMode,
+    columns,
+    columnOf
+  } = useColumnMode({ dentists: allDentists, chairs: allChairs })
+  const gridColumns = useMemo(
+    () => (mode === "md" ? columns.filter((c) => !hiddenColumns.has(c.id)) : columns),
+    [columns, hiddenColumns, mode]
   )
-  const dentistIds = useMemo(() => gridDentists.map((d) => d.id), [gridDentists])
+  const canDrag = canCreate && columnMode === "dentist"
+  const dragColumnIds = useMemo(
+    () => (canDrag ? gridColumns.map((c) => c.id) : []),
+    [canDrag, gridColumns]
+  )
+  const unseated = useMemo(
+    () => (appointments.data ?? []).filter((a) => columnOf(a) === null),
+    [appointments.data, columnOf]
+  )
   const dayKey = useMemo(() => ["appointments", branchId, dayStart], [branchId, dayStart])
 
   const { reschedule, isBusy } = useRescheduleAppointment({
@@ -118,9 +136,9 @@ export const TimelinePage = () => {
   const keyboard = useGridKeyboard({ reschedule, isBusy: (id) => !online || isBusy(id) })
 
   const drag = useDragMove({
-    dentistIds,
+    dentistIds: dragColumnIds,
     columnLefts: () =>
-      dentistIds.map((id) => columnEls.current.get(id)?.getBoundingClientRect().left ?? 0),
+      dragColumnIds.map((id) => columnEls.current.get(id)?.getBoundingClientRect().left ?? 0),
     isBusy,
     onDrop: reschedule
   })
@@ -156,7 +174,9 @@ export const TimelinePage = () => {
     setParams(merged)
   }
 
-  if (branches.isPending || dentists.isPending) {
+  const chairsPending = columnMode === "chair" && branchId !== undefined && chairs.isPending
+
+  if (branches.isPending || dentists.isPending || chairsPending) {
     return (
       <div className="space-y-3 p-4">
         <Skeleton className="h-9 w-full" />
@@ -164,16 +184,27 @@ export const TimelinePage = () => {
       </div>
     )
   }
-  if (branches.isError || dentists.isError) {
+  if (branches.isError || dentists.isError || (columnMode === "chair" && chairs.isError)) {
     return <EmptyState icon={CalendarX} title="Could not load the clinic" hint="Retry shortly" />
   }
 
   return (
     <div className="flex h-[calc(100dvh-var(--spacing-topbar))] flex-col">
       <TimelineToolbar date={date} branchId={branchId} branches={branches.data} onChange={onChange}>
+        {mode === "sm" ? null : (
+          <NativeSelect
+            aria-label="Column grouping"
+            className="w-auto"
+            value={columnMode}
+            onChange={(e) => setColumnMode(e.target.value === "chair" ? "chair" : "dentist")}
+          >
+            <option value="dentist">Dentists</option>
+            <option value="chair">Chairs</option>
+          </NativeSelect>
+        )}
         {mode === "md" ? (
           <ColumnPicker
-            dentists={allDentists}
+            columns={columns}
             hidden={hiddenColumns}
             onToggle={(id) =>
               setHiddenColumns((current) => {
@@ -196,10 +227,22 @@ export const TimelinePage = () => {
         />
       ) : (
         <div className="contents" onKeyDown={keyboard.onKeyDown}>
+          {unseated.length > 0 ? (
+            <p
+              role="status"
+              data-testid="unseated-notice"
+              className="border-b border-border px-4 py-2 text-sm text-muted-foreground"
+            >
+              {unseated.length === 1
+                ? "1 appointment is hidden here: it has released its chair, so no chair column can hold it. Switch to dentist columns to see it."
+                : `${unseated.length} appointments are hidden here: they have released their chairs, so no chair column can hold them. Switch to dentist columns to see them.`}
+            </p>
+          ) : null}
           <TimeGrid
             date={date}
             snap={mode === "md"}
-            dentists={gridDentists}
+            columns={gridColumns}
+            columnOf={columnOf}
             shifts={shifts.data ?? []}
             appointments={appointments.data ?? []}
             columnRef={(id, element) => {
@@ -216,15 +259,15 @@ export const TimelinePage = () => {
                 onClick={(picked) => {
                   if (!drag.consumeDrag()) setSelected(picked)
                 }}
-                onMoveStart={canCreate ? drag.startMove(a) : undefined}
-                onResizeStart={canCreate ? drag.startResize(a) : undefined}
+                onMoveStart={canDrag ? drag.startMove(a) : undefined}
+                onResizeStart={canDrag ? drag.startResize(a) : undefined}
                 dimmed={drag.preview?.id === a.id}
                 conflict={conflictId === a.id}
                 arrived={arrivedId === a.id}
               />
             )}
-            columnPreview={(dentist, ds) =>
-              preview && preview.dentistId === dentist.id ? (
+            columnPreview={(column, ds) =>
+              preview && preview.dentistId === column.id ? (
                 <AppointmentCard
                   appointment={preview}
                   dayStart={ds}
@@ -236,17 +279,21 @@ export const TimelinePage = () => {
               ) : null
             }
             columnOverlay={
-              branchId === undefined || !canCreate
+              branchId === undefined || !canDrag
                 ? undefined
-                : (dentist, ds) => (
-                    <DragOverlay
-                      key={dentist.id}
-                      dentist={dentist}
-                      dayStart={ds}
-                      branchId={branchId}
-                      onDraft={setDraft}
-                    />
-                  )
+                : (column, ds) => {
+                    const dentist = allDentists.find((d) => d.id === column.id)
+                    if (!dentist) return null
+                    return (
+                      <DragOverlay
+                        key={dentist.id}
+                        dentist={dentist}
+                        dayStart={ds}
+                        branchId={branchId}
+                        onDraft={setDraft}
+                      />
+                    )
+                  }
             }
           />
         </div>

@@ -77,4 +77,45 @@ describe("directory", () => {
     const indexes = res.body.map((s: { colorIndex: number }) => s.colorIndex).sort()
     expect(indexes).toEqual([0, 1, 2, 3, 4, 5])
   })
+
+  it("lists the chairs a branch can seat an appointment in", async () => {
+    const branches = await request(server)
+      .get("/branches")
+      .set("Authorization", `Bearer ${ownerToken}`)
+    expectStatus(branches, 200)
+    const branchId = branches.body[0].id
+
+    const res = await request(server)
+      .get("/resources")
+      .query({ branchId })
+      .set("Authorization", `Bearer ${ownerToken}`)
+    expectStatus(res, 200)
+    expect(res.body.map((r: { name: string }) => r.name)).toEqual(["Chair 1", "Chair 2", "Chair 3"])
+    for (const resource of res.body) {
+      expect(resource.type).toBe("chair")
+      expect(resource.branchId).toBe(branchId)
+    }
+  })
+
+  it("hides a deactivated resource", async () => {
+    const tenant = await prisma.tenant.findUniqueOrThrow({ where: { slug } })
+    const chair = await prisma.resource.findFirstOrThrow({
+      where: { tenantId: tenant.id, name: "Chair 3" }
+    })
+    await prisma.resource.update({ where: { id: chair.id }, data: { isActive: false } })
+
+    const res = await request(server).get("/resources").set("Authorization", `Bearer ${ownerToken}`)
+    expectStatus(res, 200)
+    expect(res.body.map((r: { name: string }) => r.name)).toEqual(["Chair 1", "Chair 2"])
+
+    await prisma.resource.update({ where: { id: chair.id }, data: { isActive: true } })
+  })
+
+  it("rejects an unknown resource type", async () => {
+    const res = await request(server)
+      .get("/resources")
+      .query({ type: "sofa" })
+      .set("Authorization", `Bearer ${ownerToken}`)
+    expectStatus(res, 400)
+  })
 })

@@ -11,8 +11,14 @@ export { availabilitySlotSchema, availabilityResponseSchema } from "./availabili
 export type { AvailabilitySlot, AvailabilityResponse } from "./availability"
 export { userRoleSchema, sessionUserSchema, authSessionSchema } from "./auth"
 export type { UserRole, SessionUser, AuthSession } from "./auth"
-export { branchSchema, staffMemberSchema, serviceSummarySchema } from "./directory"
-export type { Branch, StaffMember, ServiceSummary } from "./directory"
+export {
+  branchSchema,
+  staffMemberSchema,
+  serviceSummarySchema,
+  resourceTypeSchema,
+  resourceSchema
+} from "./directory"
+export type { Branch, StaffMember, ServiceSummary, ResourceType, Resource } from "./directory"
 export {
   shiftSchema,
   appointmentStatusSchema,

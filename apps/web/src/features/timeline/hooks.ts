@@ -1,6 +1,7 @@
 import {
   appointmentSchema,
   branchSchema,
+  resourceSchema,
   serviceSummarySchema,
   shiftSchema,
   staffMemberSchema
@@ -36,6 +37,14 @@ export const useServices = () =>
     queryKey: ["services"],
     queryFn: () => api("/services", z.array(serviceSummarySchema)),
     select: (services) => services.filter((s) => s.isActive)
+  })
+
+export const useChairs = (branchId: string | undefined, enabled: boolean) =>
+  useQuery({
+    queryKey: ["resources", branchId, "chair"],
+    enabled: enabled && branchId !== undefined,
+    queryFn: () =>
+      api("/resources", z.array(resourceSchema), { query: { branchId, type: "chair" } })
   })
 
 const dayQuery = (dayStart: number) => ({

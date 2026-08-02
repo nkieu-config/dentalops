@@ -2,6 +2,7 @@ import { Controller, Get, Query } from "@nestjs/common"
 import { ApiBearerAuth, ApiTags } from "@nestjs/swagger"
 import { SkipThrottle } from "@nestjs/throttler"
 import { DirectoryService } from "./directory.service"
+import { QueryResourcesDto } from "./dto/query-resources.dto"
 import { QueryStaffDto } from "./dto/query-staff.dto"
 
 @SkipThrottle()
@@ -24,5 +25,10 @@ export class DirectoryController {
   @Get("services")
   services() {
     return this.directory.services()
+  }
+
+  @Get("resources")
+  resources(@Query() query: QueryResourcesDto) {
+    return this.directory.resources(query)
   }
 }

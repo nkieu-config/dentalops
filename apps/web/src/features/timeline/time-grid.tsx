@@ -1,9 +1,10 @@
 import { subtract, type Interval } from "@dentalops/availability"
-import type { Appointment, Shift, StaffMember } from "@dentalops/contracts"
+import type { Appointment, Shift } from "@dentalops/contracts"
 import { ReactNode, useEffect, useMemo, useRef } from "react"
 import { cn } from "../../lib/cn"
 import { useNow } from "./hooks"
 import { DAY_MS, bkkDayStart, bkkToday, fmtTime, msToY } from "./lib/geometry"
+import type { TimelineColumn } from "./use-column-mode"
 import { useVisibleRange } from "./use-visible-range"
 
 const GRID_HEIGHT = 24 * 64
@@ -25,19 +26,21 @@ const toInterval = (row: { startsAt: string; endsAt: string }): Interval => ({
 
 interface TimeGridProps {
   date: string
-  dentists: StaffMember[]
+  columns: TimelineColumn[]
+  columnOf: (appointment: Appointment) => string | null
   shifts: Shift[]
   appointments: Appointment[]
   renderAppointment: (appointment: Appointment, dayStart: number) => ReactNode
-  columnOverlay?: (dentist: StaffMember, dayStart: number) => ReactNode
-  columnPreview?: (dentist: StaffMember, dayStart: number) => ReactNode
-  columnRef?: (dentistId: string, element: HTMLDivElement | null) => void
+  columnOverlay?: (column: TimelineColumn, dayStart: number) => ReactNode
+  columnPreview?: (column: TimelineColumn, dayStart: number) => ReactNode
+  columnRef?: (columnId: string, element: HTMLDivElement | null) => void
   snap?: boolean
 }
 
 export const TimeGrid = ({
   date,
-  dentists,
+  columns,
+  columnOf,
   shifts,
   appointments,
   renderAppointment,
@@ -56,15 +59,16 @@ export const TimeGrid = ({
     scrollRef.current?.scrollTo({ top: 8 * 64 - 16 })
   }, [date])
 
-  const offShiftByDentist = useMemo(() => {
+  const offShiftByColumn = useMemo(() => {
     const day: Interval = { start: dayStart, end: dayStart + DAY_MS }
     const map = new Map<string, Interval[]>()
-    for (const dentist of dentists) {
-      const own = shifts.filter((s) => s.staffId === dentist.id).map(toInterval)
-      map.set(dentist.id, subtract([day], own))
+    for (const column of columns) {
+      if (column.staffId === undefined) continue
+      const own = shifts.filter((s) => s.staffId === column.staffId).map(toInterval)
+      map.set(column.id, subtract([day], own))
     }
     return map
-  }, [dentists, shifts, dayStart])
+  }, [columns, shifts, dayStart])
 
   const visible = useMemo(
     () =>
@@ -93,12 +97,12 @@ export const TimeGrid = ({
       <div className="min-w-fit">
         <div className="sticky top-0 z-30 flex border-b border-border bg-background">
           <div className="sticky left-0 z-10 w-timegutter shrink-0 bg-background" />
-          {dentists.map((dentist) => (
+          {columns.map((column) => (
             <div
-              key={dentist.id}
+              key={column.id}
               className={cn("flex-1 truncate px-2 py-1 text-sm font-medium", columnWidth)}
             >
-              {dentist.name}
+              {column.name}
             </div>
           ))}
         </div>
@@ -128,18 +132,18 @@ export const TimeGrid = ({
             </div>
           </div>
           <div className="relative flex flex-1" style={{ height: GRID_HEIGHT, ...gridBackground }}>
-            {dentists.map((dentist) => (
+            {columns.map((column) => (
               <div
-                key={dentist.id}
-                ref={(element) => columnRef?.(dentist.id, element)}
-                data-testid={`col-${dentist.id}`}
+                key={column.id}
+                ref={(element) => columnRef?.(column.id, element)}
+                data-testid={`col-${column.id}`}
                 className={cn(
                   "relative flex-1 border-r border-border",
                   columnWidth,
                   snap && "snap-start"
                 )}
               >
-                {(offShiftByDentist.get(dentist.id) ?? []).map((block) => (
+                {(offShiftByColumn.get(column.id) ?? []).map((block) => (
                   <div
                     key={block.start}
                     data-testid="offshift"
@@ -152,10 +156,10 @@ export const TimeGrid = ({
                   />
                 ))}
                 {visible
-                  .filter((a) => a.dentistId === dentist.id)
+                  .filter((a) => columnOf(a) === column.id)
                   .map((a) => renderAppointment(a, dayStart))}
-                {columnOverlay?.(dentist, dayStart)}
-                {columnPreview?.(dentist, dayStart)}
+                {columnOverlay?.(column, dayStart)}
+                {columnPreview?.(column, dayStart)}
               </div>
             ))}
             {isToday ? (

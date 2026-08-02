@@ -469,7 +469,7 @@ describe("TimelinePage", () => {
 
     card.focus()
     fireEvent.keyDown(card, { key: "ArrowDown", shiftKey: true })
-    await Promise.resolve()
+    await new Promise((resolve) => setTimeout(resolve, 50))
     expect(bodies).toEqual([])
 
     goOnline()

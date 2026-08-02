@@ -42,7 +42,7 @@ export const AppShell = () => {
     <div className="flex min-h-dvh flex-col">
       {isDemo() ? (
         <div className="bg-warning px-4 py-1 text-center text-xs font-medium text-warning-foreground">
-          Demo mode — data resets periodically
+          Demo mode — the clinic data rebuilds itself every 6 hours
         </div>
       ) : null}
       <header className="flex h-topbar shrink-0 items-center gap-3 border-b border-border px-4">

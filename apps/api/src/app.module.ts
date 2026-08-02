@@ -6,6 +6,7 @@ import { ThrottlerStorageRedisService } from "@nest-lab/throttler-storage-redis"
 import { SentryModule } from "@sentry/nestjs/setup"
 import type Redis from "ioredis"
 import { AppointmentsModule } from "./appointments/appointments.module"
+import { DemoModule } from "./demo/demo.module"
 import { AuthModule } from "./auth/auth.module"
 import { AvailabilityModule } from "./availability/availability.module"
 import { JwtAuthGuard } from "./auth/jwt-auth.guard"
@@ -47,7 +48,8 @@ import { TenantContextMiddleware } from "./tenant/tenant-context.middleware"
     AvailabilityModule,
     PatientsModule,
     DirectoryModule,
-    PublicModule
+    PublicModule,
+    DemoModule
   ],
   controllers: [HealthController, LatencyController],
   providers: [

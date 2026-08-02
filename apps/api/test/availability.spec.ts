@@ -213,7 +213,7 @@ describe("availability", () => {
     let demoServiceId: string
     let demoPatientId: string
 
-    beforeAll(async () => {
+    const resolveDemo = async () => {
       const demo = await request(server).post("/auth/demo-login").send({ role: "owner" })
       expectStatus(demo, 200)
       demoToken = demo.body.accessToken
@@ -228,9 +228,10 @@ describe("availability", () => {
       demoServiceId = anyService!.id
       const patient = await prisma.patient.findFirst({ where: { tenantId: tenant!.id } })
       demoPatientId = patient!.id
-    })
+    }
 
     it("every sampled reported slot is actually bookable", async () => {
+      await resolveDemo()
       const from = new Date(Date.now() + 24 * 3600_000).toISOString()
       const to = new Date(Date.now() + 72 * 3600_000).toISOString()
       const res = await request(server)
@@ -240,7 +241,17 @@ describe("availability", () => {
       expectStatus(res, 200)
       const slots = availabilityResponseSchema.parse(res.body).slots
       expect(slots.length).toBeGreaterThan(0)
-      const samples = [slots[0]!, slots[Math.floor(slots.length / 2)]!, slots[slots.length - 1]!]
+      const GAP_MS = 90 * 60_000
+      const samples: typeof slots = []
+      let clearAfter = 0
+      for (const slot of [...slots].sort((a, b) => a.startsAt.localeCompare(b.startsAt))) {
+        if (Date.parse(slot.startsAt) < clearAfter) continue
+        samples.push(slot)
+        clearAfter = Date.parse(slot.endsAt) + GAP_MS
+        if (samples.length === 3) break
+      }
+      expect(samples.length).toBeGreaterThanOrEqual(2)
+
       for (const slot of samples) {
         const booked = await request(server)
           .post("/appointments")

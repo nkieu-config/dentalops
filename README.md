@@ -104,7 +104,7 @@ pnpm build       # turbo build, respecting the dependency graph
 pnpm --filter @dentalops/web e2e   # playwright, all three journeys
 ```
 
-`pnpm test` runs **520 tests across 76 files** — 216 Jest specs against real Postgres, Redis and
+`pnpm test` runs **522 tests across 77 files** — 218 Jest specs against real Postgres, Redis and
 MongoDB in Docker, 240 Vitest tests in the web app, 60 in the availability engine and 4 in contracts.
 `pnpm --filter @dentalops/web e2e` adds **15 Playwright checks**: the three journeys below plus the
 accessibility sweep.

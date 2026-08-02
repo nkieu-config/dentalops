@@ -1,8 +1,8 @@
 import { Inject, Injectable, OnModuleDestroy, OnModuleInit } from "@nestjs/common"
 import * as Sentry from "@sentry/nestjs"
-import { Collection, MongoClient, ObjectId } from "mongodb"
+import { Collection, ObjectId } from "mongodb"
 import { currentTenant } from "../tenant/tenant-context"
-import { MONGO } from "./mongo.provider"
+import { MONGO, type MongoConnection } from "./mongo.provider"
 
 const COLLECTION = "audit_logs"
 const RETENTION_SECONDS = 30 * 24 * 60 * 60
@@ -38,14 +38,16 @@ export const auditActor = (): AuditEntry["actor"] => {
 
 @Injectable()
 export class AuditService implements OnModuleInit, OnModuleDestroy {
-  constructor(@Inject(MONGO) private readonly client: MongoClient | null) {}
+  constructor(@Inject(MONGO) private readonly mongo: MongoConnection | null) {}
 
   get enabled(): boolean {
-    return this.client !== null
+    return this.mongo !== null
   }
 
   private get collection(): Collection<StoredEntry> | null {
-    return this.client ? this.client.db().collection<StoredEntry>(COLLECTION) : null
+    return this.mongo
+      ? this.mongo.client.db(this.mongo.dbName).collection<StoredEntry>(COLLECTION)
+      : null
   }
 
   async onModuleInit() {
@@ -56,7 +58,7 @@ export class AuditService implements OnModuleInit, OnModuleDestroy {
   }
 
   async onModuleDestroy() {
-    await this.client?.close()
+    await this.mongo?.client.close()
   }
 
   record(entry: Omit<AuditEntry, "at">): void {

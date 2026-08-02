@@ -51,6 +51,22 @@ export const patientPageSchema = z.object({
   nextCursor: z.string().nullable()
 })
 
+export const patientAppointmentSchema = z.looseObject({
+  id: z.uuid(),
+  branchId: z.uuid(),
+  startsAt: z.iso.datetime(),
+  endsAt: z.iso.datetime(),
+  status: appointmentStatusSchema,
+  service: z.looseObject({ id: z.uuid(), name: z.string() }),
+  dentist: z.looseObject({ id: z.uuid(), name: z.string() })
+})
+
+export const patientDetailSchema = patientSchema.extend({
+  email: z.string(),
+  notes: z.string().nullable().optional(),
+  appointments: z.array(patientAppointmentSchema)
+})
+
 export const editScopeSchema = z.enum(["this", "following", "all"])
 
 export const appointmentSeriesSchema = z.looseObject({
@@ -64,5 +80,7 @@ export type AppointmentStatus = z.infer<typeof appointmentStatusSchema>
 export type ResourceClaim = z.infer<typeof resourceClaimSchema>
 export type Patient = z.infer<typeof patientSchema>
 export type PatientPage = z.infer<typeof patientPageSchema>
+export type PatientAppointment = z.infer<typeof patientAppointmentSchema>
+export type PatientDetail = z.infer<typeof patientDetailSchema>
 export type EditScope = z.infer<typeof editScopeSchema>
 export type AppointmentSeries = z.infer<typeof appointmentSeriesSchema>

@@ -34,6 +34,8 @@ export {
   patientSchema,
   appointmentSchema,
   patientPageSchema,
+  patientAppointmentSchema,
+  patientDetailSchema,
   editScopeSchema,
   appointmentSeriesSchema
 } from "./scheduling"
@@ -44,6 +46,8 @@ export type {
   ResourceClaim,
   Patient,
   PatientPage,
+  PatientAppointment,
+  PatientDetail,
   EditScope,
   AppointmentSeries
 } from "./scheduling"

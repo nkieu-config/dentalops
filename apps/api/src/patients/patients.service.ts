@@ -3,8 +3,16 @@ import { Prisma } from "@prisma/client"
 import { AppException } from "../common/app.exception"
 import { decodeCursor, toPage } from "../common/pagination"
 import { PrismaService } from "../prisma/prisma.service"
+import { currentTenant } from "../tenant/tenant-context"
 import { CreatePatientDto } from "./dto/create-patient.dto"
 import { QueryPatientsDto } from "./dto/query-patients.dto"
+
+const HISTORY_LIMIT = 50
+
+const HISTORY_INCLUDE = {
+  service: { select: { id: true, name: true } },
+  dentist: { select: { id: true, name: true } }
+} satisfies Prisma.AppointmentInclude
 
 @Injectable()
 export class PatientsService {
@@ -56,7 +64,18 @@ export class PatientsService {
   }
 
   async get(id: string) {
-    const patient = await this.prisma.scoped.patient.findUnique({ where: { id } })
+    const actor = currentTenant()
+    const patient = await this.prisma.scoped.patient.findUnique({
+      where: { id },
+      include: {
+        appointments: {
+          where: { dentistId: actor?.role === "dentist" ? actor.userId : undefined },
+          include: HISTORY_INCLUDE,
+          orderBy: [{ startsAt: "desc" }, { id: "desc" }],
+          take: HISTORY_LIMIT
+        }
+      }
+    })
     if (!patient) throw new AppException(404, "NOT_FOUND", "Patient not found")
     return patient
   }

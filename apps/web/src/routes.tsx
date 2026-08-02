@@ -1,4 +1,4 @@
-import { Settings, Users } from "lucide-react"
+import { Settings } from "lucide-react"
 import { lazy, Suspense, type ReactNode } from "react"
 import { createBrowserRouter, Navigate } from "react-router"
 import { OutOfScope } from "./components/shell/out-of-scope"
@@ -21,6 +21,12 @@ const RosterRoute = lazy(() =>
 )
 const ActivityRoute = lazy(() =>
   import("./features/activity/activity-page").then((m) => ({ default: m.ActivityRoute }))
+)
+const PatientsPage = lazy(() =>
+  import("./features/patients/patients-page").then((m) => ({ default: m.PatientsPage }))
+)
+const PatientDetail = lazy(() =>
+  import("./features/patients/patient-detail").then((m) => ({ default: m.PatientDetail }))
 )
 const DevUiPage = lazy(() =>
   import("./pages/dev-ui-page").then((m) => ({ default: m.DevUiPage }))
@@ -51,16 +57,8 @@ export const router = createBrowserRouter([
       { path: "timeline", element: deferred(<TimelinePage />) },
       { path: "roster", element: deferred(<RosterRoute />) },
       { path: "activity", element: deferred(<ActivityRoute />) },
-      {
-        path: "patients",
-        element: (
-          <OutOfScope
-            icon={Users}
-            title="The patients screen is not part of this build"
-            reason="Patients are created, matched and tenant-scoped by the API on every booking, and that path is tested. The screen for browsing them was cut so the eight weeks could finish the scheduling core instead."
-          />
-        )
-      },
+      { path: "patients", element: deferred(<PatientsPage />) },
+      { path: "patients/:id", element: deferred(<PatientDetail />) },
       {
         path: "settings",
         element: (

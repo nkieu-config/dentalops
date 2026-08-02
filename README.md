@@ -139,15 +139,14 @@ Worth saying plainly, because the gaps are choices rather than oversights:
 - **One timezone.** Everything is stored UTC and rendered Asia/Bangkok. Recurrence takes a fixed
   UTC offset, which is correct for Thailand and wrong for anywhere with daylight saving.
 - **No payments, no insurance, no clinical records.** This is scheduling.
-- **Seven of the eleven designed screens shipped.** The design doc's inventory lists eleven. What
-  exists is landing, booking wizard, manage-booking, timeline, appointment drawer, roster editor and
-  the activity feed. What does not: the **patients list and detail**, the **settings** editor, and a
+- **Nine of the eleven designed screens shipped.** The design doc's inventory lists eleven. What
+  exists is landing, booking wizard, manage-booking, timeline, appointment drawer, roster editor,
+  the activity feed, and the patients list and detail. What does not: the **settings** editor, and a
   real **login / signup form** — the only way into the staff app is the landing page's three demo
-  buttons, even though `POST /auth/login` and `POST /auth/signup` work and are tested. Patients are
-  created, matched and tenant-scoped by the API on every booking, and branches, services, resources
-  and staff are real records behind a working API; the screens for browsing and editing them were cut
-  so the build could finish the scheduling core. The app says so where the patients and settings
-  screens would have been, and links back to this section, rather than showing an empty page.
+  buttons, even though `POST /auth/login` and `POST /auth/signup` work and are tested. Branches,
+  services, resources and staff are real records behind a working API; the screen for editing them
+  was cut so the build could finish the scheduling core. The app says so where the settings screen
+  would have been, and links back to this section, rather than showing an empty page.
 - **The admin API is read-only.** `GET /branches /services /staff /resources` exist and `/patients`
   adds `GET` and `POST`, but there is no `PATCH` or `DELETE` anywhere on that surface and no
   `/equipment-types` at all. The design doc promised capped CRUD; without a settings screen to drive

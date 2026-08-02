@@ -7,11 +7,17 @@ import { API, http, HttpResponse, server } from "../../test/msw"
 import { ManagePage } from "./manage-page"
 
 const token = "header.payload.signature"
+const clinicId = "9f9619ff-8b86-4d01-b42d-00cf4fc964ff"
+const clinicSlug = "demo-clinic"
 const branchId = "1f9619ff-8b86-4d01-b42d-00cf4fc964ff"
 const serviceId = "5f9619ff-8b86-4d01-b42d-00cf4fc964ff"
 const dentistId = "2f9619ff-8b86-4d01-b42d-00cf4fc964ff"
 const patientId = "6f9619ff-8b86-4d01-b42d-00cf4fc964ff"
 const appointmentId = "4f9619ff-8b86-4d01-b42d-00cf4fc964ff"
+const holdId = "3f9619ff-8b86-4d01-b42d-00cf4fc964ff"
+
+const NOON = "2026-08-03T05:00:00.000Z"
+const ONE = "2026-08-03T06:00:00.000Z"
 
 const sizeClass = (element: Element): string | null => {
   for (let node: Element | null = element; node; node = node.parentElement) {
@@ -21,26 +27,66 @@ const sizeClass = (element: Element): string | null => {
   return null
 }
 
-const appointment = (status: string) => ({
+const appointment = () => ({
   id: appointmentId,
   status,
-  startsAt: "2026-08-03T03:30:00.000Z",
-  endsAt: "2026-08-03T04:15:00.000Z",
+  startsAt,
+  endsAt: new Date(Date.parse(startsAt) + 45 * 60_000).toISOString(),
+  clinic: { id: clinicId, name: "Bright Smile Dental", slug: clinicSlug },
   branch: { id: branchId, name: "Sukhumvit" },
   service: { id: serviceId, name: "Cleaning", durationMin: 45 },
   dentist: { id: dentistId, name: "Dr. Anong" },
   patient: { id: patientId, name: "Napat Chai" }
 })
 
-const cancels: string[] = []
-let status = "confirmed"
+const slot = (startsAtIso: string) => ({
+  dentistId,
+  startsAt: startsAtIso,
+  endsAt: new Date(Date.parse(startsAtIso) + 45 * 60_000).toISOString()
+})
 
-const handlers = () => [
-  http.get(`${API}/public/manage/:token`, () => HttpResponse.json(appointment(status))),
+const cancels: string[] = []
+const holds: Record<string, unknown>[] = []
+const released: string[] = []
+const reschedules: Record<string, unknown>[] = []
+let status = "confirmed"
+let startsAt = "2026-08-03T03:30:00.000Z"
+
+const apiError = (httpStatus: number, errorCode: string, message: string) =>
+  HttpResponse.json({ statusCode: httpStatus, errorCode, message, requestId: "r" }, { status: httpStatus })
+
+interface HandlerOptions {
+  holdResponse?: () => Response
+  rescheduleResponse?: () => Response
+}
+
+const handlers = (options: HandlerOptions = {}) => [
+  http.get(`${API}/public/manage/:token`, () => HttpResponse.json(appointment())),
   http.post(`${API}/public/manage/:token/cancel`, ({ params }) => {
     cancels.push(String(params.token))
     status = "cancelled"
     return new HttpResponse(null, { status: 204 })
+  }),
+  http.get(`${API}/public/${clinicSlug}/availability`, () =>
+    HttpResponse.json({ slots: [slot(NOON), slot(ONE)] })
+  ),
+  http.post(`${API}/public/${clinicSlug}/holds`, async ({ request }) => {
+    holds.push((await request.json()) as Record<string, unknown>)
+    if (options.holdResponse) return options.holdResponse()
+    return HttpResponse.json(
+      { holdId, expiresAt: new Date(Date.now() + 300_000).toISOString() },
+      { status: 201 }
+    )
+  }),
+  http.delete(`${API}/public/${clinicSlug}/holds/:holdId`, ({ params }) => {
+    released.push(String(params.holdId))
+    return new HttpResponse(null, { status: 204 })
+  }),
+  http.post(`${API}/public/manage/:token/reschedule`, async ({ request }) => {
+    reschedules.push((await request.json()) as Record<string, unknown>)
+    if (options.rescheduleResponse) return options.rescheduleResponse()
+    startsAt = NOON
+    return HttpResponse.json(appointment())
   })
 ]
 
@@ -62,7 +108,11 @@ const mount = () => {
 describe("ManagePage", () => {
   beforeEach(() => {
     cancels.length = 0
+    holds.length = 0
+    released.length = 0
+    reschedules.length = 0
     status = "confirmed"
+    startsAt = "2026-08-03T03:30:00.000Z"
   })
 
   it("renders the booking behind the signed link", async () => {
@@ -134,6 +184,78 @@ describe("ManagePage", () => {
 
     expect(await screen.findByText("We could not open that booking")).toBeInTheDocument()
     expect(screen.queryByRole("button", { name: "Cancel this booking" })).not.toBeInTheDocument()
+  })
+
+  it("moves the booking through a fresh hold the patient confirms", async () => {
+    server.use(...handlers())
+    const user = mount()
+    await screen.findByText("Mon, 3 Aug 2026 · 10:30")
+
+    await user.click(screen.getByRole("button", { name: "Move to another time" }))
+    const panel = await screen.findByTestId("reschedule-panel")
+    const offered = await within(panel).findAllByTestId("slot")
+    expect(offered.map((button) => button.textContent)).toEqual(["12:00", "13:00"])
+
+    await user.click(offered[0]!)
+
+    expect(await screen.findByTestId("hold-countdown")).toHaveTextContent("Holding 12:00")
+    expect(holds).toEqual([{ serviceId, branchId, dentistId, startsAt: NOON }])
+    expect(reschedules).toEqual([])
+
+    await user.click(screen.getByRole("button", { name: "Confirm new time" }))
+
+    await waitFor(() => expect(reschedules).toEqual([{ holdId }]))
+    expect(await screen.findByText("Mon, 3 Aug 2026 · 12:00")).toBeInTheDocument()
+    await waitFor(() =>
+      expect(screen.queryByTestId("reschedule-panel")).not.toBeInTheDocument()
+    )
+    expect(released).toEqual([])
+  })
+
+  it("gives the held slot back when the patient picks again", async () => {
+    server.use(...handlers())
+    const user = mount()
+    await screen.findByText("Mon, 3 Aug 2026 · 10:30")
+
+    await user.click(screen.getByRole("button", { name: "Move to another time" }))
+    const panel = await screen.findByTestId("reschedule-panel")
+    await user.click((await within(panel).findAllByTestId("slot"))[1]!)
+    await screen.findByTestId("hold-countdown")
+
+    await user.click(screen.getByRole("button", { name: "Pick another time" }))
+
+    await waitFor(() => expect(released).toEqual([holdId]))
+    expect(await within(panel).findAllByTestId("slot")).toHaveLength(2)
+    expect(reschedules).toEqual([])
+  })
+
+  it("returns the patient to the picker when the server says the hold expired", async () => {
+    server.use(
+      ...handlers({
+        rescheduleResponse: () => apiError(409, "HOLD_EXPIRED", "That time is no longer held")
+      })
+    )
+    const user = mount()
+    await screen.findByText("Mon, 3 Aug 2026 · 10:30")
+
+    await user.click(screen.getByRole("button", { name: "Move to another time" }))
+    const panel = await screen.findByTestId("reschedule-panel")
+    await user.click((await within(panel).findAllByTestId("slot"))[0]!)
+    await screen.findByTestId("hold-countdown")
+    await user.click(screen.getByRole("button", { name: "Confirm new time" }))
+
+    await waitFor(() => expect(screen.queryByTestId("hold-countdown")).not.toBeInTheDocument())
+    expect(await within(panel).findAllByTestId("slot")).toHaveLength(2)
+    expect(screen.getByText("Mon, 3 Aug 2026 · 10:30")).toBeInTheDocument()
+  })
+
+  it("offers no move at all once the booking is cancelled", async () => {
+    status = "cancelled"
+    server.use(...handlers())
+    mount()
+
+    await screen.findByTestId("cancelled-notice")
+    expect(screen.queryByRole("button", { name: "Move to another time" })).not.toBeInTheDocument()
   })
 
   it("reads at phone size — 16px body, 44px targets, lining figures on the time", async () => {

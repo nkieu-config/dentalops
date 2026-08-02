@@ -27,6 +27,7 @@ export const publicAppointmentSchema = z.object({
   status: appointmentStatusSchema,
   startsAt: z.iso.datetime(),
   endsAt: z.iso.datetime(),
+  clinic: z.object({ id: z.uuid(), name: z.string(), slug: z.string() }),
   branch: z.object({ id: z.uuid(), name: z.string() }),
   service: z.object({ id: z.uuid(), name: z.string(), durationMin: z.number().int() }),
   dentist: z.object({ id: z.uuid(), name: z.string() }),

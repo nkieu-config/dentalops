@@ -43,6 +43,7 @@ const REGISTRY: Record<string, Expectation> = {
   "POST /public/:clinicSlug/appointments": "public",
   "GET /public/manage/:token": "public",
   "POST /public/manage/:token/cancel": "public",
+  "POST /public/manage/:token/reschedule": "public",
   "GET /branches": "filtered",
   "GET /staff": "filtered",
   "GET /services": "filtered",

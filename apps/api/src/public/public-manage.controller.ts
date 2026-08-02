@@ -1,6 +1,7 @@
-import { Controller, Get, HttpCode, Param, Post } from "@nestjs/common"
+import { Body, Controller, Get, HttpCode, Param, Post } from "@nestjs/common"
 import { ApiTags } from "@nestjs/swagger"
 import { Public } from "../auth/public.decorator"
+import { RescheduleByTokenDto } from "./dto/reschedule-by-token.dto"
 import { PublicService } from "./public.service"
 
 @ApiTags("public")
@@ -18,5 +19,11 @@ export class PublicManageController {
   @HttpCode(204)
   async cancel(@Param("token") token: string) {
     await this.publicService.manageCancel(token)
+  }
+
+  @Post(":token/reschedule")
+  @HttpCode(200)
+  reschedule(@Param("token") token: string, @Body() body: RescheduleByTokenDto) {
+    return this.publicService.manageReschedule(token, body)
   }
 }

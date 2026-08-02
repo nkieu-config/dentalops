@@ -97,3 +97,18 @@ export const useCancelBooking = (token: string) => {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: [MANAGE_KEY, token] })
   })
 }
+
+export const useRescheduleBooking = (token: string) => {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (holdId: string) =>
+      api(`/public/manage/${token}/reschedule`, publicAppointmentSchema, {
+        method: "POST",
+        body: { holdId }
+      }),
+    onSuccess: (appointment) => {
+      queryClient.setQueryData([MANAGE_KEY, token], appointment)
+      void queryClient.invalidateQueries({ queryKey: [AVAILABILITY_KEY] })
+    }
+  })
+}

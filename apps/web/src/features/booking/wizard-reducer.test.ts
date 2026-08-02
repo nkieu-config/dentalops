@@ -25,6 +25,11 @@ const booking = {
     status: "confirmed",
     startsAt: "2026-08-03T03:30:00.000Z",
     endsAt: "2026-08-03T04:15:00.000Z",
+    clinic: {
+      id: "9f9619ff-8b86-4d01-b42d-00cf4fc964ff",
+      name: "Bright Smile Dental",
+      slug: "demo-clinic"
+    },
     branch: { id: branchId, name: "Sukhumvit" },
     service: { id: serviceId, name: "Cleaning", durationMin: 45 },
     dentist: { id: dentistId, name: "Dr. Anong" },

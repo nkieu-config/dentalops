@@ -48,6 +48,7 @@ const booking = {
     status: "confirmed",
     startsAt: TEN_THIRTY.startsAt,
     endsAt: TEN_THIRTY.endsAt,
+    clinic: { id: clinic.id, name: clinic.name, slug: clinicSlug },
     branch: { id: branchId, name: "Sukhumvit" },
     service: { id: serviceId, name: "Cleaning", durationMin: 45 },
     dentist: { id: anong, name: "Dr. Anong" },

@@ -10,6 +10,7 @@ import { currentTenant } from "../tenant/tenant-context"
 import { ConfirmBookingDto } from "./dto/confirm-booking.dto"
 import { CreateHoldDto } from "./dto/create-hold.dto"
 import { QueryPublicAvailabilityDto } from "./dto/query-public-availability.dto"
+import { RescheduleByTokenDto } from "./dto/reschedule-by-token.dto"
 import { ManageTokenService } from "./manage-token.service"
 
 const BKK_OFFSET_MS = 7 * 60 * 60_000
@@ -20,6 +21,7 @@ const PUBLIC_APPOINTMENT_SELECT = {
   status: true,
   startsAt: true,
   endsAt: true,
+  tenant: { select: { id: true, name: true, slug: true } },
   branch: { select: { id: true, name: true } },
   service: { select: { id: true, name: true, durationMin: true } },
   dentist: { select: { id: true, name: true } },
@@ -184,6 +186,35 @@ export class PublicService {
     await this.appointments.setStatus(claims.sub, { status: "cancelled" })
   }
 
+  async manageReschedule(token: string, body: RescheduleByTokenDto) {
+    const claims = await this.manageTokens.verify(token)
+    const hold = await this.holds.read(body.holdId)
+    if (!hold || hold.tenantId !== claims.tenantId) {
+      throw new AppException(409, "HOLD_EXPIRED", "That time is no longer held for you")
+    }
+
+    const current = await this.prisma.scoped.appointment.findUnique({
+      where: { id: claims.sub },
+      select: { version: true, status: true }
+    })
+    if (!current) throw new AppException(404, "NOT_FOUND", "Appointment not found")
+    if (current.status !== "confirmed") {
+      throw new AppException(
+        409,
+        "INVALID_TRANSITION",
+        `Cannot reschedule a ${current.status} appointment`
+      )
+    }
+
+    await this.appointments.reschedule(claims.sub, {
+      version: current.version,
+      startsAt: hold.startsAt,
+      dentistId: hold.dentistId
+    })
+    await this.holds.release(body.holdId)
+    return this.appointmentView(claims.sub)
+  }
+
   private upsertPatient(tenantId: string, body: ConfirmBookingDto) {
     return this.prisma.scoped.patient.upsert({
       where: { tenantId_phone: { tenantId, phone: body.phone } },
@@ -199,6 +230,7 @@ export class PublicService {
       select: PUBLIC_APPOINTMENT_SELECT
     })
     if (!appointment) throw new AppException(404, "NOT_FOUND", "Appointment not found")
-    return appointment
+    const { tenant, ...rest } = appointment
+    return { ...rest, clinic: tenant }
   }
 }

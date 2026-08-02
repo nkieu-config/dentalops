@@ -6,7 +6,7 @@ Multi-tenant appointment and roster scheduling for dental clinics — double-boo
 
 **Live:** https://trydentalops.vercel.app · **API health:** https://dentalops-api.onrender.com/api/v1/health
 
-> **Status: complete — all eight weeks shipped.** Staff scheduling, public booking, recurrence and rostering are live, and the availability endpoint was benchmarked before and after caching. Open the demo, pick a role, and drag something.
+> **Status: complete — eight build weeks shipped, plus a ninth that reconciled the spec with the system.** Staff scheduling, public booking, recurrence and rostering are live, the availability endpoint was benchmarked before and after caching, and W9 closed the gaps the design doc had claimed but the code had not honoured. Open the demo, pick a role, and drag something.
 
 ## Try it in a minute
 
@@ -46,6 +46,8 @@ Every headline claim below is held up by a named test. If a claim stops being tr
 | The demo reset cannot touch a real tenant | `apps/api/test/demo-reset.spec.ts` — the guard is mutation-tested |
 | No accessibility regressions | `apps/web/e2e/a11y.spec.ts` — axe at 390px and 1440px, failing on any serious or critical violation |
 | No patient data reaches Sentry | `apps/api/test/sentry-scrub.spec.ts` — bodies, query strings, headers and nested payloads |
+| A dentist cannot see or touch another dentist's schedule | `apps/api/test/dentist-scope.spec.ts` — the list filter and the `NOT_YOUR_APPOINTMENT` refusal, both mutation-tested |
+| An audit failure cannot break a booking | `apps/api/test/audit.spec.ts` — write path, 30-day TTL index, tenant scope, and a cursor that never repeats a row |
 
 ## Measured, then optimised
 
@@ -69,7 +71,7 @@ caveats and the honest reading — a 100% cache-hit workload is not real traffic
 | [Booking](docs/booking.md) | How a booking happens, lock ordering, status semantics, idempotency, and the public hold lifecycle |
 | [Availability](docs/availability.md) | The three correctness layers, what a slot requires, and why chairs are matched per-unit |
 | [Rostering](docs/rostering.md) | The validation rules, why validation is a dry run, series edit scopes, savepoints, and the nightly horizon job |
-| [Plans](docs/superpowers/plans/) | Task-by-task implementation plans, W0 through W8 |
+| [Plans](docs/superpowers/plans/) | Task-by-task implementation plans, W0 through W9 |
 
 ## Stack
 
@@ -79,6 +81,7 @@ caveats and the honest reading — a 100% cache-hit workload is not real traffic
 | API | NestJS on Express, Socket.IO, BullMQ |
 | Shared | Zero-dependency TypeScript packages for availability and contracts (Zod) |
 | Data | PostgreSQL 16 (source of truth), Redis (holds, availability cache, idempotency, queues) |
+| Audit | MongoDB 7 — the audit log is append-only, write-heavy, has a flexible per-action shape, and is never joined, so a document store fits it better than a table |
 | Tooling | pnpm workspaces, Turborepo, Vitest, Jest + Supertest, Playwright, GitHub Actions |
 | Hosting | Vercel, Render, Neon, Upstash, Sentry — all free tier, $0/month |
 
@@ -100,6 +103,11 @@ pnpm test        # vitest (web, packages) + jest (api)
 pnpm build       # turbo build, respecting the dependency graph
 pnpm --filter @dentalops/web e2e   # playwright, all three journeys
 ```
+
+`pnpm test` runs **517 tests across 76 files** — 214 Jest specs against real Postgres, Redis and
+MongoDB in Docker, 240 Vitest tests in the web app, 60 in the availability engine and 3 in contracts.
+`pnpm --filter @dentalops/web e2e` adds **15 Playwright checks**: the three journeys below plus the
+accessibility sweep.
 
 Three Playwright journeys plus an accessibility sweep run on every push, with no retries:
 
@@ -131,19 +139,31 @@ Worth saying plainly, because the gaps are choices rather than oversights:
 - **One timezone.** Everything is stored UTC and rendered Asia/Bangkok. Recurrence takes a fixed
   UTC offset, which is correct for Thailand and wrong for anywhere with daylight saving.
 - **No payments, no insurance, no clinical records.** This is scheduling.
-- **The audit log is designed but not built.** The MongoDB collection and its write path are
-  specified in the design doc, but no week's plan ever scheduled them — they fell through the gap
-  between the spec and the plans rather than being consciously traded away. Mongo is therefore
-  absent from the stack table above rather than listed as if it were carrying load.
-- **No patients screen and no settings screen.** Patients are created, matched and tenant-scoped by
-  the API on every booking, and branches, services, resources and staff are real records behind a
-  working API — but the screens for browsing and editing them were cut so the eight weeks could
-  finish the scheduling core. The app says so where those screens would have been, rather than
-  showing an empty page.
+- **Seven of the eleven designed screens shipped.** The design doc's inventory lists eleven. What
+  exists is landing, booking wizard, manage-booking, timeline, appointment drawer, roster editor and
+  the activity feed. What does not: the **patients list and detail**, the **settings** editor, and a
+  real **login / signup form** — the only way into the staff app is the landing page's three demo
+  buttons, even though `POST /auth/login` and `POST /auth/signup` work and are tested. Patients are
+  created, matched and tenant-scoped by the API on every booking, and branches, services, resources
+  and staff are real records behind a working API; the screens for browsing and editing them were cut
+  so the build could finish the scheduling core. The app says so where the patients and settings
+  screens would have been, and links back to this section, rather than showing an empty page.
+- **The admin API is read-only.** `GET /branches /services /staff /resources` exist and `/patients`
+  adds `GET` and `POST`, but there is no `PATCH` or `DELETE` anywhere on that surface and no
+  `/equipment-types` at all. The design doc promised capped CRUD; without a settings screen to drive
+  it, the write half was never built.
+- **A dead Mongo costs about five seconds at boot.** If `MONGODB_URL` is set but points at an
+  unreachable server, the driver spends its full 5 s server-selection timeout before the provider
+  gives up, and only then does the audit log degrade to a no-op. The API still starts and bookings
+  still work — but that wait is paid on every boot until the URL is fixed or removed.
 - **Free-tier cold starts.** The API sleeps after inactivity, so the first request of the day takes
   about a minute. Documented rather than hidden, because it is the cost of $0/month hosting.
 - **Shifts drag between days, not between staff.** `PATCH /shifts/:id` accepts times, not a new
   owner; moving a shift to a different dentist is a dialog edit.
+- **The timeline's chair columns are read-only.** Switching columns from dentists to chairs disables
+  drag entirely: no endpoint moves an appointment between chairs, and a chair column has no dentist
+  to build a new appointment from. A drag that silently reassigned the wrong thing would be worse
+  than no drag.
 - **Lighthouse is measured, not gated.** Its performance score moved 89–94 across one session on the
   same build. The blocking gate is axe, which is deterministic.
 

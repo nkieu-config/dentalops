@@ -408,3 +408,76 @@ Parallel tracks outside this plan (start alongside W0): OSS contributions ~1 h/d
 | Render cold start hurting demos | UptimeRobot ping + 5-s DoD budget includes it |
 | BE debugging eating FE polish (the classic failure) | W4/W5 protected; W8 declared ~70% FE in advance |
 | Demo data trashed by visitors | 6-hourly reseed job + reset button |
+
+---
+
+## 10. Reconciliation (W9)
+
+Everything above this section is the design as approved before the build. This section records where the
+shipped system differs, so the document stops being read as a description of what exists. W9 closed
+eight gaps between the two; what follows is what still diverges, and why.
+
+### Shipped differently
+
+**The availability cache key is versioned, not composed.** §4 Redis lists
+`avail:{branch}:{service}:{date}`. The implementation stores a per-tenant-per-day version counter at
+`availver:{tenant}:{date}` and folds its current value into the entry key. Invalidation is then a
+single `INCR` rather than a `SCAN` for matching keys — Redis has no pattern delete, and `SCAN` on a
+shared Upstash instance is exactly the operation that gets expensive under the load this cache exists
+to survive.
+
+**"Any dentist" reduces in memory, not with a `groupBy`.** §6 Flow 1 promises the server assigns the
+lowest-utilization dentist, and `PublicService.availableSlots` now does. It counts booked minutes
+with a `findMany` reduced in application code rather than the `groupBy` the obvious reading suggests:
+`Appointment` stores `startsAt` and `endsAt` but no duration column, and `groupBy._sum` cannot sum a
+computed interval. A `groupBy` could only count appointments, which is a different and wrong metric —
+four short check-ups are not a heavier day than one root canal.
+
+**The public manage view gained a `clinic` field.** `GET /public/manage/:token` now returns
+`{ id, name, slug }` for the clinic. The reschedule flow in §5 needs the clinic-scoped hold and
+availability endpoints, and the `/manage/:token` route has no slug in its path to derive them from.
+Without this the patient could cancel but not move a booking.
+
+**Admin CRUD stayed read-only.** §5 promised capped CRUD over
+`/branches /services /equipment-types /resources /staff /patients`. What shipped is `GET` on
+`/branches /services /staff /resources`, `GET` and `POST` on `/patients`, and `GET /audit-logs`. No
+`PATCH`, no `DELETE`, no `/equipment-types`. The Settings screen that would have driven the write half
+was cut, and an unused write API is a liability rather than an achievement.
+
+**The screen inventory shipped seven of the eleven.** §6 lists eleven. Landing, booking wizard,
+manage-booking, timeline, appointment drawer, roster editor and the activity feed exist. The patients
+list and detail and the settings editor were cut, and each renders an in-app notice saying so that
+links to the README's gap section. The fourth miss was never consciously traded away: **there is no
+login or signup screen.** `POST /auth/login` and `POST /auth/signup` are implemented and tested, but
+no UI calls them — the only route into the staff app is the landing page's three demo buttons. That
+is fine for a portfolio demo and wrong as a product.
+
+**Timeline chair columns carry no drag.** §6 Flow 2 says columns are "dentists (switchable to
+chairs)", and the toggle shipped. Drag did not follow it. Drag-to-move is gated on dentist mode
+because `PATCH /appointments/:id` reschedules by dentist and time and no endpoint moves an
+appointment between chairs; drag-to-create is gated for a different reason — a chair column has no
+dentist to build a draft appointment from. Shipping a drag that silently reassigned the wrong
+dimension would be worse than shipping no drag.
+
+**A dead Mongo costs about five seconds at boot.** `mongoProvider` catches a failed `connect()` and
+yields `null`, so an unreachable Mongo degrades the audit log to a no-op instead of taking the API
+down. What it does not avoid is the wait: with `serverSelectionTimeoutMS: 5000`, a set-but-unreachable
+`MONGODB_URL` costs the full five seconds on every boot before the app finishes starting. Unsetting
+the variable is instant; setting it wrongly is not.
+
+### Known rough edges
+
+**Chair-mode keyboard navigation still steps between dentists.** `use-grid-keyboard.ts` reads
+`data-dentist` off each card to decide what left and right arrow keys move focus to. In chair mode
+the visible columns are chairs, so horizontal focus navigation walks the dentist axis instead of the
+columns on screen. No mutation is involved — this is focus movement only, and the shift-arrow nudge
+that does mutate is unaffected — but the focus order does not match what the user sees.
+
+**The offline gate on the keyboard nudge is unproven.** `timeline-page.tsx` passes
+`isBusy: (id) => !online || isBusy(id)` into `useGridKeyboard`, which should stop a shift-arrow nudge
+from firing a mutation while the browser is offline. Deleting the `!online ||` leaves the whole suite
+green. Something upstream already blocks the offline nudge and **we did not identify what**. The
+user-visible behaviour is correct — an offline nudge does not mutate — but this specific line is not
+held up by any passing test, and it should not be described as defence in depth, because nothing here
+verified that it defends anything. It is an unverified line kept because removing it is riskier than
+leaving it.

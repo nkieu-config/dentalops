@@ -121,11 +121,17 @@ return this.prisma.scoped.$transaction(async (tx) => {
 
 Why savepoints rather than a pre-check: a Postgres transaction is aborted by the *first* constraint violation and rejects every subsequent statement, so without savepoints the report can only ever name one occurrence. And a pre-check query would be a race window — the point of this project is that the constraint is the referee, so each occurrence must actually be *attempted*. Throwing at the end rolls the whole transaction back, which is what makes "reports everything, inserts nothing" true.
 
-`occ_${index}` is interpolated into raw SQL, so `index` must be a number from `entries()` and nothing else — never interpolate anything user-supplied into a savepoint name.
+`occ_${index}` is interpolated into raw SQL, so `index` must be a number from `entries()` and nothing else — never interpolate anything user-supplied into a savepoint name. Types erase at runtime, so `index.toFixed(0)` is what actually guarantees the fragment is `[0-9]+`.
+
+Verified during execution: Prisma's interactive transaction passes savepoint statements straight through (the tenant extension only intercepts `$allModels`). Without savepoints the failure is not a weak report but a 500 — the occurrence *after* the first conflict dies with SQLSTATE `25P02` "current transaction is aborted", which is not an `AppException` and so escapes before any report is emitted.
+
+Two hazards this endpoint must guard, neither of which `expandRecurrence` protects against because `count` rather than a window is the bound: `interval: 0` and an empty `byWeekday` both never increment `made`, so the expansion never terminates. Guard them in the DTO (`@Min(1) @Max(12)` on interval, `@ArrayNotEmpty()` on byWeekday, `@Min(2) @Max(52)` on count) rather than in the loop.
+
+Known limit, worth stating rather than hiding: a Postgres **deadlock** (`40P01`) aborts the whole transaction, not just the subtransaction, so `ROLLBACK TO SAVEPOINT` cannot recover from one. What keeps that from happening is reusing `lockDentist` and `pickResources` — the series must take the same per-dentist `FOR UPDATE` lock and sorted resource-lock order as the single-create path, or it silently opts out of the protocol `deadlock.spec.ts` guards.
 
 - [ ] **Step 1: Write the failing spec first.** Cases:
 1. a 12-occurrence weekly series inserts 12 appointments, all sharing one `seriesId`, each with its resource claims
-2. **the headline:** a 24-occurrence series that conflicts at #17 returns 409 with exactly that occurrence in `details.conflicts`, and `appointment.count({ where: { seriesId } })` is **0** — nothing was inserted
+2. **the headline:** a 24-occurrence series that conflicts at #17 returns 409 with exactly that occurrence in `details.conflicts`, and nothing was inserted. Note the `AppointmentSeries` row is created *inside* the transaction (otherwise a failed series leaves an orphan), so on a 409 there is no `seriesId` to count by — assert instead that the dentist's appointment count is unchanged, that `appointment.count({ where: { seriesId: { not: null } } })` is 0, and that `appointmentSeries.count()` is unchanged
 3. a series conflicting at #3 *and* #17 reports **both** (this is the case that fails without savepoints — verify it does by trying it without them first, and report what you saw)
 4. `count` is honoured and matches `expandRecurrence`'s contract (occurrences before the window still consume it)
 5. the series is tenant-scoped: another tenant's token cannot read it

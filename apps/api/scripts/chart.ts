@@ -22,7 +22,7 @@ const PAD_BOTTOM = 56
 const GROUP_GAP = 28
 const BAR_GAP = 10
 
-const root = resolve(import.meta.dirname, "../../..")
+const root = resolve(__dirname, "../../..")
 const read = (name: string): Bench =>
   JSON.parse(readFileSync(resolve(root, "docs/benchmarks", name), "utf8")) as Bench
 

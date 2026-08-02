@@ -20,6 +20,7 @@ const REGISTRY: Record<string, Expectation> = {
   "DELETE /shifts/:id": "not-found",
   "GET /appointments": "filtered",
   "POST /appointments": "auth-only",
+  "POST /appointments/series": "auth-only",
   "PATCH /appointments/:id": "not-found",
   "PATCH /appointments/:id/status": "not-found",
   "GET /availability": "auth-only",

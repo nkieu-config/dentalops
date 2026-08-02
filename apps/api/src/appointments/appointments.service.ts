@@ -12,7 +12,7 @@ import { SetStatusDto } from "./dto/set-status.dto"
 const EXCLUSION = /exclusion constraint \\?"(\w+)\\?"/
 const RETRYABLE_SQLSTATE = /code: "(40P01|40001)"/
 
-const APPOINTMENT_INCLUDE = {
+export const APPOINTMENT_INCLUDE = {
   claims: { where: { status: "active" as const } },
   service: true,
   patient: true
@@ -185,7 +185,7 @@ export class AppointmentsService {
     })
   }
 
-  private async lockDentist(tx: ScopedTransactionClient, dentistId: string) {
+  async lockDentist(tx: ScopedTransactionClient, dentistId: string) {
     await tx.$queryRaw`SELECT id FROM users WHERE id = ${dentistId}::uuid FOR UPDATE`
   }
 

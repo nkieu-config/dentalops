@@ -7,5 +7,5 @@
     "experimentalDecorators": true,
     "outDir": "dist"
   },
-  "include": ["src", "test", "prisma"]
+  "include": ["src", "test", "prisma", "scripts"]
 }

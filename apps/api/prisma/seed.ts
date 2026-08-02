@@ -51,8 +51,8 @@ const FIRST_NAMES = [
 
 const SURNAMES = ["Chaiwat", "Wongsakorn", "Meesuk", "Tanakit", "Rojanaphan"]
 
-const PATIENT_COUNT = 40
-const SEED_WINDOW_DAYS = 30
+const PATIENT_COUNT = 120
+const SEED_WINDOW_DAYS = 60
 const DAY_MS = 24 * 60 * 60 * 1000
 const MINUTE_MS = 60 * 1000
 const GAPS_MIN = [0, 15, 30]
@@ -67,7 +67,9 @@ const SHIFT_PATTERNS: ShiftPattern[] = [
   { weekdays: [1, 2, 3, 4, 5], startHourUtc: 2, durationMin: 480 },
   { weekdays: [1, 2, 3, 4, 5], startHourUtc: 2, durationMin: 480 },
   { weekdays: [2, 4], startHourUtc: 6, durationMin: 420 },
-  { weekdays: [1, 3, 6], startHourUtc: 2, durationMin: 360 }
+  { weekdays: [1, 3, 6], startHourUtc: 2, durationMin: 360 },
+  { weekdays: [1, 2, 4, 5], startHourUtc: 6, durationMin: 420 },
+  { weekdays: [2, 3, 5, 6], startHourUtc: 2, durationMin: 480 }
 ]
 
 interface DayBatch {
@@ -154,7 +156,9 @@ async function main() {
     { email: "dentist1@demo-clinic.local", name: "Somchai Wattana", role: "dentist" as const },
     { email: "dentist2@demo-clinic.local", name: "Ploy Siriwan", role: "dentist" as const },
     { email: "dentist3@demo-clinic.local", name: "Nid Kanjana", role: "dentist" as const },
-    { email: "dentist4@demo-clinic.local", name: "Kiat Thongchai", role: "dentist" as const }
+    { email: "dentist4@demo-clinic.local", name: "Kiat Thongchai", role: "dentist" as const },
+    { email: "dentist5@demo-clinic.local", name: "Sunee Boonmee", role: "dentist" as const },
+    { email: "dentist6@demo-clinic.local", name: "Teerapat Chuenjai", role: "dentist" as const }
   ]
 
   const dentistIds: string[] = []
@@ -284,16 +288,19 @@ async function main() {
 
   await prisma.shift.createMany({ data: shiftRows })
 
+  const allAppointments = batches.flatMap((b) => b.appointments)
+  const allClaims = batches.flatMap((b) => b.claims)
+
   let appointmentCount = 0
-  for (const batch of batches) {
-    try {
-      await prisma.$transaction([
-        prisma.appointment.createMany({ data: batch.appointments }),
-        prisma.resourceClaim.createMany({ data: batch.claims })
-      ])
-      appointmentCount += batch.appointments.length
-    } catch {
-      appointmentCount += await insertOneByOne(batch)
+  try {
+    await prisma.$transaction([
+      prisma.appointment.createMany({ data: allAppointments }),
+      prisma.resourceClaim.createMany({ data: allClaims })
+    ])
+    appointmentCount = allAppointments.length
+  } catch {
+    for (const batch of batches) {
+      appointmentCount += await insertBatch(batch)
     }
   }
 
@@ -301,6 +308,18 @@ async function main() {
   console.log(
     `patients=${patientRows.length} shifts=${shiftRows.length} appointments=${appointmentCount}`
   )
+}
+
+async function insertBatch(batch: DayBatch) {
+  try {
+    await prisma.$transaction([
+      prisma.appointment.createMany({ data: batch.appointments }),
+      prisma.resourceClaim.createMany({ data: batch.claims })
+    ])
+    return batch.appointments.length
+  } catch {
+    return insertOneByOne(batch)
+  }
 }
 
 async function insertOneByOne(batch: DayBatch) {

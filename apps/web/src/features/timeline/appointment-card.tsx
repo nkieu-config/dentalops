@@ -89,7 +89,9 @@ export const AppointmentCard = ({
       <span className={cn("truncate font-medium", cancelled && "line-through")}>
         {appointment.service.name}
       </span>
-      <span className="truncate text-muted-foreground">{appointment.patient.name}</span>
+      <span className={cn("truncate", !cancelled && "text-appointment-muted")}>
+        {appointment.patient.name}
+      </span>
       {onResizeStart ? (
         <span
           data-testid={`resize-${appointment.id}`}

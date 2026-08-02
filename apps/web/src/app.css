@@ -37,6 +37,7 @@
   --offshift-stripe: #e2e8f0;
   --now-line: #dc2626;
   --overlay: rgb(15 23 42 / 0.45);
+  --appointment-muted: #475569;
 }
 
 .dark {
@@ -73,6 +74,7 @@
   --offshift-stripe: #1e293b;
   --now-line: #f87171;
   --overlay: rgb(2 6 23 / 0.7);
+  --appointment-muted: #cbd5e1;
 }
 
 @theme inline {
@@ -88,6 +90,7 @@
   --color-secondary-foreground: var(--secondary-foreground);
   --color-muted: var(--muted);
   --color-muted-foreground: var(--muted-foreground);
+  --color-appointment-muted: var(--appointment-muted);
   --color-accent: var(--accent);
   --color-accent-foreground: var(--accent-foreground);
   --color-destructive: var(--destructive);

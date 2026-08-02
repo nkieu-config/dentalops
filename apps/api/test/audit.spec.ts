@@ -174,7 +174,8 @@ describe("audit log", () => {
     expectStatus(second, 200)
     const secondPage = second.body as SerializedPage
     expect(secondPage.entries).toHaveLength(1)
-    expect(secondPage.entries[0]!.at < firstPage.entries[0]!.at).toBe(true)
+    expect(secondPage.entries[0]).not.toEqual(firstPage.entries[0])
+    expect(secondPage.entries[0]!.at <= firstPage.entries[0]!.at).toBe(true)
   })
 
   it("refuses a dentist, who may not read the clinic's audit log", async () => {

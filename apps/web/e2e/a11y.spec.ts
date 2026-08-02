@@ -171,6 +171,50 @@ test.describe("what axe cannot see", () => {
     expect(labelled).toBeGreaterThan(0)
   })
 
+  test("the five-destination bottom bar fits a 390px phone without clipping a label", async ({
+    page
+  }) => {
+    await page.setViewportSize(PHONE)
+    await signIn(page)
+
+    const links = page.getByTestId("bottom-nav").locator("a")
+    await expect(links).toHaveCount(5)
+
+    const overflow = await page.evaluate(
+      () => document.documentElement.scrollWidth - window.innerWidth
+    )
+    expect(overflow).toBeLessThanOrEqual(0)
+
+    for (let i = 0; i < 5; i++) {
+      const box = await links.nth(i).boundingBox()
+      expect(box).not.toBeNull()
+      expect(box!.x).toBeGreaterThanOrEqual(0)
+      expect(box!.x + box!.width).toBeLessThanOrEqual(PHONE.width + 1)
+    }
+
+    const clipped = await links.evaluateAll((nodes) =>
+      nodes
+        .map((node) => node.querySelector("span"))
+        .filter((label) => label !== null && label.scrollWidth > label.clientWidth + 1).length
+    )
+    expect(clipped).toBe(0)
+  })
+
+  test("the activity feed is reachable from the bottom bar at 390px", async ({ page }) => {
+    await page.setViewportSize(PHONE)
+    await signIn(page)
+
+    await page.getByTestId("bottom-nav").getByRole("link", { name: "Activity" }).click()
+    await expect(page).toHaveURL(/\/app\/activity/)
+    await expect(
+      page
+        .getByRole("list", { name: "Activity" })
+        .or(page.getByText("Nothing has happened yet"))
+        .first()
+    ).toBeVisible()
+    await expectClean(page)
+  })
+
   test("touch targets on the public wizard are at least 44px at 390px", async ({ page }) => {
     await page.setViewportSize(PHONE)
     await page.goto("/book/demo-clinic")

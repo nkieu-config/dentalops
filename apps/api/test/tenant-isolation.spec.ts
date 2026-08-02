@@ -45,7 +45,8 @@ const REGISTRY: Record<string, Expectation> = {
   "POST /public/manage/:token/cancel": "public",
   "GET /branches": "filtered",
   "GET /staff": "filtered",
-  "GET /services": "filtered"
+  "GET /services": "filtered",
+  "GET /audit-logs": "filtered"
 }
 
 const BODY_BY_ROUTE: Record<string, object> = {

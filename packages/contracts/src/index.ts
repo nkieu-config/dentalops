@@ -40,6 +40,8 @@ export {
   draftShiftSchema
 } from "./roster"
 export type { ViolationSeverity, Violation, RosterValidation, DraftShift } from "./roster"
+export { auditActorSchema, auditEntrySchema, auditPageSchema } from "./audit"
+export type { AuditActor, AuditEntry, AuditPage } from "./audit"
 export {
   publicClinicSchema,
   publicHoldSchema,

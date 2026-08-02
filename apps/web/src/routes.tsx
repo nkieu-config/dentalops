@@ -19,6 +19,9 @@ const TimelinePage = lazy(() =>
 const RosterRoute = lazy(() =>
   import("./features/roster/roster-page").then((m) => ({ default: m.RosterRoute }))
 )
+const ActivityRoute = lazy(() =>
+  import("./features/activity/activity-page").then((m) => ({ default: m.ActivityRoute }))
+)
 const DevUiPage = lazy(() =>
   import("./pages/dev-ui-page").then((m) => ({ default: m.DevUiPage }))
 )
@@ -47,6 +50,7 @@ export const router = createBrowserRouter([
       { index: true, element: <Navigate to="/app/timeline" replace /> },
       { path: "timeline", element: deferred(<TimelinePage />) },
       { path: "roster", element: deferred(<RosterRoute />) },
+      { path: "activity", element: deferred(<ActivityRoute />) },
       {
         path: "patients",
         element: (

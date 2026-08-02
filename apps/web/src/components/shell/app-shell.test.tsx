@@ -58,10 +58,24 @@ describe("AppShell navigation", () => {
   })
 
   it("guards every gated destination with the predicate its route uses", () => {
+    const gated = ["/app/roster", "/app/activity"]
     for (const role of ["owner", "receptionist", "dentist"] as const) {
       const session = sessionFor(role)
       const shown = visibleNavItems(session).map((item) => item.to)
-      expect(shown.includes("/app/roster")).toBe(canManageRoster(session))
+      for (const destination of gated) {
+        expect(shown.includes(destination)).toBe(canManageRoster(session))
+      }
+    }
+  })
+
+  it("keeps the mobile bar within Material's five destinations, each free to shrink", () => {
+    mount("owner")
+    const items = Array.from(screen.getByTestId("bottom-nav").querySelectorAll("a"))
+    expect(items).toHaveLength(5)
+    for (const item of items) {
+      expect(item.className).toContain("flex-1")
+      expect(item.className).toContain("min-w-0")
+      expect(item.querySelector("span")?.className).toContain("truncate")
     }
   })
 })

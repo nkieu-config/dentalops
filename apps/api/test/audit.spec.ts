@@ -9,6 +9,11 @@ import { expectStatus } from "./utils/expect-status"
 
 const settle = () => new Promise((resolve) => setTimeout(resolve, 200))
 
+interface SerializedPage {
+  entries: Array<{ tenantId: string; at: string; requestId: string }>
+  nextCursor: string | null
+}
+
 describe("audit log", () => {
   let app: INestApplication
   let server: Server
@@ -142,6 +147,47 @@ describe("audit log", () => {
     const page = await listAsTenant(100)
     expect(page.entries.length).toBeGreaterThan(0)
     expect(page.entries.every((e) => e.tenantId === tenantId)).toBe(true)
+  })
+
+  it("serves an owner their own tenant's entries over http", async () => {
+    const res = await request(server)
+      .get("/audit-logs?limit=5")
+      .set("Authorization", `Bearer ${token}`)
+    expectStatus(res, 200)
+    const body = res.body as SerializedPage
+    expect(body.entries.length).toBeGreaterThan(0)
+    expect(body.entries.length).toBeLessThanOrEqual(5)
+    expect(body.entries.every((entry) => entry.tenantId === tenantId)).toBe(true)
+  })
+
+  it("walks older entries through the cursor without repeating one", async () => {
+    const first = await request(server)
+      .get("/audit-logs?limit=1")
+      .set("Authorization", `Bearer ${token}`)
+    expectStatus(first, 200)
+    const firstPage = first.body as SerializedPage
+    expect(firstPage.nextCursor).toBeTruthy()
+
+    const second = await request(server)
+      .get(`/audit-logs?limit=1&cursor=${firstPage.nextCursor!}`)
+      .set("Authorization", `Bearer ${token}`)
+    expectStatus(second, 200)
+    const secondPage = second.body as SerializedPage
+    expect(secondPage.entries).toHaveLength(1)
+    expect(secondPage.entries[0]!.at < firstPage.entries[0]!.at).toBe(true)
+  })
+
+  it("refuses a dentist, who may not read the clinic's audit log", async () => {
+    const login = await request(server)
+      .post("/auth/login")
+      .send({ email: `d@${slug}.local`, password: "s3cure-pass", clinicSlug: slug })
+    expectStatus(login, 200)
+
+    const res = await request(server)
+      .get("/audit-logs")
+      .set("Authorization", `Bearer ${(login.body as { accessToken: string }).accessToken}`)
+    expectStatus(res, 403)
+    expect((res.body as { errorCode: string }).errorCode).toBe("FORBIDDEN")
   })
 
   it("returns nothing at all without a tenant context", async () => {

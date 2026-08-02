@@ -1,5 +1,5 @@
 import type { AuthSession } from "@dentalops/contracts"
-import { CalendarDays, ClipboardList, Moon, Settings, Users } from "lucide-react"
+import { CalendarDays, ClipboardList, History, Moon, Settings, Users } from "lucide-react"
 import type { LucideIcon } from "lucide-react"
 import { NavLink, Outlet, useNavigate } from "react-router"
 import { cn } from "../../lib/cn"
@@ -17,6 +17,7 @@ interface NavItem {
 const navItems: NavItem[] = [
   { to: "/app/timeline", label: "Timeline", icon: CalendarDays },
   { to: "/app/roster", label: "Roster", icon: ClipboardList, visible: canManageRoster },
+  { to: "/app/activity", label: "Activity", icon: History, visible: canManageRoster },
   { to: "/app/patients", label: "Patients", icon: Users },
   { to: "/app/settings", label: "Settings", icon: Settings }
 ]
@@ -89,20 +90,23 @@ export const AppShell = () => {
           <Outlet />
         </main>
       </div>
-      <nav className="fixed inset-x-0 bottom-0 z-30 flex h-bottomnav border-t border-border bg-background md:hidden">
+      <nav
+        data-testid="bottom-nav"
+        className="fixed inset-x-0 bottom-0 z-30 flex h-bottomnav border-t border-border bg-background md:hidden"
+      >
         {items.map(({ to, label, icon: Icon }) => (
           <NavLink
             key={to}
             to={to}
             className={({ isActive }) =>
               cn(
-                "flex flex-1 flex-col items-center justify-center gap-0.5 text-[0.65rem]",
+                "flex min-w-0 flex-1 flex-col items-center justify-center gap-0.5 px-1 text-[0.65rem]",
                 isActive ? "text-primary" : "text-muted-foreground"
               )
             }
           >
-            <Icon className="h-5 w-5" />
-            {label}
+            <Icon className="h-5 w-5 shrink-0" />
+            <span className="max-w-full truncate">{label}</span>
           </NavLink>
         ))}
       </nav>

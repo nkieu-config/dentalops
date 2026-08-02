@@ -26,7 +26,8 @@ Three things carry the weight:
 | [Design system](docs/design-system/MASTER.md) | Tokens, breakpoint map, wireframes for the three flagship screens |
 | [Booking](docs/booking.md) | How a booking happens, lock ordering, status semantics, idempotency, and the public hold lifecycle |
 | [Availability](docs/availability.md) | The three correctness layers, what a slot requires, and why chairs are matched per-unit |
-| [Plans](docs/superpowers/plans/) | Task-by-task implementation plans, W0 through W6 |
+| [Rostering](docs/rostering.md) | The validation rules, why validation is a dry run, series edit scopes, savepoints, and the nightly horizon job |
+| [Plans](docs/superpowers/plans/) | Task-by-task implementation plans, W0 through W8 |
 
 ## Stack
 
@@ -55,7 +56,7 @@ pnpm lint        # eslint across the workspace
 pnpm typecheck   # tsc --noEmit in every package
 pnpm test        # vitest (web, packages) + jest (api)
 pnpm build       # turbo build, respecting the dependency graph
-pnpm --filter @dentalops/web e2e   # playwright, both journeys
+pnpm --filter @dentalops/web e2e   # playwright, all three journeys
 ```
 
 Two Playwright journeys run on every push, with no retries:

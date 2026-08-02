@@ -242,6 +242,8 @@ git commit -m "feat(api): roster validation dry-run endpoint and time blocks"
 
 This task ships **create/edit/delete via a dialog**, not drag — so the week is demoable and validated even if Task 7 is cut. Editing a shift in the dialog fires a debounced (250ms) `POST /roster/validate` with the draft and renders the result live; blocking violations disable **Save**; each blocking violation links to the affected appointments on the timeline (`/app/timeline?d=…&b=…`).
 
+Found during execution: there was no way to *edit* a shift. The API had `POST /shifts` and `DELETE /shifts/:id` and nothing between them, so the dialog's Save on an existing shift was DELETE-then-POST — which loses the shift outright if the POST then fails (`no_staff_double_shift`, a dropped connection), and the user's row is simply gone. `PATCH /shifts/:id` was added mid-week for this (`1c80efa`, with the isolation-registry entry and `shifts.spec.ts` cases); it also sets `detached: true`, which makes a hand-edited occurrence an exception the nightly job and `scope: "all"` both leave alone. Task 7's drag reuses the same endpoint.
+
 - [ ] **Step 1: TDD `ViolationList`** — clean / warnings only / blocking / mixed, per MASTER §6; blocking uses `--destructive` with an icon, warnings `--warning` with an icon, never colour alone.
 - [ ] **Step 2: The page**, with tests for: the grid renders a week of shifts per staff member; editing in the dialog posts a validate request with the draft (not the saved shifts); a blocking violation disables Save; resolving it re-enables Save; `<768` renders the list, not the grid.
 - [ ] **Step 3: Commit**
@@ -263,7 +265,11 @@ Reuse `use-drag-move.ts` and `lib/drag-plan.ts` from W5 rather than writing new 
 
 **If the week is running short, stop here and ship Task 6's dialog editor.** Say so explicitly in the task report rather than half-landing it.
 
-- [ ] Commit: `feat(web): drag to move and resize shifts with live validation`
+Shipped as **move between days only — no resize**, and the commit says so (`feat(web): drag to move shifts between days with live validation`). The premise that "a shift block and an appointment card have the same geometry problem" turned out to be wrong: the timeline is continuous (y = minutes), while the roster grid is **categorical** — rows are staff, columns are days, and a block states its hours as text rather than as a height. There is no time axis to snap a pixel delta against, so `planMove`/`planResize`'s pixel→minute maths has nothing to compute and resize has no gesture to express. Only `columnAtX` was genuinely reusable. What *was* shared is the pointer lifecycle (threshold, capture, Escape, click-vs-drag): it was extracted out of `use-drag-move.ts` into `use-pointer-drag.ts` and both features now use it, rather than forking a second copy of the same bug surface. Times are still edited in the dialog, which is where a categorical grid should put them.
+
+Known limitation, recorded rather than hidden: **there is no vertical drag** — a shift cannot be moved to a different staff member — because `PATCH /shifts/:id` accepts only `startsAt`/`endsAt`. Widening it to `staffId` is an API change, which this week's constraints forbid, so reassignment stays delete-plus-add.
+
+- [ ] Commit: `feat(web): drag to move shifts between days with live validation`
 
 ---
 
@@ -278,7 +284,9 @@ Reuse `use-drag-move.ts` and `lib/drag-plan.ts` from W5 rather than writing new 
 
 J3 must be deterministic the same way J1 and J2 are: pick a rostered dentist on the target Monday via the existing helpers, `clearColumn`, book two appointments through the API at known times, then drive the roster UI to shrink the shift past them and assert the blocking violation names both. Resolve by restoring the shift and assert Save re-enables. No retries.
 
-- [ ] Commit: `test(e2e): playwright J3 roster violation and resolution`
+Refined during execution: J3 targets the **Tuesday**, not the Monday, and excludes the first branch. Playwright runs the journeys in parallel workers against one seeded database, so "the rostered dentist on the next Monday at the first branch" is the same dentist J1 and J2 are already booking and dragging — J3 would then delete or shrink a shift underneath them, and all three would flake for reasons that have nothing to do with the code. `findRosteredDentist(..., dayAfter(weekStart, 1), { excludeBranchId })` plus `clearRosterViolations` gives J3 a disjoint slice of the seed, which is what buys "no retries".
+
+- [ ] Commit: `test(e2e): playwright J3 roster violation and resolution` (shipped as `feat(web): recurring appointment UI and playwright J3 roster violation journey`, since the recurring drawer and the journey landed together)
 
 ---
 
@@ -288,6 +296,8 @@ J3 must be deterministic the same way J1 and J2 are: pick a rostered dentist on 
 - [ ] `docs/rostering.md`: the validation rules and their severities, the this/following/all semantics, why series conflicts use savepoints, and how the horizon job stays idempotent.
 - [ ] Sync this plan with execution findings.
 - [ ] Full pipeline including all three journeys, push, watch CI, report.
+
+Execution note: `ViolationList` renders a `<Link>` to the timeline, so the gallery is the first `/dev/ui` entry that needs router context — `dev-ui-page.test.tsx` now mounts the page inside a `MemoryRouter`. The eight `ShiftBlock` / `ViolationList` fixtures reuse the existing gallery dentists so `staffName` resolves to real names rather than "Unknown staff", which is what makes the blocking card read like the panel does in the product.
 
 ---
 
@@ -303,3 +313,23 @@ J3 must be deterministic the same way J1 and J2 are: pick a rostered dentist on 
 - [ ] Playwright J3 passes 3× locally and in CI, with no retries
 - [ ] `@dentalops/availability` still has zero runtime dependencies and 100% coverage
 - [ ] Every new route in the isolation registry; no migrations; CI green with all three journeys
+
+### Where those criteria actually stand
+
+Written at the end of Task 9, before the push. Totals: api 28 suites / 163 tests, web 30 files / 201 tests, availability 7 files / 60 tests at 100%, contracts 3, e2e 3 journeys.
+
+Satisfied, with the test that proves it:
+
+- the #17 conflict and the zero insert — `series-conflict.spec.ts` "reports the single conflicting occurrence of a 24 week series and inserts nothing"
+- two conflicts reported, the savepoint case — same file, "reports both conflicting occurrences, not just the first"
+- horizon: `horizon.spec.ts` tops a 30-day series back to 90 and creates 0 on a second run, keeps a deleted mid-series occurrence deleted, and counts a `no_staff_double_shift` occurrence as `skipped` while finishing the run
+- this / following / all and detachment — `series-scope.spec.ts`, including "a later all leaves the detached occurrence where the user put it"; the shift-side equivalent is `shift-series.spec.ts` "scope all re-materialises non-detached rows and leaves a detached one alone"
+- the flagship dry run — `roster-validate.spec.ts` "shrinking a 09:00-17:00 shift to 09:00-15:00 names exactly the two appointments left outside" plus "is a dry run — no row is written, updated or deleted"
+- time blocks closing the W3 loop — `roster-validate.spec.ts` "a personal block removes exactly the overlapping starts and returns them when deleted"
+- `@dentalops/availability` — still no `dependencies` key, coverage gate still 100/100/100/100 and met
+- registry and migrations — all ten new routes are in `REGISTRY`, and `git diff` over `apps/api/prisma` since the plan commit is empty
+
+Partly satisfied, stated rather than rounded up:
+
+- **"Roster editor … at all three breakpoints."** The *layout* is proven at all three (`lg` grid with the docked panel, `md` 3-day window, `sm` list plus bottom sheet). "Validates live and refuses to save while a blocking violation stands" is asserted at `lg` (dialog Save disables and re-enables) and at `sm` (the sheet shows the blocking group and the toolbar counts it); no test clicks Save at `md`. The dialog is rendered outside the responsive branch, so the behaviour is structurally identical — but structural identity is an argument, not a test.
+- **"J3 passes 3× locally and in CI."** Three consecutive clean local runs of the whole suite, `retries: 0` in the Playwright config. CI is unverified from here: this session was asked not to push.

@@ -5,6 +5,7 @@ import { AppException } from "../common/app.exception"
 import { PrismaService } from "../prisma/prisma.service"
 import { AppointmentAction } from "../realtime/realtime.events"
 import { RealtimeGateway } from "../realtime/realtime.gateway"
+import { currentTenant } from "../tenant/tenant-context"
 import { CreateAppointmentDto } from "./dto/create-appointment.dto"
 import { QueryAppointmentsDto } from "./dto/query-appointments.dto"
 import { RescheduleAppointmentDto } from "./dto/reschedule-appointment.dto"
@@ -49,10 +50,12 @@ export class AppointmentsService {
   }
 
   list(query: QueryAppointmentsDto) {
+    const actor = currentTenant()
+    const dentistId = actor?.role === "dentist" ? actor.userId : query.dentistId
     return this.prisma.scoped.appointment.findMany({
       where: {
         branchId: query.branchId,
-        dentistId: query.dentistId,
+        dentistId,
         startsAt: query.to ? { lt: new Date(query.to) } : undefined,
         endsAt: query.from ? { gt: new Date(query.from) } : undefined
       },
@@ -355,6 +358,14 @@ export class AppointmentsService {
     const updated = await this.prisma.scoped.$transaction(async (tx) => {
       const current = await tx.appointment.findUnique({ where: { id } })
       if (!current) throw new AppException(404, "NOT_FOUND", "Appointment not found")
+      const actor = currentTenant()
+      if (actor?.role === "dentist" && current.dentistId !== actor.userId) {
+        throw new AppException(
+          403,
+          "NOT_YOUR_APPOINTMENT",
+          "A dentist may only change the status of their own appointments"
+        )
+      }
       if (current.status !== "confirmed") {
         throw new AppException(
           409,

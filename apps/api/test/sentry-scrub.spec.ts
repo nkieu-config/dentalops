@@ -1,4 +1,9 @@
-import { REDACTED, scrubEvent, scrubValue } from "../src/common/sentry-scrub"
+import {
+  REDACTED,
+  scrubEvent,
+  scrubValue,
+  type ScrubbableEvent
+} from "../src/common/sentry-scrub"
 
 describe("sentry scrubbing", () => {
   it("removes the request body outright, because every booking body carries a patient", () => {
@@ -56,7 +61,8 @@ describe("sentry scrubbing", () => {
   })
 
   it("leaves an event with nothing sensitive completely alone", () => {
-    const event = scrubEvent({ request: { url: "https://api.example/api/v1/health" } })
+    const input: ScrubbableEvent = { request: { url: "https://api.example/api/v1/health" } }
+    const event = scrubEvent(input)
     expect(event.request!.url).toBe("https://api.example/api/v1/health")
     expect(event.request!.data).toBeUndefined()
   })

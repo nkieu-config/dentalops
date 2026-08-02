@@ -1,7 +1,7 @@
-import { shiftSchema, type Shift, type Violation } from "@dentalops/contracts"
+import { shiftSchema, type DraftShift, type Shift, type Violation } from "@dentalops/contracts"
 import { useMutation, useQueryClient } from "@tanstack/react-query"
 import { CalendarX, ChevronLeft, ChevronRight, Plus } from "lucide-react"
-import { useMemo, useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import { Navigate, useSearchParams } from "react-router"
 import { toast } from "sonner"
 import { z } from "zod"
@@ -22,6 +22,7 @@ import {
   shiftFormInterval,
   shiftToForm,
   weekDates,
+  weekShiftsKey,
   weekWindow,
   useRosterValidation,
   useWeekAppointments,
@@ -32,6 +33,7 @@ import {
 import { RosterList } from "./roster-list"
 import { ShiftBlock } from "./shift-block"
 import { ShiftDialog } from "./shift-dialog"
+import { useShiftDrag, type ShiftDraft } from "./use-shift-drag"
 import { ViolationList, type ViolationLink } from "./violation-list"
 
 const MD_WINDOW_DAYS = 3
@@ -56,14 +58,77 @@ export const RosterPage = () => {
   const [form, setForm] = useState<ShiftForm | null>(null)
   const [sheetOpen, setSheetOpen] = useState(false)
   const [dayOffset, setDayOffset] = useState(0)
+  const [dropped, setDropped] = useState<ShiftDraft | null>(null)
   const mode = useRosterMode()
   const queryClient = useQueryClient()
+  const dayEls = useRef(new Map<string, HTMLElement>())
 
   const staff = useMemo(() => dentists.data ?? [], [dentists.data])
   const weekShifts = useMemo(() => shifts.data ?? [], [shifts.data])
   const dates = useMemo(() => weekDates(weekStart), [weekStart])
+  const visibleDates = useMemo(
+    () => (mode === "md" ? dates.slice(dayOffset, dayOffset + MD_WINDOW_DAYS) : dates),
+    [mode, dates, dayOffset]
+  )
 
-  const draftShifts = useMemo(() => {
+  const shiftsKey = weekShiftsKey(branchId, weekStart)
+
+  const invalidate = () => {
+    void queryClient.invalidateQueries({ queryKey: ["roster-shifts"] })
+    void queryClient.invalidateQueries({ queryKey: ["shifts"] })
+    void queryClient.invalidateQueries({ queryKey: ["roster-validate"] })
+  }
+
+  const move = useMutation({
+    mutationFn: (draft: ShiftDraft) =>
+      api(`/shifts/${draft.shiftId}`, shiftSchema, {
+        method: "PATCH",
+        body: { startsAt: draft.startsAt, endsAt: draft.endsAt }
+      }),
+    onMutate: async (draft) => {
+      await queryClient.cancelQueries({ queryKey: shiftsKey })
+      const previous = queryClient.getQueryData<Shift[]>(shiftsKey)
+      if (previous) {
+        queryClient.setQueryData(
+          shiftsKey,
+          previous.map((entry) =>
+            entry.id === draft.shiftId
+              ? { ...entry, startsAt: draft.startsAt, endsAt: draft.endsAt }
+              : entry
+          )
+        )
+      }
+      return { previous }
+    },
+    onError: (error, _draft, context) => {
+      if (context?.previous) queryClient.setQueryData(shiftsKey, context.previous)
+      toast.error(error instanceof ApiError ? error.message : "Could not move the shift")
+    },
+    onSuccess: () => toast.success("Shift moved"),
+    onSettled: () => invalidate()
+  })
+
+  const drag = useShiftDrag({
+    dates: visibleDates,
+    columnLefts: () =>
+      visibleDates.map((date) => dayEls.current.get(date)?.getBoundingClientRect().left ?? 0),
+    isBusy: (shiftId) =>
+      dropped !== null || (move.isPending && move.variables?.shiftId === shiftId),
+    onDrop: setDropped
+  })
+
+  const moving = drag.preview ?? dropped
+
+  const draftShifts = useMemo<DraftShift[] | null>(() => {
+    if (moving) {
+      const edited: DraftShift = {
+        id: moving.shiftId,
+        staffId: moving.staffId,
+        startsAt: moving.startsAt,
+        endsAt: moving.endsAt
+      }
+      return draftForStaff(weekShifts, moving.staffId, edited, moving.shiftId)
+    }
     if (!form) return null
     const interval = shiftFormInterval(form)
     return draftForStaff(
@@ -72,7 +137,7 @@ export const RosterPage = () => {
       interval ? { id: form.shiftId, staffId: form.staffId, ...interval } : null,
       form.shiftId
     )
-  }, [form, weekShifts])
+  }, [moving, form, weekShifts])
 
   const request = useMemo<ValidateRequest | null>(
     () =>
@@ -90,12 +155,16 @@ export const RosterPage = () => {
 
   const shiftsByCell = useMemo(() => {
     const map = new Map<string, Shift[]>()
-    for (const shift of weekShifts) {
+    for (const saved of weekShifts) {
+      const shift =
+        moving && moving.shiftId === saved.id
+          ? { ...saved, startsAt: moving.startsAt, endsAt: moving.endsAt }
+          : saved
       const key = `${shift.staffId}|${bkkDate(Date.parse(shift.startsAt))}`
       map.set(key, [...(map.get(key) ?? []), shift])
     }
     return map
-  }, [weekShifts])
+  }, [weekShifts, moving])
 
   const shiftsOn = (staffId: string, date: string) => shiftsByCell.get(`${staffId}|${date}`) ?? []
 
@@ -111,12 +180,6 @@ export const RosterPage = () => {
       href: `/app/timeline?d=${bkkDate(Date.parse(affected.startsAt))}&b=${branchId}`,
       label: ids.length === 1 ? "View the appointment" : `View ${ids.length} appointments`
     }
-  }
-
-  const invalidate = () => {
-    void queryClient.invalidateQueries({ queryKey: ["roster-shifts"] })
-    void queryClient.invalidateQueries({ queryKey: ["shifts"] })
-    void queryClient.invalidateQueries({ queryKey: ["roster-validate"] })
   }
 
   const save = useMutation({
@@ -155,6 +218,17 @@ export const RosterPage = () => {
     }
   })
 
+  useEffect(() => {
+    if (dropped === null || validation.isSettling) return
+    setDropped(null)
+    const blocker = validation.blocking[0]
+    if (blocker) {
+      toast.error(`Cannot move that shift — ${blocker.detail}`)
+      return
+    }
+    move.mutate(dropped)
+  }, [dropped, validation.isSettling, validation.blocking, move])
+
   const shiftWeek = (weeks: number) => {
     const merged = new URLSearchParams(params)
     merged.set("w", bkkShiftDate(weekStart, weeks * 7))
@@ -167,9 +241,6 @@ export const RosterPage = () => {
     merged.set("b", next)
     setParams(merged)
   }
-
-  const visibleDates =
-    mode === "md" ? dates.slice(dayOffset, dayOffset + MD_WINDOW_DAYS) : dates
 
   const panel = (
     <ViolationList
@@ -300,6 +371,10 @@ export const RosterPage = () => {
                 <div
                   key={date}
                   data-testid={`day-${date}`}
+                  ref={(element) => {
+                    if (element) dayEls.current.set(date, element)
+                    else dayEls.current.delete(date)
+                  }}
                   className="flex-1 border-l border-border px-2 py-1 text-sm font-medium tabular-nums"
                 >
                   {fmtWeekday(date)}
@@ -312,6 +387,7 @@ export const RosterPage = () => {
                 {visibleDates.map((date) => (
                   <div
                     key={date}
+                    data-testid={`cell-${member.id}-${date}`}
                     className="flex flex-1 flex-col gap-1 border-l border-border p-1"
                   >
                     {shiftsOn(member.id, date).map((shift) => (
@@ -319,8 +395,12 @@ export const RosterPage = () => {
                         key={shift.id}
                         shift={shift}
                         staffName={member.name}
-                        onEdit={(picked) => setForm(shiftToForm(picked))}
+                        onEdit={(picked) => {
+                          if (!drag.consumeDrag()) setForm(shiftToForm(picked))
+                        }}
+                        onMoveStart={drag.startMove(shift, date)}
                         conflicting={blockedStaff.has(member.id)}
+                        dragging={moving?.shiftId === shift.id}
                       />
                     ))}
                   </div>

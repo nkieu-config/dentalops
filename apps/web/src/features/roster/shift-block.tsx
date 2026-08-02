@@ -1,5 +1,6 @@
 import type { Shift } from "@dentalops/contracts"
 import { OctagonAlert, Repeat } from "lucide-react"
+import type { PointerEvent as ReactPointerEvent } from "react"
 import { cn } from "../../lib/cn"
 import { fmtTime } from "../timeline/lib/geometry"
 
@@ -7,6 +8,7 @@ interface ShiftBlockProps {
   shift: Shift
   staffName: string
   onEdit: (shift: Shift) => void
+  onMoveStart?: (e: ReactPointerEvent<Element>) => void
   conflicting?: boolean
   dragging?: boolean
 }
@@ -15,6 +17,7 @@ export const ShiftBlock = ({
   shift,
   staffName,
   onEdit,
+  onMoveStart,
   conflicting = false,
   dragging = false
 }: ShiftBlockProps) => {
@@ -26,12 +29,15 @@ export const ShiftBlock = ({
       type="button"
       data-testid={`shift-${shift.id}`}
       data-conflicting={conflicting ? "true" : undefined}
+      data-dragging={dragging ? "true" : undefined}
       onClick={() => onEdit(shift)}
+      onPointerDown={onMoveStart}
       aria-label={`Edit ${staffName} shift ${fmtTime(start)} to ${fmtTime(end)}`}
       className={cn(
         "flex min-h-11 w-full flex-col items-start justify-center rounded-sm border border-border bg-secondary px-1.5 py-1 text-left text-xs leading-tight text-secondary-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+        onMoveStart && "cursor-grab",
         conflicting && "ring-2 ring-destructive",
-        dragging && "border-dashed opacity-60"
+        dragging && "cursor-grabbing border-dashed opacity-60 shadow-lg"
       )}
     >
       <span className="flex w-full items-center gap-1">

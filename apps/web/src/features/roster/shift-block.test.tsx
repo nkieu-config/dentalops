@@ -1,5 +1,5 @@
 import type { Shift } from "@dentalops/contracts"
-import { render, screen } from "@testing-library/react"
+import { cleanup, fireEvent, render, screen } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { describe, expect, it, vi } from "vitest"
 import { ShiftBlock } from "./shift-block"
@@ -45,9 +45,23 @@ describe("ShiftBlock", () => {
     expect(screen.getByLabelText("Blocking violation")).toBeInTheDocument()
   })
 
-  it("shows a dragging shift as a dashed live-validating block", () => {
+  it("shows a dragging shift as a dashed live-validating block with the only shadow", () => {
     const { block } = mount({ dragging: true })
     expect(block.className).toContain("border-dashed")
+    expect(block.className).toContain("shadow-lg")
+    expect(block).toHaveAttribute("data-dragging", "true")
     expect(block).toHaveTextContent("Validating…")
+  })
+
+  it("hands a pointer press to the grid only when the grid offers a drag", () => {
+    expect(mount().block.className).not.toContain("cursor-grab")
+
+    cleanup()
+    const onMoveStart = vi.fn()
+    const { block } = mount({ onMoveStart })
+    expect(block.className).toContain("cursor-grab")
+
+    fireEvent.pointerDown(block, { button: 0, clientX: 10, clientY: 10 })
+    expect(onMoveStart).toHaveBeenCalled()
   })
 })

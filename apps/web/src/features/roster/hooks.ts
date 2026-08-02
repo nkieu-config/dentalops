@@ -87,9 +87,12 @@ export interface ValidateRequest {
   draftShifts: DraftShift[]
 }
 
+export const weekShiftsKey = (branchId: string | undefined, weekStart: string) =>
+  ["roster-shifts", branchId, weekStart] as const
+
 export const useWeekShifts = (branchId: string | undefined, weekStart: string) =>
   useQuery({
-    queryKey: ["roster-shifts", branchId, weekStart],
+    queryKey: weekShiftsKey(branchId, weekStart),
     enabled: branchId !== undefined,
     queryFn: () =>
       api("/shifts", z.array(shiftSchema), { query: { branchId, ...weekWindow(weekStart) } })

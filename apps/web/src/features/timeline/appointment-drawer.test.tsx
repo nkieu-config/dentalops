@@ -8,6 +8,8 @@ import { Toaster, toast } from "sonner"
 import { afterEach, describe, expect, it } from "vitest"
 import { setSession } from "../../lib/session"
 import { API, http, HttpResponse, server } from "../../test/msw"
+import { goOffline, goOnline } from "../../test/network"
+import { OFFLINE_MESSAGE } from "../../components/shell/offline-banner"
 import { AppointmentDrawer } from "./appointment-drawer"
 import { bkkDayStart } from "./lib/geometry"
 import { useRescheduleAppointment } from "./use-reschedule"
@@ -253,5 +255,36 @@ describe("AppointmentDrawer", () => {
     expect(screen.queryByRole("button", { name: "09:00" })).not.toBeInTheDocument()
     expect(screen.queryByRole("button", { name: "09:15" })).not.toBeInTheDocument()
     expect(screen.queryByRole("button", { name: "09:45" })).not.toBeInTheDocument()
+  })
+
+  it("refuses to fire a status change while the browser is offline", async () => {
+    const patches: unknown[] = []
+    server.use(
+      http.patch(`${API}/appointments/${appointmentId}/status`, async ({ request }) => {
+        patches.push(await request.json())
+        return HttpResponse.json({ ...appointment, status: "completed", version: 2 })
+      })
+    )
+    mount()
+    goOffline()
+
+    const complete = screen.getByRole("button", { name: "Complete" })
+    expect(complete).toBeDisabled()
+    expect(complete).toHaveAccessibleDescription(OFFLINE_MESSAGE)
+    expect(screen.getByRole("button", { name: "No-show" })).toBeDisabled()
+    expect(screen.getByRole("button", { name: "Cancel" })).toBeDisabled()
+
+    await userEvent.click(complete)
+    expect(patches).toEqual([])
+
+    goOnline()
+    expect(screen.getByRole("button", { name: "Complete" })).toBeEnabled()
+  })
+
+  it("hides the move affordance offline, since rescheduling is a mutation too", async () => {
+    mountMove()
+    expect(await screen.findByText("Move")).toBeInTheDocument()
+    goOffline()
+    expect(screen.queryByText("Move")).not.toBeInTheDocument()
   })
 })

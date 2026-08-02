@@ -6,11 +6,15 @@ import { SlotPicker } from "../../components/slot-picker"
 import { Button } from "../../components/ui/button"
 import { Label } from "../../components/ui/label"
 import { Sheet } from "../../components/ui/sheet"
+import { OFFLINE_MESSAGE } from "../../components/shell/offline-banner"
 import { api, ApiError } from "../../lib/api"
 import { useCanBook } from "../../lib/session"
+import { useOnline } from "../../lib/use-online"
 import { bkkDate, fmtTime } from "./lib/geometry"
 import { SeriesBadge, SeriesDialog } from "./series-dialog"
 import type { RescheduleInput } from "./use-reschedule"
+
+const OFFLINE_REASON_ID = "appointment-drawer-offline-reason"
 
 interface AppointmentDrawerProps {
   appointment: Appointment | null
@@ -57,7 +61,8 @@ export const AppointmentDrawer = ({
   onReschedule
 }: AppointmentDrawerProps) => {
   const queryClient = useQueryClient()
-  const canMove = useCanBook()
+  const online = useOnline()
+  const canMove = useCanBook() && online
   const [seriesOpen, setSeriesOpen] = useState(false)
   const recurring = canMove && appointment?.status === "confirmed" && Boolean(appointment.seriesId)
   const setStatus = useMutation({
@@ -102,7 +107,8 @@ export const AppointmentDrawer = ({
               <div className="flex flex-wrap gap-2 pt-2">
                 <Button
                   size="sm"
-                  disabled={setStatus.isPending}
+                  disabled={setStatus.isPending || !online}
+                  aria-describedby={online ? undefined : OFFLINE_REASON_ID}
                   onClick={() => setStatus.mutate({ id: appointment.id, status: "completed" })}
                 >
                   Complete
@@ -110,7 +116,8 @@ export const AppointmentDrawer = ({
                 <Button
                   size="sm"
                   variant="secondary"
-                  disabled={setStatus.isPending}
+                  disabled={setStatus.isPending || !online}
+                  aria-describedby={online ? undefined : OFFLINE_REASON_ID}
                   onClick={() => setStatus.mutate({ id: appointment.id, status: "no_show" })}
                 >
                   No-show
@@ -118,12 +125,18 @@ export const AppointmentDrawer = ({
                 <Button
                   size="sm"
                   variant="destructive"
-                  disabled={setStatus.isPending}
+                  disabled={setStatus.isPending || !online}
+                  aria-describedby={online ? undefined : OFFLINE_REASON_ID}
                   onClick={() => setStatus.mutate({ id: appointment.id, status: "cancelled" })}
                 >
                   Cancel
                 </Button>
               </div>
+            ) : null}
+            {appointment.status === "confirmed" && !online ? (
+              <p id={OFFLINE_REASON_ID} className="text-sm text-muted-foreground">
+                {OFFLINE_MESSAGE}
+              </p>
             ) : null}
             {appointment.status === "confirmed" && canMove && onReschedule && !recurring ? (
               <MoveSection

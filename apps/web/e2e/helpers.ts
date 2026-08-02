@@ -12,6 +12,13 @@ const API_ORIGIN = `http://localhost:${process.env.E2E_API_PORT ?? 3001}`
 
 const bkkDate = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Bangkok" })
 const bkkWeekday = new Intl.DateTimeFormat("en-US", { timeZone: "Asia/Bangkok", weekday: "short" })
+const bkkDay = new Intl.DateTimeFormat("en-GB", {
+  timeZone: "Asia/Bangkok",
+  weekday: "short",
+  day: "numeric",
+  month: "short",
+  year: "numeric"
+})
 
 const DAY_MS = 86_400_000
 
@@ -76,6 +83,9 @@ export const nextMonday = (): string => {
   throw new Error("no Monday in the next seven days")
 }
 
+export const bkkDayLabel = (date: string): string =>
+  bkkDay.format(new Date(Date.parse(`${date}T00:00:00+07:00`) + DAY_MS / 2))
+
 export const findFreeDentist = async (
   request: APIRequestContext,
   token: string,
@@ -91,6 +101,30 @@ export const findFreeDentist = async (
     )
   }
   return free
+}
+
+export interface RosteredDentist {
+  dentist: StaffMember
+  branch: Branch
+}
+
+export const findRosteredDentist = async (
+  request: APIRequestContext,
+  token: string,
+  date: string
+): Promise<RosteredDentist> => {
+  const [dentists, shifts, branches] = await Promise.all([
+    getJson<StaffMember[]>(request, token, "/staff?role=dentist"),
+    getJson<Shift[]>(request, token, `/shifts?${dayWindow(date)}`),
+    getJson<Branch[]>(request, token, "/branches")
+  ])
+  for (const dentist of dentists) {
+    if (!dentist.isActive) continue
+    const shift = shifts.find((s) => s.staffId === dentist.id)
+    const branch = branches.find((b) => b.id === shift?.branchId)
+    if (shift && branch) return { dentist, branch }
+  }
+  throw new Error(`no dentist is rostered on ${date}: ${dentists.map((d) => d.name).join(", ")}`)
 }
 
 export const clearColumn = async (

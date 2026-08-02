@@ -26,6 +26,10 @@ const clinic = {
   services: [
     { id: serviceId, name: "Cleaning", durationMin: 45, colorIndex: 0 },
     { id: "7f9619ff-8b86-4d01-b42d-00cf4fc964ff", name: "Whitening", durationMin: 60, colorIndex: 1 }
+  ],
+  dentists: [
+    { id: anong, name: "Dr. Anong" },
+    { id: somchai, name: "Dr. Somchai" }
   ]
 }
 

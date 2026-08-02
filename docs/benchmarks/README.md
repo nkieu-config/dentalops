@@ -226,3 +226,59 @@ Being wrong about this in public is fine. Deciding it afterwards would not be.
 | File | What it is |
 | --- | --- |
 | `before.json` | Availability latency before any caching exists — run 3 of 3, the median by p95 |
+
+---
+
+## After caching
+
+Same harness, same workload, same seed, same machine, `node dist/main.js` — only the cache is new.
+
+| Run | p50 | p95 | p99 | mean |
+|---|---|---|---|---|
+| 1 | 1.433 | 1.973 | 3.260 | 1.448 |
+| 2 | 1.379 | 1.841 | 2.340 | 1.400 |
+| **3 (kept as `after.json`)** | **1.468** | **1.938** | **2.325** | **1.498** |
+
+Median chosen by p95, the same rule used for `before.json`.
+
+### The comparison
+
+![Availability latency before and after caching](comparison.svg)
+
+| | before | after | ratio |
+|---|---|---|---|
+| p50 | 3.842 ms | 1.468 ms | **2.62×** |
+| p95 | 4.985 ms | 1.938 ms | **2.57×** |
+| p99 | 5.725 ms | 2.325 ms | **2.46×** |
+| mean | 3.880 ms | 1.498 ms | 2.59× |
+| server-side p50 | 3.011 ms | 0.752 ms | 4.00× |
+
+### The prediction was right
+
+We wrote down, before any cache existed, that DB round-trip latency dominated and that a cache
+should therefore land **p50 around 1.2–1.6 ms, p95 around 2 ms, i.e. 2.5–3× — not 10×**, because
+roughly 0.8 ms of auth and HTTP is untouchable and Redis adds a hop of its own.
+
+Measured: p50 **1.468**, p95 **1.938**, ratio **2.6×**. All three inside the predicted band.
+
+That agreement matters more than the speed-up. It means the model of where the time went was
+correct, and it is why we can say what the cache did rather than merely that things got faster.
+Server-side time fell 4× (3.011 → 0.752 ms) while client-side time fell 2.6×, which is exactly what
+a fixed ~0.8 ms of auth and transport outside the interceptor predicts.
+
+### Caveats, stated rather than buried
+
+- **This is a 100% hit rate.** The harness replays four fixed shapes, so after warm-up every request
+  hits. Real traffic will not; the honest reading is "a cache hit is 2.6× faster", not "the endpoint
+  is 2.6× faster".
+- **The first request after any write pays full price**, by design. A busy clinic booking constantly
+  invalidates the days it is booking, so the days people are actually looking at are the days least
+  likely to be cached. A read-heavy public booking page benefits most; the staff timeline least.
+- **Local Redis over loopback.** Production uses Upstash over the network from Render, where the
+  Redis hop costs more than it does here. The ratio will be smaller there, and we have not measured it.
+- **Absolute numbers are small either way.** 3.8 ms was not a problem. This exercise was worth doing
+  for the method and the invalidation correctness, not because users were waiting.
+- **Cache correctness depends on every write going through a service that invalidates.** A direct
+  database write produces a stale answer until the 10-minute TTL expires. `availability-cache.spec.ts`
+  uses that property deliberately to prove a cache hit, and `availability.spec.ts` was changed to
+  create time blocks through `POST /time-blocks` rather than Prisma for exactly this reason.

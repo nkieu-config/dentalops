@@ -1,0 +1,122 @@
+{
+  "label": "after",
+  "startedAt": "2026-08-02T12:30:22.378Z",
+  "seededAt": "2026-08-02T12:30:08.344Z",
+  "route": "GET /api/v1/availability",
+  "appointments": 1373,
+  "horizon": {
+    "from": "2026-06-03T02:00:00.000Z",
+    "to": "2026-10-01T10:30:00.000Z"
+  },
+  "runs": 512,
+  "warmup": 32,
+  "concurrency": 1,
+  "p50": 1.468,
+  "p95": 1.938,
+  "p99": 2.325,
+  "min": 0.976,
+  "max": 2.999,
+  "mean": 1.498,
+  "byShape": [
+    {
+      "name": "day",
+      "service": "Cleaning",
+      "windowDays": 1,
+      "dentistFilter": false,
+      "slots": 23,
+      "bytes": 2932,
+      "count": 128,
+      "p50": 1.415,
+      "p95": 1.787,
+      "max": 2.574
+    },
+    {
+      "name": "week",
+      "service": "Cleaning",
+      "windowDays": 7,
+      "dentistFilter": false,
+      "slots": 109,
+      "bytes": 13854,
+      "count": 128,
+      "p50": 1.634,
+      "p95": 1.991,
+      "max": 2.759
+    },
+    {
+      "name": "week-one-dentist",
+      "service": "Cleaning",
+      "windowDays": 7,
+      "dentistFilter": true,
+      "slots": 13,
+      "bytes": 1662,
+      "count": 128,
+      "p50": 1.349,
+      "p95": 1.976,
+      "max": 2.999
+    },
+    {
+      "name": "week-equipment",
+      "service": "Root canal",
+      "windowDays": 7,
+      "dentistFilter": false,
+      "slots": 81,
+      "bytes": 10298,
+      "count": 128,
+      "p50": 1.561,
+      "p95": 1.903,
+      "max": 2.542
+    }
+  ],
+  "serverLatency": {
+    "route": "GET /api/v1/availability",
+    "count": 1644,
+    "p50": 0.752,
+    "p95": 1.144,
+    "p99": 1.383,
+    "max": 2.192
+  },
+  "workload": {
+    "baseUrl": "http://localhost:3001",
+    "anchorUtc": "2026-08-04T00:00:00.000Z",
+    "branch": "Ladprao",
+    "dentist": "Kiat Thongchai",
+    "shapes": [
+      {
+        "name": "day",
+        "service": "Cleaning",
+        "fromDay": 0,
+        "toDay": 1,
+        "dentistFilter": false
+      },
+      {
+        "name": "week",
+        "service": "Cleaning",
+        "fromDay": 0,
+        "toDay": 7,
+        "dentistFilter": false
+      },
+      {
+        "name": "week-one-dentist",
+        "service": "Cleaning",
+        "fromDay": 0,
+        "toDay": 7,
+        "dentistFilter": true
+      },
+      {
+        "name": "week-equipment",
+        "service": "Root canal",
+        "fromDay": 0,
+        "toDay": 7,
+        "dentistFilter": false
+      }
+    ]
+  },
+  "machine": {
+    "node": "v22.18.0",
+    "platform": "darwin 25.5.0",
+    "arch": "arm64",
+    "cpu": "Apple M4",
+    "cores": 10,
+    "memGb": 16
+  }
+}

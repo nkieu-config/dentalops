@@ -161,6 +161,9 @@ Rules that make this safe to run every night:
 - **Idempotent by construction:** before inserting an occurrence, skip it if a shift with that `seriesId` and `startsAt` already exists. Re-running the job must produce `created: 0` on an untouched series — assert that.
 - **Never resurrect a deleted occurrence:** a `detached` shift that was deleted must stay deleted. Track this by only materializing forward from `max(startsAt)` of the series' existing shifts (or `startsOn` when there are none), never backfilling gaps.
 - **Conflicts are skipped, not fatal:** a materialization that hits `no_staff_double_shift` increments `skipped` and continues. A nightly job must not die because one clinic double-booked a dentist.
+- **BullMQ v6 removed `repeat` from `Queue.add`** — use `queue.upsertJobScheduler(id, { pattern, tz }, { name, opts })`. `tz: "UTC"` is **required**, not decorative: BullMQ resolves a cron in the process's local zone, and this machine is Asia/Bangkok, so omitting it fires the job seven hours early.
+- **Clamp the anchor to the start of today.** "Materialize forward from `max(startsAt)`, or `startsOn` when there are none" resurrects history for a series whose shifts are all in the past or were all deleted; `max(anchor, startOfBangkokToday)` is strictly stronger.
+- **A `detached` date is an exception.** Skip any local date already carrying a detached shift for that series, or `scope: "all"` leaves a duplicate beside the user's exception.
 - `timeStart` is stored as a `"HH:MM"` local string; convert to `timeStartMin` for `expandRecurrence` at the call site — do not change the package.
 - The job establishes tenant context per tenant, `async`, with the query `await`ed inside `tenantContext.run` (the lazy-`PrismaPromise` trap).
 

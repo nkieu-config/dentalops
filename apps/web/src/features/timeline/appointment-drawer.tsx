@@ -9,6 +9,7 @@ import { Sheet } from "../../components/ui/sheet"
 import { api, ApiError } from "../../lib/api"
 import { useCanBook } from "../../lib/session"
 import { bkkDate, fmtTime } from "./lib/geometry"
+import { SeriesBadge, SeriesDialog } from "./series-dialog"
 import type { RescheduleInput } from "./use-reschedule"
 
 interface AppointmentDrawerProps {
@@ -57,6 +58,8 @@ export const AppointmentDrawer = ({
 }: AppointmentDrawerProps) => {
   const queryClient = useQueryClient()
   const canMove = useCanBook()
+  const [seriesOpen, setSeriesOpen] = useState(false)
+  const recurring = canMove && appointment?.status === "confirmed" && Boolean(appointment.seriesId)
   const setStatus = useMutation({
     mutationFn: ({ id, status }: { id: string; status: AppointmentStatus }) =>
       api(`/appointments/${id}/status`, appointmentSchema, { method: "PATCH", body: { status } }),
@@ -69,62 +72,75 @@ export const AppointmentDrawer = ({
       toast.error(error instanceof ApiError ? error.message : "Something went wrong")
   })
 
+  const closeAll = () => {
+    setSeriesOpen(false)
+    onClose()
+  }
+
   return (
-    <Sheet
-      open={appointment !== null}
-      onOpenChange={(open) => {
-        if (!open) onClose()
-      }}
-      title={appointment?.service.name ?? ""}
-    >
-      {appointment ? (
-        <div className="space-y-4">
-          <Row
-            label="Time"
-            value={`${fmtTime(Date.parse(appointment.startsAt))}–${fmtTime(Date.parse(appointment.endsAt))}`}
-          />
-          <Row
-            label="Patient"
-            value={`${appointment.patient.name} · ${appointment.patient.phone}`}
-          />
-          <Row label="Status" value={appointment.status.replace("_", "-")} />
-          {appointment.status === "confirmed" ? (
-            <div className="flex flex-wrap gap-2 pt-2">
-              <Button
-                size="sm"
-                disabled={setStatus.isPending}
-                onClick={() => setStatus.mutate({ id: appointment.id, status: "completed" })}
-              >
-                Complete
-              </Button>
-              <Button
-                size="sm"
-                variant="secondary"
-                disabled={setStatus.isPending}
-                onClick={() => setStatus.mutate({ id: appointment.id, status: "no_show" })}
-              >
-                No-show
-              </Button>
-              <Button
-                size="sm"
-                variant="destructive"
-                disabled={setStatus.isPending}
-                onClick={() => setStatus.mutate({ id: appointment.id, status: "cancelled" })}
-              >
-                Cancel
-              </Button>
-            </div>
-          ) : null}
-          {appointment.status === "confirmed" && canMove && onReschedule ? (
-            <MoveSection
-              key={appointment.id}
-              appointment={appointment}
-              onReschedule={onReschedule}
-              onClose={onClose}
+    <>
+      <Sheet
+        open={appointment !== null && !seriesOpen}
+        onOpenChange={(open) => {
+          if (!open) closeAll()
+        }}
+        title={appointment?.service.name ?? ""}
+      >
+        {appointment ? (
+          <div className="space-y-4">
+            <Row
+              label="Time"
+              value={`${fmtTime(Date.parse(appointment.startsAt))}–${fmtTime(Date.parse(appointment.endsAt))}`}
             />
-          ) : null}
-        </div>
-      ) : null}
-    </Sheet>
+            <Row
+              label="Patient"
+              value={`${appointment.patient.name} · ${appointment.patient.phone}`}
+            />
+            <Row label="Status" value={appointment.status.replace("_", "-")} />
+            {recurring ? <SeriesBadge onOpen={() => setSeriesOpen(true)} /> : null}
+            {appointment.status === "confirmed" ? (
+              <div className="flex flex-wrap gap-2 pt-2">
+                <Button
+                  size="sm"
+                  disabled={setStatus.isPending}
+                  onClick={() => setStatus.mutate({ id: appointment.id, status: "completed" })}
+                >
+                  Complete
+                </Button>
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  disabled={setStatus.isPending}
+                  onClick={() => setStatus.mutate({ id: appointment.id, status: "no_show" })}
+                >
+                  No-show
+                </Button>
+                <Button
+                  size="sm"
+                  variant="destructive"
+                  disabled={setStatus.isPending}
+                  onClick={() => setStatus.mutate({ id: appointment.id, status: "cancelled" })}
+                >
+                  Cancel
+                </Button>
+              </div>
+            ) : null}
+            {appointment.status === "confirmed" && canMove && onReschedule && !recurring ? (
+              <MoveSection
+                key={appointment.id}
+                appointment={appointment}
+                onReschedule={onReschedule}
+                onClose={onClose}
+              />
+            ) : null}
+          </div>
+        ) : null}
+      </Sheet>
+      <SeriesDialog
+        key={appointment?.id}
+        appointment={seriesOpen ? appointment : null}
+        onClose={closeAll}
+      />
+    </>
   )
 }

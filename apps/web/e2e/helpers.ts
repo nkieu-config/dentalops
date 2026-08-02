@@ -2,6 +2,7 @@ import type {
   Appointment,
   Branch,
   PatientPage,
+  RosterValidation,
   ServiceSummary,
   Shift,
   StaffMember
@@ -18,6 +19,12 @@ const bkkDay = new Intl.DateTimeFormat("en-GB", {
   day: "numeric",
   month: "short",
   year: "numeric"
+})
+const bkkClock = new Intl.DateTimeFormat("en-GB", {
+  timeZone: "Asia/Bangkok",
+  hour: "2-digit",
+  minute: "2-digit",
+  hour12: false
 })
 
 const DAY_MS = 86_400_000
@@ -86,6 +93,11 @@ export const nextMonday = (): string => {
 export const bkkDayLabel = (date: string): string =>
   bkkDay.format(new Date(Date.parse(`${date}T00:00:00+07:00`) + DAY_MS / 2))
 
+export const bkkClockLabel = (ms: number): string => bkkClock.format(new Date(ms))
+
+export const dayAfter = (date: string, days: number): string =>
+  bkkDate.format(new Date(Date.parse(`${date}T00:00:00+07:00`) + days * DAY_MS + DAY_MS / 2))
+
 export const findFreeDentist = async (
   request: APIRequestContext,
   token: string,
@@ -106,12 +118,14 @@ export const findFreeDentist = async (
 export interface RosteredDentist {
   dentist: StaffMember
   branch: Branch
+  shift: Shift
 }
 
 export const findRosteredDentist = async (
   request: APIRequestContext,
   token: string,
-  date: string
+  date: string,
+  options: { excludeBranchId?: string } = {}
 ): Promise<RosteredDentist> => {
   const [dentists, shifts, branches] = await Promise.all([
     getJson<StaffMember[]>(request, token, "/staff?role=dentist"),
@@ -120,11 +134,37 @@ export const findRosteredDentist = async (
   ])
   for (const dentist of dentists) {
     if (!dentist.isActive) continue
-    const shift = shifts.find((s) => s.staffId === dentist.id)
+    const shift = shifts.find(
+      (s) => s.staffId === dentist.id && s.branchId !== options.excludeBranchId
+    )
     const branch = branches.find((b) => b.id === shift?.branchId)
-    if (shift && branch) return { dentist, branch }
+    if (shift && branch) return { dentist, branch, shift }
   }
   throw new Error(`no dentist is rostered on ${date}: ${dentists.map((d) => d.name).join(", ")}`)
+}
+
+export const weekWindow = (weekStart: string): { from: string; to: string } => {
+  const from = new Date(Date.parse(`${weekStart}T00:00:00+07:00`)).toISOString()
+  return { from, to: new Date(Date.parse(from) + 7 * DAY_MS).toISOString() }
+}
+
+export const clearRosterViolations = async (
+  request: APIRequestContext,
+  token: string,
+  branchId: string,
+  weekStart: string
+): Promise<void> => {
+  const { violations } = await postJson<RosterValidation>(request, token, "/roster/validate", {
+    branchId,
+    ...weekWindow(weekStart),
+    draftShifts: []
+  })
+  const stranded = new Set(
+    violations.filter((v) => v.severity === "block").flatMap((v) => v.appointmentIds ?? [])
+  )
+  for (const id of stranded) {
+    await patchJson(request, token, `/appointments/${id}/status`, { status: "cancelled" })
+  }
 }
 
 export const clearColumn = async (

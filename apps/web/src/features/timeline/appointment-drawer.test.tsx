@@ -34,6 +34,8 @@ const appointment: Appointment = {
   claims: []
 }
 
+const seriesId = "c1000000-0000-4000-8000-000000000001"
+
 const Harness = () => {
   const [selected, setSelected] = useState<Appointment | null>(appointment)
   return <AppointmentDrawer appointment={selected} onClose={() => setSelected(null)} />
@@ -49,8 +51,10 @@ const mount = () => {
   )
 }
 
-const MoveHarness = () => {
-  const [selected, setSelected] = useState<Appointment | null>(appointment)
+const MoveHarness = ({ recurring = false }: { recurring?: boolean }) => {
+  const [selected, setSelected] = useState<Appointment | null>(
+    recurring ? { ...appointment, seriesId } : appointment
+  )
   const { reschedule } = useRescheduleAppointment({ queryKey: ["appointments"] })
   return (
     <AppointmentDrawer
@@ -61,7 +65,7 @@ const MoveHarness = () => {
   )
 }
 
-const mountMove = (role: UserRole = "receptionist") => {
+const mountMove = (role: UserRole = "receptionist", recurring = false) => {
   setSession({
     accessToken: "t1",
     user: {
@@ -74,7 +78,7 @@ const mountMove = (role: UserRole = "receptionist") => {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   return render(
     <QueryClientProvider client={client}>
-      <MoveHarness />
+      <MoveHarness recurring={recurring} />
       <Toaster />
     </QueryClientProvider>
   )
@@ -189,6 +193,38 @@ describe("AppointmentDrawer", () => {
       expect(bodies).toEqual([{ version: 1, startsAt: "2026-08-03T04:00:00.000Z" }])
     )
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument()
+  })
+
+  it("sends a recurring appointment through the this/following/all dialog, not a plain move", async () => {
+    server.use(
+      http.get(`${API}/availability`, () =>
+        HttpResponse.json({ slots: slotsAsAvailabilityWould([ownWindow]) })
+      )
+    )
+    mountMove("receptionist", true)
+
+    const badge = await screen.findByTestId("series-badge")
+    expect(badge).toHaveTextContent("Repeats")
+    expect(screen.queryByText("Move")).not.toBeInTheDocument()
+
+    await userEvent.click(badge)
+
+    expect(await screen.findByText("Repeating appointment")).toBeInTheDocument()
+    expect(screen.getByLabelText("This appointment")).toBeChecked()
+    expect(screen.getByLabelText("This and following")).toBeInTheDocument()
+    expect(screen.getByLabelText("All appointments")).toBeInTheDocument()
+  })
+
+  it("offers no series badge on a one-off appointment", async () => {
+    server.use(
+      http.get(`${API}/availability`, () =>
+        HttpResponse.json({ slots: slotsAsAvailabilityWould([ownWindow]) })
+      )
+    )
+    mountMove()
+
+    expect(await screen.findByText("Move")).toBeInTheDocument()
+    expect(screen.queryByTestId("series-badge")).not.toBeInTheDocument()
   })
 
   it("hides the move controls from a role the api will not let reschedule", async () => {

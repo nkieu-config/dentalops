@@ -15,3 +15,15 @@ export const slotConflictDetailsSchema = z.looseObject({
 })
 
 export type SlotConflictDetails = z.infer<typeof slotConflictDetailsSchema>
+
+export const seriesConflictSchema = z.looseObject({
+  startsAt: z.iso.datetime(),
+  reason: z.string()
+})
+
+export const seriesConflictDetailsSchema = z.looseObject({
+  conflicts: z.array(seriesConflictSchema)
+})
+
+export type SeriesConflict = z.infer<typeof seriesConflictSchema>
+export type SeriesConflictDetails = z.infer<typeof seriesConflictDetailsSchema>

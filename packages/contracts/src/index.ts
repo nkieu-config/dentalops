@@ -1,7 +1,12 @@
 export { healthResponseSchema } from "./health"
 export type { HealthResponse } from "./health"
-export { apiErrorSchema, slotConflictDetailsSchema } from "./error"
-export type { ApiError, SlotConflictDetails } from "./error"
+export {
+  apiErrorSchema,
+  slotConflictDetailsSchema,
+  seriesConflictSchema,
+  seriesConflictDetailsSchema
+} from "./error"
+export type { ApiError, SlotConflictDetails, SeriesConflict, SeriesConflictDetails } from "./error"
 export { availabilitySlotSchema, availabilityResponseSchema } from "./availability"
 export type { AvailabilitySlot, AvailabilityResponse } from "./availability"
 export { userRoleSchema, sessionUserSchema, authSessionSchema } from "./auth"
@@ -14,7 +19,9 @@ export {
   resourceClaimSchema,
   patientSchema,
   appointmentSchema,
-  patientPageSchema
+  patientPageSchema,
+  editScopeSchema,
+  appointmentSeriesSchema
 } from "./scheduling"
 export type {
   Shift,
@@ -22,7 +29,9 @@ export type {
   AppointmentStatus,
   ResourceClaim,
   Patient,
-  PatientPage
+  PatientPage,
+  EditScope,
+  AppointmentSeries
 } from "./scheduling"
 export {
   violationSeveritySchema,

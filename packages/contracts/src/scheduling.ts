@@ -51,9 +51,18 @@ export const patientPageSchema = z.object({
   nextCursor: z.string().nullable()
 })
 
+export const editScopeSchema = z.enum(["this", "following", "all"])
+
+export const appointmentSeriesSchema = z.looseObject({
+  seriesId: z.uuid(),
+  appointments: z.array(appointmentSchema)
+})
+
 export type Shift = z.infer<typeof shiftSchema>
 export type Appointment = z.infer<typeof appointmentSchema>
 export type AppointmentStatus = z.infer<typeof appointmentStatusSchema>
 export type ResourceClaim = z.infer<typeof resourceClaimSchema>
 export type Patient = z.infer<typeof patientSchema>
 export type PatientPage = z.infer<typeof patientPageSchema>
+export type EditScope = z.infer<typeof editScopeSchema>
+export type AppointmentSeries = z.infer<typeof appointmentSeriesSchema>

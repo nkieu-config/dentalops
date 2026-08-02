@@ -46,7 +46,7 @@ export const LandingPage = () => {
             onClick={() => demoLogin.mutate(role)}
           >
             <span className="font-semibold">{label}</span>
-            <span className="text-xs opacity-80">{hint}</span>
+            <span className="text-sm">{hint}</span>
           </Button>
         ))}
       </div>

@@ -90,6 +90,14 @@ export const nextMonday = (): string => {
   throw new Error("no Monday in the next seven days")
 }
 
+export const recentWeekday = (weeksAgo = 2): string => {
+  for (let days = weeksAgo * 7; days <= weeksAgo * 7 + 7; days += 1) {
+    const candidate = new Date(Date.now() - days * DAY_MS)
+    if (bkkWeekday.format(candidate) === "Mon") return bkkDate.format(candidate)
+  }
+  throw new Error("no Monday in the target week")
+}
+
 export const bkkDayLabel = (date: string): string =>
   bkkDay.format(new Date(Date.parse(`${date}T00:00:00+07:00`) + DAY_MS / 2))
 

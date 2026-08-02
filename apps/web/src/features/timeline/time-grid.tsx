@@ -82,6 +82,9 @@ export const TimeGrid = ({
     <div
       ref={scrollRef}
       data-testid="timegrid-scroll"
+      tabIndex={0}
+      role="region"
+      aria-label="Appointment timeline"
       className={cn(
         "min-h-0 flex-1 overflow-auto",
         snap && "snap-x snap-mandatory scroll-pl-timegutter"

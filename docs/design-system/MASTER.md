@@ -18,12 +18,23 @@ A scheduler shows **8 columns of colored blocks at once**. If the brand color is
 - **Semantic status colors** (red / amber / emerald) are reserved for meaning and never used decoratively — so when red appears, it always means a violation or conflict.
 - **Off-shift regions** are neutral hatch only. They must recede, never compete.
 
+### Correction made in W8 — brand teal darkened one stop
+
+`--primary` shipped as teal-600 `#0D9488` from W4 until W8. Automated axe scanning found white text
+on it measures **3.74:1**, below the 4.5:1 AA threshold for normal-size text — which meant every
+primary button and every icon-only chrome control was failing, not just one screen. It is now
+teal-700 `#0F766E` (**5.47:1** with white). `--ring` moved with it, which also makes the focus ring
+more visible. Dark mode was already fine (`#042F2E` on `#2DD4BF` = 7.77:1) and is unchanged.
+
+The lesson worth keeping: §7's checklist claimed this was verified, and it was not. A checklist item
+that no machine checks is a statement of intent.
+
 ### Deliberate deviations from the ui-ux-pro-max recommendation
 
 | Tool suggested | We use | Why |
 |---|---|---|
 | Fira Code (heading) + Fira Sans | **Inter** everywhere | A monospace heading reads "developer tool" on the staff app and "unfinished" on the patient booking page. Inter is the shadcn/ui default (zero fighting with component styles), ships as one variable file, and has real tabular figures — which a scheduler needs more than a display face. |
-| Primary `#1E40AF` (saturated blue) | **Teal `#0D9488`** | Blue is the most useful hue for categorical appointment data. Spending it on chrome would force the data palette into worse hues. Teal also carries the medical association the healthcare palettes recommended. |
+| Primary `#1E40AF` (saturated blue) | **Teal `#0F766E`** | Blue is the most useful hue for categorical appointment data. Spending it on chrome would force the data palette into worse hues. Teal also carries the medical association the healthcare palettes recommended. |
 
 ---
 
@@ -45,7 +56,7 @@ Paste into `apps/web/src/app.css` in W4. Values are Tailwind palette stops, so c
   --popover: #ffffff;
   --popover-foreground: #0f172a;
 
-  --primary: #0d9488;
+  --primary: #0f766e;
   --primary-foreground: #ffffff;
   --secondary: #f1f5f9;
   --secondary-foreground: #0f172a;
@@ -63,7 +74,7 @@ Paste into `apps/web/src/app.css` in W4. Values are Tailwind palette stops, so c
 
   --border: #e2e8f0;
   --input: #e2e8f0;
-  --ring: #0d9488;
+  --ring: #0f766e;
 
   --grid-line: #e2e8f0;
   --grid-line-hour: #cbd5e1;
@@ -401,7 +412,7 @@ Built for `/dev/ui` gallery in W4, each with every state rendered:
 
 ## 7. Verification checklist (ties to the spec's Definition of Done)
 
-- [ ] Contrast ≥ 4.5:1 body / ≥ 3:1 large — verified **independently in light and dark**, including every appointment-card hue
+- [x] Contrast ≥ 4.5:1 body / ≥ 3:1 large — enforced by `apps/web/e2e/a11y.spec.ts`, which fails the build on any `serious` or `critical` axe violation at 390px and 1440px. This checklist item was **asserted rather than verified** until W8: the original `--primary` (teal-600 `#0d9488`) gives white text only **3.74:1**, so every primary button in the app was failing AA. Corrected to teal-700 `#0f766e` (**5.47:1**); see the deviation note below.
 - [ ] No status conveyed by color alone (icon or text always present)
 - [ ] Timeline fully keyboard-operable; visible focus ring on every card; drag has a keyboard equivalent
 - [ ] Touch targets ≥ 44px at 375px; no `body` horizontal scroll at 375 / 768 / 1024 / 1440

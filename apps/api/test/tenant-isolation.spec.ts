@@ -24,6 +24,7 @@ const REGISTRY: Record<string, Expectation> = {
   "GET /appointments": "filtered",
   "POST /appointments": "auth-only",
   "POST /appointments/series": "auth-only",
+  "PATCH /series/:id": "not-found",
   "PATCH /appointments/:id": "not-found",
   "PATCH /appointments/:id/status": "not-found",
   "GET /availability": "auth-only",
@@ -45,7 +46,11 @@ const REGISTRY: Record<string, Expectation> = {
 const BODY_BY_ROUTE: Record<string, object> = {
   "PATCH /appointments/:id": { version: 0 },
   "PATCH /appointments/:id/status": { status: "cancelled" },
-  "PATCH /shift-series/:id": { scope: "all" }
+  "PATCH /shift-series/:id": { scope: "all" },
+  "PATCH /series/:id": {
+    scope: "all",
+    fromAppointmentId: "11111111-1111-4111-8111-111111111111"
+  }
 }
 
 interface DiscoveredRoute {

@@ -1,15 +1,43 @@
 services:
   - type: web
     name: dentalops-api
-    runtime: node
+    runtime: docker
     plan: free
     region: singapore
-    buildCommand: npm i -g pnpm@10.4.1 && pnpm install --frozen-lockfile && pnpm --filter @dentalops/api exec prisma generate && pnpm --filter @dentalops/api exec prisma migrate deploy && pnpm --filter @dentalops/api db:seed && pnpm turbo run build --filter=@dentalops/api
-    startCommand: node apps/api/dist/main.js
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
     healthCheckPath: /api/v1/health
+
+    # No buildCommand/startCommand: those are for native runtimes only. Render
+    # builds the Dockerfile and runs its ENTRYPOINT, which applies
+    # `prisma migrate deploy` before exec'ing the server. dockerCommand is
+    # deliberately unset so the image's own CMD is used.
+    #
+    # Migrations run at container start rather than at deploy time because
+    # Render's preDeployCommand -- the documented once-per-deploy hook, and the
+    # right home for this -- is only available on paid instance types
+    # (https://render.com/docs/deploys#pre-deploy-command). On a free instance
+    # there is no deploy-time hook at all. `prisma migrate deploy` is idempotent
+    # and measured at ~0.4s when there is nothing to apply, which is noise next
+    # to a free-tier cold start.
+    #
+    # If this service moves to a paid instance type, drop RUN_MIGRATIONS and
+    # move the work to the real deploy-time hook:
+    #   preDeployCommand: apps/api/node_modules/.bin/prisma migrate deploy --schema apps/api/prisma/schema.prisma
+
     envVars:
-      - key: NODE_VERSION
-        value: "22"
+      - key: RUN_MIGRATIONS
+        value: "true"
+
+      # Seeding is NOT a per-deploy step. The demo seed deletes and recreates
+      # the demo tenant, so running it on every container start would discard
+      # whatever a visitor had just done. The entrypoint seeds only when this is
+      # "true" AND the demo tenant is absent, making it a one-time bootstrap for
+      # an empty database. To refresh demo data on a live service, use the app's
+      # own DemoResetService rather than a deploy.
+      - key: RUN_DEMO_SEED
+        value: "true"
+
       - key: WEB_ORIGIN
         sync: false
       - key: DATABASE_URL

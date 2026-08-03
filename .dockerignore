@@ -1,0 +1,30 @@
+# Never copy host-built artifacts into the image. node_modules in particular
+# would carry a macOS/arm64 Prisma query engine that cannot run on linux/amd64.
+node_modules
+**/node_modules
+dist
+**/dist
+.turbo
+**/.turbo
+coverage
+**/coverage
+
+# Secrets must never enter a layer.
+.env
+.env.*
+!.env.example
+
+# Test output, tooling and docs are irrelevant to the runtime image.
+playwright-report
+**/playwright-report
+test-results
+**/test-results
+.git
+.github
+docs
+README.md
+.DS_Store
+**/*.log
+Dockerfile
+.dockerignore
+docker-compose.yml

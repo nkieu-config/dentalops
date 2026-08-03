@@ -72,3 +72,77 @@ jobs:
           name: playwright-traces
           path: apps/web/test-results/
           retention-days: 7
+
+  docker:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: dentalops
+          POSTGRES_PASSWORD: dentalops
+          POSTGRES_DB: dentalops
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U dentalops"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 20
+      redis:
+        image: redis:7
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 20
+      mongo:
+        image: mongo:7
+        ports:
+          - 27017:27017
+        options: >-
+          --health-cmd "mongosh --quiet --eval 'db.runCommand({ ping: 1 })'"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - name: Build image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          load: true
+          tags: dentalops-api:ci
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+      - name: Start container
+        run: |
+          docker run -d --name dentalops-api --network host \
+            -e DATABASE_URL="postgresql://dentalops:dentalops@localhost:5432/dentalops" \
+            -e DIRECT_URL="postgresql://dentalops:dentalops@localhost:5432/dentalops" \
+            -e MONGODB_URL="mongodb://localhost:27017/dentalops_ci" \
+            -e REDIS_URL="redis://localhost:6379" \
+            -e JWT_SECRET=ci-test-secret \
+            -e JWT_REFRESH_SECRET=ci-test-refresh-secret \
+            -e RUN_DEMO_SEED=true \
+            dentalops-api:ci
+      - name: Wait for health endpoint
+        run: |
+          for i in $(seq 1 60); do
+            if curl -fsS http://localhost:3001/api/v1/health > health.json; then
+              cat health.json
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "health check never returned 200"
+          docker logs dentalops-api
+          exit 1
+      - name: Assert audit log is connected
+        run: grep -q '"auditLog":"connected"' health.json
+      - name: Container logs
+        if: failure()
+        run: docker logs dentalops-api

@@ -137,8 +137,19 @@ rendered mail at http://localhost:8026 without a paid provider or an account.
 
 Worth saying plainly, because the gaps are choices rather than oversights:
 
-- **One timezone.** Everything is stored UTC and rendered Asia/Bangkok. Recurrence takes a fixed
-  UTC offset, which is correct for Thailand and wrong for anywhere with daylight saving.
+- **One timezone by decision, a fixed offset by accident.** Single-timezone was a scope choice made
+  before the build: everything is stored UTC and rendered Asia/Bangkok, and multi-timezone is listed
+  as a non-goal. The implementation underneath is narrower than that choice. Recurrence expansion,
+  the nightly shift horizon and the roster week all compute against a hard-coded
+  `BANGKOK_OFFSET_MIN = 420` — `series.service.ts`, `shift-series.service.ts` and
+  `packages/availability/{recurrence,roster}.ts` — because a timezone library was dropped early and
+  never replaced, which left a fixed offset as the only arithmetic available. Thailand has never
+  observed daylight saving, so the shortcut and the decision agree here and the tests stay green;
+  they would not agree in a country that moves its clocks. Display is not the weak part — the web
+  app formats through `Intl.DateTimeFormat` with `timeZone: "Asia/Bangkok"`, real tz data. Fixing it
+  means carrying an IANA zone per tenant and replacing that constant at four call sites with a
+  zone-aware conversion; `expandRecurrence` already takes `utcOffsetMin` as a parameter that every
+  caller lets default, which is the seam to widen first.
 - **No payments, no insurance, no clinical records.** This is scheduling.
 - **Ten of the eleven designed screens shipped.** The design doc's inventory lists eleven, counting
   "Login / Signup" as one entry. What exists is landing, login, signup, booking wizard,

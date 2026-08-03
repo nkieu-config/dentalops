@@ -61,7 +61,8 @@ dentalops/
 │   ├── contracts/    Zod schemas + TS types shared by web/api (DTOs, event payloads)
 │   └── config/       Shared eslint/tsconfig/prettier
 ├── docker-compose.yml   Postgres 16 + MongoDB + Redis for dev
-└── .github/workflows/   CI: lint → typecheck → test → build → e2e → deploy
+└── .github/workflows/   CI: lint → typecheck → test → build → e2e. Deploy is not a CI
+                         step — Vercel and Render redeploy from git on push to main.
 ```
 
 Tooling: pnpm workspaces + Turborepo. TypeScript strict everywhere.
@@ -345,9 +346,11 @@ Exactly three journeys: (1) patient books → appears on staff timeline (two bro
 ### CI gates (GitHub Actions; branch protection on)
 
 ```
-PR:    lint → typecheck → unit → integration (dockerized services) → build → e2e
-main:  all of the above + deploy (Vercel/Render) + smoke /health
-extra: manual benchmark job → results committed to repo
+PR:     lint → typecheck → unit → integration (dockerized services) → build → e2e
+main:   the same single job, on push
+deploy: not a CI step — Vercel and Render redeploy from git on push to main; Render
+        polls its own healthCheckPath (/api/v1/health) after the build
+extra:  benchmark run by hand (pnpm --filter @dentalops/api benchmark) → results committed
 ```
 
 Deliberately not tested (and documented as such): framework behavior, full-page snapshots, coverage quotas.
@@ -545,3 +548,56 @@ No test currently fails if this is forgotten, because no endpoint currently muta
 patients list and detail, so what remains unshipped is the **settings** editor alone, which still
 renders an in-app notice pointing at the README's gap section. W9's paragraph reading "there is no
 login or signup screen" is superseded.
+
+---
+
+## 12. Dropped between the brainstorm and this document
+
+The brainstorm that preceded §1–§9 proposed an `apps/web` stack including **Zustand**, **React Hook
+Form**, **date-fns** and **date-fns-tz**. None of them reached this document and none were ever
+installed — `apps/web/package.json` has no line for any of them. Nobody wrote down why at the time.
+This is that record, written against what the code does instead.
+
+**Zustand** — proposed to hold UI state such as drag state and view mode. That state turned out to
+split cleanly in two, and neither half wants a store. Anything worth sharing or worth surviving a
+reload lives in the URL: `?d=` day and `?b=` branch, read straight off `useSearchParams` in
+`timeline-page.tsx`; `?c=` column mode in `use-column-mode.ts`, which omits the parameter entirely
+for the default; `?q=` patient search in `patients-page.tsx` and `patient-detail.tsx`. The rest is
+short-lived and belongs to one component — the open drawer, the drag preview, the conflict and
+arrival highlights, the columns hidden at `md` — and is plain `useState` there. The two pieces of
+genuinely cross-tree state, the session and the online flag, are `useSyncExternalStore` over a
+module-level value in `lib/session.ts` and `lib/use-online.ts`: React's own subscription primitive,
+no dependency.
+
+For this app the URL is the better answer, not merely an equivalent one. A memory store cannot be
+pasted into a message, bookmarked, or reopened after a refresh, and "the day and branch I am looking
+at" is exactly what one receptionist sends another. Drag state is the opposite case: it lives and
+dies inside the pointer handlers that own it, and lifting it into a store would only widen its
+reach.
+
+**React Hook Form** — replaced in W10 by `features/auth/use-auth-form.ts`, hand-rolled and
+dependency-free. It keeps values and per-field errors in `useState`, validates on submit against the
+Zod schema already published by `packages/contracts` rather than through a resolver adapter, clears
+a field's error the moment the user retypes it, focuses the first invalid field, and blocks double
+submission with a ref so the second click loses even within a single render. The part that earns its
+place is the last one: it maps an API `errorCode` back to the field that caused it, which is what
+turns `409 EMAIL_TAKEN` into a message under the email input instead of a banner over the form. Two
+forms use it, login and signup, and `use-auth-form.test.tsx` holds it up with 21 tests. A library
+would have been a defensible choice; at two forms it would have been more dependency than form.
+
+**date-fns and date-fns-tz** — replaced by arithmetic on epoch milliseconds against a fixed
+constant. `BANGKOK_OFFSET_MIN = 420` (or its `_MS` twin) appears in
+`apps/api/src/appointments/series.service.ts`, `apps/api/src/shifts/shift-series.service.ts`,
+`packages/availability/src/recurrence.ts` and `packages/availability/src/roster.ts`; on the web,
+`features/timeline/lib/geometry.ts` parses day boundaries from a literal `+07:00` and does the rest
+in minutes and pixels. Nothing here needs a date library: the operations are add an offset, floor to
+a day, take a weekday, convert minutes to milliseconds. Formatting is the one job that would have
+been real work, and the platform already does it — `geometry.ts` formats through
+`Intl.DateTimeFormat` with `timeZone: "Asia/Bangkok"`, which is the tz database every browser ships.
+`packages/availability` stayed zero-dependency as §3 requires, which it could not have done with
+`date-fns` in it.
+
+The cost is real and is recorded in the README's limitations: a fixed offset is not a timezone.
+`expandRecurrence` already accepts `utcOffsetMin` as a parameter and every caller lets it default to
+420, so the seam for a per-tenant IANA zone exists — but until something widens it, the product is
+correct only where the clocks never move.

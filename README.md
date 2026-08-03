@@ -84,6 +84,7 @@ caveats and the honest reading — a 100% cache-hit workload is not real traffic
 | Data | PostgreSQL 16 (source of truth), Redis (holds, availability cache, idempotency, queues) |
 | Audit | MongoDB 7 — the audit log is append-only, write-heavy, has a flexible per-action shape, and is never joined, so a document store fits it better than a table |
 | Tooling | pnpm workspaces, Turborepo, Vitest, Jest + Supertest, Playwright, GitHub Actions |
+| Packaging | Docker — a multi-stage image is what Render actually runs, and CI builds it and starts it against real Postgres, Redis and MongoDB on every push, so it cannot rot unnoticed |
 | Hosting | Vercel, Render, Neon, Upstash, Sentry — all free tier, $0/month |
 
 ## Development

@@ -61,8 +61,10 @@ dentalops/
 │   ├── contracts/    Zod schemas + TS types shared by web/api (DTOs, event payloads)
 │   └── config/       Shared eslint/tsconfig/prettier
 ├── docker-compose.yml   Postgres 16 + MongoDB + Redis for dev
-└── .github/workflows/   CI: lint → typecheck → test → build → e2e. Deploy is not a CI
-                         step — Vercel and Render redeploy from git on push to main.
+└── .github/workflows/   CI: lint → typecheck → test → build → e2e, plus a parallel
+                         job that builds the Docker image and starts the container
+                         against real services. Deploy is not a CI step — Vercel and
+                         Render redeploy from git on push to main.
 ```
 
 Tooling: pnpm workspaces + Turborepo. TypeScript strict everywhere.
@@ -76,7 +78,9 @@ Vercel (web) ──HTTPS──► Render free (api + workers, one process)
                           └─► Upstash Redis (holds, cache, idempotency, BullMQ)
 ```
 
-Accepted trade-off: Render free cold start (~1 min), mitigated with UptimeRobot ping. Documented as a deliberate cost decision.
+Accepted trade-off: Render free cold start (~1 min). The UptimeRobot ping named here was never set up; the cold start is documented in the README rather than mitigated.
+
+The API ships as a multi-stage Docker image and Render runs the container, not a native Node build. Migrations run from the image's entrypoint on every container start rather than once per deploy, because Render's `preDeployCommand` — the correct home for them — is available only on paid instance types. `prisma migrate deploy` is idempotent and costs about 0.4 s when there is nothing to apply, and the entrypoint retries five times with backoff so that a Neon compute still waking from sleep cannot crash-loop the container. Seeding is separate: it is a one-time bootstrap that runs only when the demo tenant is absent, because the seed deletes and recreates that tenant and a per-start seed would discard whatever a visitor had just done.
 
 ### System principles
 
@@ -348,6 +352,9 @@ Exactly three journeys: (1) patient books → appears on staff timeline (two bro
 ```
 PR:     lint → typecheck → unit → integration (dockerized services) → build → e2e
 main:   the same single job, on push
+docker: a parallel job builds the API image and starts the container against real
+        Postgres, Redis and MongoDB, asserting /api/v1/health reports the audit log
+        connected — build-only would catch build rot but not runtime rot
 deploy: not a CI step — Vercel and Render redeploy from git on push to main; Render
         polls its own healthCheckPath (/api/v1/health) after the build
 extra:  benchmark run by hand (pnpm --filter @dentalops/api benchmark) → results committed

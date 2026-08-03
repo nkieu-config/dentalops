@@ -481,3 +481,67 @@ user-visible behaviour is correct — an offline nudge does not mutate — but t
 held up by any passing test, and it should not be described as defence in depth, because nothing here
 verified that it defends anything. It is an unverified line kept because removing it is riskier than
 leaving it.
+
+---
+
+## 11. Reconciliation (W10)
+
+W9 recorded where the shipped system diverged from §1–§9. W10 closed three of those divergences and
+introduced one endpoint §5 never asked for. This section supersedes the W9 paragraphs on the screen
+inventory and on the missing login and signup screens.
+
+### `POST /staff`, and why an unpromised endpoint was the right call
+
+§5 listed the admin surface as capped CRUD and W9 recorded that only the read half shipped. W10 adds
+exactly one write: `POST /staff`.
+
+It exists because `AuthService.signup` creates a tenant, a branch, three chairs, six services and a
+single **owner** — and no dentist. With no endpoint to add one, a clinic created through the browser
+had no timeline columns, nobody to roster and nothing bookable. The multi-tenancy the API had
+supported since W1 was, from a browser, unreachable: the only way into a real tenant was to insert a
+user by hand. A signup screen leading to a dead end would have been worse than no signup screen, so
+the endpoint is the price of the screen rather than a step toward the settings editor. The rest of
+the write half — `PATCH`, `DELETE`, `/equipment-types` — is still not built, for the reason W9 gave.
+
+**Staff creation is capped at `dentist | receptionist` by design.** `CreateStaffDto` restricts the
+union and the controller is `@Roles("owner")`, so the form cannot mint owners. One owner per tenant
+is enough for this product, and a form that can create the role that guards the form is a
+privilege-escalation shape not worth having for the convenience it buys.
+
+**The uniqueness guarantee is the index, not the check.** `StaffService.create` looks for an existing
+user with the same lowercased email inside the same transaction as the insert, and that check is
+*not* what makes duplicates impossible. Prisma runs Postgres at READ COMMITTED, so two concurrent
+requests can both see no existing row and both proceed. What makes it correct is
+`@@unique([tenantId, email])` on `User`: the second insert raises `P2002`, which the service maps to
+the same `409 EMAIL_TAKEN`. The in-transaction check is the friendly path — it produces the good
+error most of the time; the index is the correctness guarantee. The pair is deliberate, and removing
+either one changes a different thing. That the constraint is per-tenant is also why the same email is
+legal in two different clinics, which `apps/api/test/staff.spec.ts` asserts directly.
+
+### `GET /patients/:id` had to learn the dentist filter
+
+The detail screen shows a patient's appointment history, which meant the endpoint went from returning
+a bare patient row to returning appointments. That is a new way to read the appointment table, so it
+carries the same predicate `GET /appointments` uses — `actor?.role === "dentist" ? actor.userId :
+undefined` on `dentistId`. Without it a dentist could have read a colleague's book one patient at a
+time, which would have quietly undone W9's dentist scoping through a door nobody was watching.
+
+### A trap left for whoever adds `PATCH /staff`
+
+`POST /staff` deliberately does **not** invalidate the availability cache, and that is safe for
+exactly one reason: a dentist who has just been created has no shifts, and a dentist with no shift
+contributes no slots, so no cached availability answer can be wrong because of them. The first shift
+they are given goes through `ShiftsService`, which does invalidate.
+
+The moment staff become mutable — deactivation, a role change, reassignment to another branch — that
+reasoning stops holding, and the cache will happily serve availability for somebody who is no longer
+bookable. Anyone adding `PATCH /staff` or `DELETE /staff` must invalidate alongside the write;
+`apps/api/src/shifts/shifts.service.ts` shows the `invalidateWindows` call and the windows it passes.
+No test currently fails if this is forgotten, because no endpoint currently mutates staff.
+
+### The screen inventory now stands at ten of the eleven
+
+§6 lists eleven, counting "Login / Signup" as one entry. W10 shipped `/login`, `/signup` and the
+patients list and detail, so what remains unshipped is the **settings** editor alone, which still
+renders an in-app notice pointing at the README's gap section. W9's paragraph reading "there is no
+login or signup screen" is superseded.

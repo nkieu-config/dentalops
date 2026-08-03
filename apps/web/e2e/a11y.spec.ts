@@ -90,7 +90,41 @@ test.describe("landing and public booking", () => {
   }
 })
 
+test.describe("auth screens", () => {
+  for (const [name, viewport] of [
+    ["390px", PHONE],
+    ["1440px", DESKTOP]
+  ] as const) {
+    test(`login has no serious or critical violations at ${name}`, async ({ page }) => {
+      await page.setViewportSize(viewport)
+      await page.goto("/login")
+      await expect(page.getByRole("heading", { level: 1, name: "Sign in" })).toBeVisible()
+      await expectClean(page)
+    })
+
+    test(`signup has no serious or critical violations at ${name}`, async ({ page }) => {
+      await page.setViewportSize(viewport)
+      await page.goto("/signup")
+      await expect(page.getByRole("heading", { level: 1, name: "Create a clinic" })).toBeVisible()
+      await expectClean(page)
+    })
+  }
+})
+
 test.describe("staff screens", () => {
+  for (const [name, viewport] of [
+    ["390px", PHONE],
+    ["1440px", DESKTOP]
+  ] as const) {
+    test(`patients list has no serious or critical violations at ${name}`, async ({ page }) => {
+      await page.setViewportSize(viewport)
+      await signIn(page)
+      await page.goto("/app/patients")
+      await expect(page.getByRole("list", { name: "Patients" })).toBeVisible()
+      await expectClean(page)
+    })
+  }
+
   test("timeline has no serious or critical violations at 1440px", async ({ page }) => {
     await page.setViewportSize(DESKTOP)
     await signIn(page)

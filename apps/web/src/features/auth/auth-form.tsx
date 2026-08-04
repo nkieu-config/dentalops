@@ -1,4 +1,5 @@
 import { forwardRef, type InputHTMLAttributes, type ReactElement, type ReactNode } from "react"
+import { PublicHeader } from "../../components/shell/public-header"
 import { Button } from "../../components/ui/button"
 import { Input } from "../../components/ui/input"
 import { Label } from "../../components/ui/label"
@@ -99,12 +100,15 @@ export interface AuthCardProps {
 }
 
 export const AuthCard = ({ title, subtitle, children, footer }: AuthCardProps): ReactElement => (
-  <main className="mx-auto flex w-full max-w-md flex-1 flex-col justify-center gap-6 px-4 py-10">
-    <header className="space-y-1">
-      <h1 className="text-2xl font-semibold tracking-tight">{title}</h1>
-      {subtitle ? <p className="text-sm text-muted-foreground">{subtitle}</p> : null}
-    </header>
-    {children}
-    {footer ? <footer className="text-sm text-muted-foreground">{footer}</footer> : null}
-  </main>
+  <div className="flex min-h-dvh flex-col">
+    <PublicHeader />
+    <main className="mx-auto flex w-full max-w-md flex-1 flex-col justify-center gap-6 px-4 py-10">
+      <header className="space-y-1">
+        <h1 className="text-2xl font-semibold tracking-tight">{title}</h1>
+        {subtitle ? <p className="text-sm text-muted-foreground">{subtitle}</p> : null}
+      </header>
+      {children}
+      {footer ? <footer className="text-sm text-muted-foreground">{footer}</footer> : null}
+    </main>
+  </div>
 )

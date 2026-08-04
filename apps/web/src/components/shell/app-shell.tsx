@@ -1,12 +1,12 @@
 import type { AuthSession } from "@dentalops/contracts"
-import { CalendarDays, ClipboardList, History, Moon, Settings, Users } from "lucide-react"
+import { CalendarDays, ClipboardList, History, Settings, Users } from "lucide-react"
 import type { LucideIcon } from "lucide-react"
 import { NavLink, Outlet, useNavigate } from "react-router"
 import { cn } from "../../lib/cn"
 import { canManageRoster, canViewActivity, isDemo, logout, useSession } from "../../lib/session"
-import { toggleTheme } from "../../lib/theme"
 import { Button } from "../ui/button"
 import { OfflineBanner } from "./offline-banner"
+import { ThemeToggle } from "./theme-toggle"
 
 interface NavItem {
   to: string
@@ -35,9 +35,11 @@ const NavList = ({ items, railOnly }: { items: NavItem[]; railOnly: boolean }) =
         title={label}
         className={({ isActive }) =>
           cn(
-            "flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium",
+            "flex items-center gap-3 rounded-full px-3 py-2 text-sm transition-colors duration-150",
             railOnly && "justify-center",
-            isActive ? "bg-secondary text-primary" : "text-muted-foreground hover:bg-accent"
+            isActive
+              ? "bg-secondary font-semibold text-foreground"
+              : "font-medium text-muted-foreground hover:bg-accent hover:text-foreground"
           )
         }
       >
@@ -71,11 +73,9 @@ export const AppShell = () => {
         </div>
       ) : null}
       <header className="flex h-topbar shrink-0 items-center gap-3 border-b border-border px-4">
-        <span className="font-semibold text-primary">DentalOps</span>
+        <span className="font-semibold">DentalOps</span>
         <div className="flex-1" />
-        <Button variant="ghost" size="icon" aria-label="Toggle theme" onClick={toggleTheme}>
-          <Moon className="h-4 w-4" />
-        </Button>
+        <ThemeToggle />
         <span className="hidden text-sm text-muted-foreground sm:inline">{session?.user.name}</span>
         <Button
           variant="ghost"
@@ -112,7 +112,7 @@ export const AppShell = () => {
             className={({ isActive }) =>
               cn(
                 "flex min-w-0 flex-1 flex-col items-center justify-center gap-0.5 px-1 text-[0.65rem]",
-                isActive ? "text-primary" : "text-muted-foreground"
+                isActive ? "font-semibold text-foreground" : "text-muted-foreground"
               )
             }
           >

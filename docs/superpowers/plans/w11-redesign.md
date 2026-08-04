@@ -395,13 +395,14 @@ Public pages first: they are what a stranger — or a recruiter — sees, and th
 **Decisions:**
 - **Active nav becomes a pill** (`--secondary` fill, `--foreground` text, full radius). At `≥1024` the sidebar stays 240px; the icon rail at `768–1023` and the bottom nav below 768 keep their current geometry — `--spacing-topbar` and `--spacing-bottomnav` are unchanged.
 - **The theme toggle icon changes with the theme.** It is currently a static `Moon` regardless of state, which tells the user nothing about what the button will do. Sun when dark is active, Moon when light is.
-- **The toggle moves out of the authenticated shell.** Landing, login, signup, booking, manage and `/dev/ui` have no way to switch themes today, so a dark-mode visitor gets a light public site. Put it in a small shared header used by the public pages too.
+- **The toggle moves out of the authenticated shell.** Landing, login, signup, booking, manage and `/dev/ui` have no way to switch themes today, so a dark-mode visitor gets a light public site.
+  **Narrowed while implementing:** restoring `system` as the default already fixes the reported symptom — a public page now follows the OS without anyone touching a control. The toggle is only needed where someone wants to *override*, so `PublicHeader` went onto login and signup (via the shared `AuthCard`) and lands on the landing page in Task 7. The booking wizard and the manage page deliberately stay chrome-free: they are focused single-purpose flows, and they follow the OS like everything else.
 - **Third state: system.** `initTheme()` currently falls back to `prefers-color-scheme` only until the first toggle, after which the user is locked to an explicit choice with no way back. Cycle light → dark → system, and add the `matchMedia` change listener that is missing so an OS switch mid-session propagates while in system mode.
 
-- [ ] **Step 1: Extend `app-shell.test.tsx` and `theme` tests first** — the icon reflects state; the cycle returns to system; a stored `"system"` follows `matchMedia` changes.
-- [ ] **Step 2: Implement**
-- [ ] **Step 3: `pnpm --filter @dentalops/web test`, then the a11y suite** — the nav-label-clipping assertion is sensitive to the pill's padding; if it goes red, the pill is too fat, not the test.
-- [ ] **Step 4: Commit** — `feat(web): a shell that says which theme it is in`
+- [x] **Step 1: Extend `app-shell.test.tsx` and `theme` tests first** — the icon reflects state; the cycle returns to system; a stored `"system"` follows `matchMedia` changes.
+- [x] **Step 2: Implement**
+- [x] **Step 3: `pnpm --filter @dentalops/web test`, then the a11y suite** — the nav-label-clipping assertion is sensitive to the pill's padding; if it goes red, the pill is too fat, not the test.
+- [x] **Step 4: Commit** — `feat(web): a shell that says which theme it is in`
 
 ### Task 7: Landing page
 
@@ -436,7 +437,7 @@ The W10 accessibility floor is inherited whole and is already tested: a visible 
 - [ ] **Step 1: Restyle `Field`, `FieldInput` and `FormError` in `auth-form.tsx`** — the three screens that use them inherit it.
 - [ ] **Step 2: The two pages**
 - [ ] **Step 3: Full unit suite, a11y, then refresh the Phase B baselines and review them as a set**
-- [ ] **Step 4: Commit** — `feat(web): auth screens on the new system`
+- [x] **Step 4: Commit** — `feat(web): auth screens on the new system`
 
 ---
 
@@ -511,7 +512,7 @@ Two traps that must shape the design rather than be discovered later:
 - [ ] **Step 1:** Add to `packages/contracts/src/directory.ts`: `openingHoursSchema` (the seven day keys, each an array of `[start, end]` `HH:mm` pairs, validated as ordered and non-overlapping), `createBranchSchema` / `updateBranchSchema`, `createServiceSchema` / `updateServiceSchema`, `createResourceSchema` / `updateResourceSchema`, `updateStaffSchema`, and `clinicProfileSchema`. Build the package.
 - [ ] **Step 2:** `GET /tenant` and `PATCH /tenant` (name, slug), `@Roles("owner")`. `Tenant` is deliberately excluded from `TENANT_MODELS` in `prisma/tenant.extension.ts`, so this controller uses the unscoped client and scopes by `currentTenant().tenantId` by hand — copy how `public.service.ts` already reads it. A slug change must 409 `SLUG_TAKEN` on collision, and the response must tell the UI the public booking URL changed.
 - [ ] **Step 3:** Tests including cross-tenant 404, then register both in the isolation registry.
-- [ ] **Step 4: Commit** — `feat(api): let an owner read and rename their clinic`
+- [x] **Step 4: Commit** — `feat(api): let an owner read and rename their clinic`
 
 ### Task 14: Branch, service and resource writes
 

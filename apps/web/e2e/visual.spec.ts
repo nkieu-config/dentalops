@@ -26,7 +26,7 @@ const signIn = async (page: Page) => {
 const shoot = async (page: Page, name: string) => {
   await page.waitForLoadState("networkidle")
   await page.evaluate(() => document.fonts.ready)
-  await expect(page).toHaveScreenshot(`${name}.png`, {
+  await expect.soft(page).toHaveScreenshot(`${name}.png`, {
     fullPage: true,
     animations: "disabled",
     mask: [page.getByTestId("demo-banner"), page.locator('[data-testid^="countdown-"]')],

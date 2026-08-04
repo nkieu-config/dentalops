@@ -155,31 +155,43 @@ git commit -m "test(web): screenshot baselines for every screen before the redes
 
 ### Task 2: The contrast verifier
 
-MASTER.md §7's own lesson from W8: a checklist item no machine checks is a statement of intent. The token set in MASTER.md §2 was produced by this script and three failures were fixed before it was written down; the script now becomes a gate so the next palette edit cannot regress it.
+MASTER.md §7's own lesson from W8: a checklist item no machine checks is a statement of intent. The token set in MASTER.md §2 was produced by this script and three failures were fixed before it was written down; the script becomes a gate in Task 4 so the next palette edit cannot regress it.
 
 **Files:**
 - Create: `apps/web/scripts/verify-contrast.mjs`
 - Modify: `apps/web/package.json`, `turbo.json`
 
-- [ ] **Step 1: Write the script**
+- [x] **Step 1: Write the script**
 
-It owns a literal copy of both token tables and checks, for each theme: `foreground` and `muted-foreground` against all five surfaces at 4.5:1; every button label against its fill at 4.5:1; every semantic chip's text against its own surface at 4.5:1; each semantic colour as text on the page background at 4.5:1; `--input` against both card and background at **3:1** (WCAG 1.4.11 — a form control's boundary is required to identify it); `--ring` against `--ring-offset` at 3:1; and for all six data hues, card title and subtitle on the fill at 4.5:1 plus the 3px stripe against the page at 3:1.
+**It parses `app.css` rather than holding its own copy of the tokens.** A verifier with a duplicated table verifies the duplicate, and the two drift the first time someone edits one of them — which is the exact failure mode W8 recorded. Reading the shipped stylesheet makes that impossible. It accepts an optional path argument so a candidate palette can be checked before it is adopted.
 
-It prints only failures, then a total, and exits non-zero if any failed. Ninety pairs is the current count.
+For each theme it checks: `foreground` and `muted-foreground` against all five surfaces at 4.5:1; every button label against its fill at 4.5:1; every semantic chip's text against its own surface at 4.5:1; each semantic colour as text on the page background at 4.5:1; `--input` against both card and background at **3:1** (WCAG 1.4.11 — a form control's boundary is required to identify it); `--ring` against `--ring-offset` at 3:1; and for all six data hues, card title and subtitle on the fill at 4.5:1 plus the 3px stripe against the page at 3:1.
 
-- [ ] **Step 2: Prove it fails**
+It prints only failures, then a total, and exits non-zero. It also **fails on a token the design system names but `app.css` does not define**, so a half-finished palette cannot pass by having nothing to check. Ninety pairs is the count once the W11 tokens land; 78 against the pre-W11 palette, which lacks the six new tokens.
 
-Set `--muted-foreground` back to stone-500 `#78716C` and confirm it reports the 4.36:1 failure on the muted surface. Set `--input` to the old `#E2E8F0` and confirm 1.17:1. Restore both. A verifier that has never gone red is not known to work.
+- [x] **Step 2: Prove it fails — three ways**
 
-- [ ] **Step 3: Wire it up**
+A verifier that has never gone red is not known to work, and one that only goes red is not known to be satisfiable.
 
-`"verify:contrast": "node scripts/verify-contrast.mjs"` in `apps/web/package.json`, added to the `test` task's dependencies in `turbo.json` so CI runs it.
+| Proof | Input | Expected | Result |
+|---|---|---|---|
+| Red | the shipped `app.css` | exit 1 | 6 failures: `--muted-foreground` at 4.34:1 on secondary and accent, `--input` at 1.23:1 light and 1.22:1 dark |
+| Green | the token block extracted from MASTER.md §2 | exit 0 | all 90 pairs pass |
+| Mutation | that same good palette, `--input` alone reverted to a hairline | exit 1, naming only `--input` | 2 failures, both `--input`, nothing else disturbed |
 
-- [ ] **Step 4: Commit**
+The mutation proof is the one that matters: it shows the script fails *specifically*, not globally.
+
+- [x] **Step 3: Make it runnable — but do not make it a gate yet**
+
+`"verify:contrast": "node scripts/verify-contrast.mjs"` in `apps/web/package.json`, and a `verify:contrast` task in `turbo.json` with `inputs` on `src/app.css` and the script so the result caches.
+
+**It is deliberately not added to the `test` task's dependencies here.** CI runs `pnpm test` → `turbo run test`, and the script exits 1 against the palette that is still shipping. Wiring the gate in this task would turn main red and keep it red for the whole of Task 3, which pushes straight to main with no PR to hide behind. **Task 4 flips the gate on in the same commit as the tokens that satisfy it** — the first moment the repo can honour it. Verified at the time of writing: `turbo run verify:contrast` exits 1 while `turbo run test` is 6/6 green.
+
+- [x] **Step 4: Commit**
 
 ```bash
 git add apps/web/scripts apps/web/package.json turbo.json
-git commit -m "test(web): gate every token pair on its contrast ratio"
+git commit -m "test(web): a contrast verifier that reads the stylesheet it checks"
 ```
 
 ### Task 3: The font that was never there
@@ -241,12 +253,21 @@ Set `--tw-ring-offset-color: var(--ring-offset)` at `:root` and `.dark`. Without
 
 The `--hueN-bg` / `--hueN-border` pairs do not change. `service.colorIndex` is stored, so changing them would be a data migration for zero benefit. They were re-verified against the new porcelain and ink backgrounds — all six stripes clear 3:1 against the page in both themes.
 
-- [ ] **Step 5: Run the gates**
+- [ ] **Step 5: Run the verifier, then turn it into a gate**
+
+Run it first. It must go from the 6 failures it reports today to zero — that is the proof the paste was faithful:
 
 ```bash
 pnpm --filter @dentalops/web verify:contrast; echo "contrast exit=$?"
-pnpm --filter @dentalops/web test; echo "unit exit=$?"
 ```
+
+Only once it is green, add `"verify:contrast"` to the `test` task's `dependsOn` in `turbo.json`. Task 2 deliberately left this undone so main would not sit red through Task 3. Confirm the gate is real by running the pipeline CI runs:
+
+```bash
+pnpm turbo run test --force; echo "test exit=$?"
+```
+
+Then break one token, confirm `pnpm test` now fails on it, and restore. A gate nobody has watched fail is not known to be wired.
 
 - [ ] **Step 6: Look at every screenshot diff**
 
@@ -259,7 +280,7 @@ Every screen will differ — that is the point. Read the diffs as a review of th
 - [ ] **Step 7: Commit**
 
 ```bash
-git add apps/web/src/app.css
+git add apps/web/src/app.css turbo.json
 git commit -m "feat(web): ink on porcelain, and give every hue back to the data"
 ```
 

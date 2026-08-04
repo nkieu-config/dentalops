@@ -2,6 +2,7 @@ import { INestApplication } from "@nestjs/common"
 import request from "supertest"
 import type { Server } from "node:http"
 import { availabilityResponseSchema } from "@dentalops/contracts"
+import { DemoResetService } from "../src/demo/demo-reset.service"
 import { PrismaService } from "../src/prisma/prisma.service"
 import { createTestApp } from "./utils/test-app"
 import { expectStatus } from "./utils/expect-status"
@@ -213,6 +214,10 @@ describe("availability", () => {
     let demoServiceId: string
     let demoPatientId: string
 
+    beforeAll(async () => {
+      await app.get(DemoResetService).reset()
+    })
+
     const resolveDemo = async () => {
       const demo = await request(server).post("/auth/demo-login").send({ role: "owner" })
       expectStatus(demo, 200)
@@ -233,7 +238,7 @@ describe("availability", () => {
     it("every sampled reported slot is actually bookable", async () => {
       await resolveDemo()
       const from = new Date(Date.now() + 24 * 3600_000).toISOString()
-      const to = new Date(Date.now() + 72 * 3600_000).toISOString()
+      const to = new Date(Date.now() + 168 * 3600_000).toISOString()
       const res = await request(server)
         .get("/availability")
         .set("Authorization", `Bearer ${demoToken}`)
@@ -250,7 +255,11 @@ describe("availability", () => {
         clearAfter = Date.parse(slot.endsAt) + GAP_MS
         if (samples.length === 3) break
       }
-      expect(samples.length).toBeGreaterThanOrEqual(2)
+      if (samples.length < 2) {
+        throw new Error(
+          `only ${samples.length} of ${slots.length} reported slots were ${GAP_MS / 60_000} minutes apart`
+        )
+      }
 
       for (const slot of samples) {
         const booked = await request(server)

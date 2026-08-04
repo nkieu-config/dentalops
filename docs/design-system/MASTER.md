@@ -112,7 +112,6 @@ Paste into `apps/web/src/app.css` in W4. Values are Tailwind palette stops, so c
   --border: #e4e0db;
   --input: #948d86;
   --ring: #1c1917;
-  --ring-offset: #faf9f7;
 
   --grid-line: #e7e4e0;
   --grid-line-hour: #d6d1ca;
@@ -160,7 +159,6 @@ Paste into `apps/web/src/app.css` in W4. Values are Tailwind palette stops, so c
   --border: #2e2b28;
   --input: #78716c;
   --ring: #fafaf9;
-  --ring-offset: #121110;
 
   --grid-line: #2e2b28;
   --grid-line-hour: #403b37;
@@ -229,13 +227,22 @@ html { font-feature-settings: "tnum"; }
 carried over as decoration. `tnum` stays and is the load-bearing one — it was verified present in the
 Plus Jakarta Sans variable file with `fontTools` before the family was adopted, not assumed.
 
-### Ring offset is a token, not a Tailwind default
+### The focus ring's offset must be themed, and a `:root` variable will not do it
 
-`Button` focus styling is `focus-visible:ring-2 ring-ring ring-offset-2`. With the primary button now
-*ink*, an ink ring on an ink button is a 1.00:1 invisible ring — the offset is the only thing that makes
-it legible, and Tailwind's default `--tw-ring-offset-color` is hard-white, which paints a white halo on a
-dark-mode surface. `--ring-offset` must therefore be wired to the themed background and the offset colour
-set from it. This is the one place where forgetting a token produces a *silently unfocusable-looking* app.
+With the primary button now *ink*, an ink ring drawn on an ink button is 1.00:1 — invisible. The gap that
+`ring-offset-2` opens is the only thing making it legible, and Tailwind's default offset colour is hard
+white, which paints a white halo around a focused control on a dark surface.
+
+The fix is the utility, not a variable. Tailwind v4 registers `--tw-ring-offset-color` with
+`@property { inherits: false; initial-value: #fff }`, so **setting it on `:root` does not cascade** — the
+obvious-looking fix silently does nothing. `Button` therefore carries
+`focus-visible:ring-offset-2 focus-visible:ring-offset-background`, which resolves through
+`--color-background` and follows the theme.
+
+There is deliberately no separate `--ring-offset` token. It would equal `--background` in both themes and
+no stylesheet would read it, and this project has already been bitten once by a declaration that looked
+authoritative and was never consulted. The verifier checks `--ring` against `--background` and `--card`
+instead, which is the property that actually has to hold.
 
 ### Time grid scale (project-specific — the most important spacing decision)
 

@@ -12,7 +12,7 @@
       "dependsOn": ["transit"]
     },
     "test": {
-      "dependsOn": ["^build"],
+      "dependsOn": ["^build", "verify:contrast"],
       "env": ["DATABASE_URL", "DIRECT_URL", "JWT_SECRET", "JWT_REFRESH_SECRET", "REDIS_URL", "MONGODB_URL"]
     },
     "verify:contrast": {

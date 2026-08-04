@@ -61,7 +61,8 @@ const PAIRS = [
   ["--decorative", "--background", TEXT_ON_SURFACE],
   ["--input", "--card", NON_TEXT],
   ["--input", "--background", NON_TEXT],
-  ["--ring", "--ring-offset", NON_TEXT],
+  ["--ring", "--background", NON_TEXT],
+  ["--ring", "--card", NON_TEXT],
   ["--destructive", "--card", NON_TEXT]
 ]
 

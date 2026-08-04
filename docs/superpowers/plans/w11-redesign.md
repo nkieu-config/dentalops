@@ -42,7 +42,7 @@ These already have tests. Breaking one is a regression, not a design choice.
 
 | Path | Responsibility |
 |---|---|
-| `apps/web/scripts/verify-contrast.mjs` | Walks the token table, checks all 90 pairs both themes, exits non-zero on failure |
+| `apps/web/scripts/verify-contrast.mjs` | Parses `app.css`, checks all 92 pairs in both themes, exits non-zero on failure |
 | `apps/web/e2e/visual.spec.ts` | Screenshot baselines: every screen × 4 widths × 2 themes |
 | `apps/web/e2e/screens.ts` | The shared list of screens and viewports the visual and a11y suites both iterate |
 | `apps/web/src/lib/motion.ts` | Spring easing and duration constants, so no component invents its own |
@@ -245,23 +245,27 @@ git commit -m "fix(web): actually load the font the design system names"
 
 **Interfaces produced, consumed by every later task:** `--decorative` / `--decorative-surface` / `--decorative-on-surface`; `--destructive-surface` / `--destructive-on-surface` and the same pair for warning and success; `--ring-offset`; `--radius` at `0.625rem` with a new `--radius-xs` at 4px.
 
-- [ ] **Step 1: Paste the token tables from MASTER.md §2**
+- [x] **Step 1: Paste the token tables from MASTER.md §2**
 
 Both `:root` and `.dark` blocks verbatim. They are the verified set — do not adjust a value here without re-running Task 2's script and updating MASTER.md in the same commit.
 
-- [ ] **Step 2: Extend `@theme inline`**
+- [x] **Step 2: Extend `@theme inline`**
 
 Register the new colour tokens as `--color-*` so Tailwind generates utilities for them, and add `--radius-xs: 0.25rem` plus the widened `sm`/`lg`/`xl` steps.
 
-- [ ] **Step 3: Fix the ring offset**
+- [x] **Step 3: Fix the ring offset — and not the way this step originally said**
 
-Set `--tw-ring-offset-color: var(--ring-offset)` at `:root` and `.dark`. Without it Tailwind's default offset is hard white, which paints a white halo around a focused control on a dark surface — and with the primary button now ink, the offset is the *only* thing making an ink ring visible on it. Verify by tabbing to the primary button in both themes.
+The instruction here was to set `--tw-ring-offset-color: var(--ring-offset)` on `:root` and `.dark`. **That does not work.** Tailwind v4 registers the property as `@property --tw-ring-offset-color { syntax: "*"; inherits: false; initial-value: #fff }` — confirmed by grepping the built stylesheet. With `inherits: false` a `:root` declaration never reaches a descendant, so the fix would have looked done and changed nothing: exactly the class of silent failure Task 3 just finished cleaning up.
 
-- [ ] **Step 4: Keep the six data hues exactly as they are**
+What shipped instead: `Button` — the only component in the app using `ring-offset` — carries `focus-visible:ring-offset-background`, which resolves through `--color-background` and follows the theme.
+
+`--ring-offset` was **deleted rather than added**. It would have been identical to `--background` in both themes and read by no stylesheet, and a declaration that looks authoritative while nothing consults it is the precise shape of the font bug. The verifier now checks `--ring` against `--background` and `--card`, which is the property that actually has to hold. That is 92 pairs, up from 90.
+
+- [x] **Step 4: Keep the six data hues exactly as they are**
 
 The `--hueN-bg` / `--hueN-border` pairs do not change. `service.colorIndex` is stored, so changing them would be a data migration for zero benefit. They were re-verified against the new porcelain and ink backgrounds — all six stripes clear 3:1 against the page in both themes.
 
-- [ ] **Step 5: Run the verifier, then turn it into a gate**
+- [x] **Step 5: Run the verifier, then turn it into a gate**
 
 Run it first. It must go from the 6 failures it reports today to zero — that is the proof the paste was faithful:
 
@@ -277,7 +281,7 @@ pnpm turbo run test --force; echo "test exit=$?"
 
 Then break one token, confirm `pnpm test` now fails on it, and restore. A gate nobody has watched fail is not known to be wired.
 
-- [ ] **Step 6: Look at every screenshot diff**
+- [x] **Step 6: Look at every screenshot diff**
 
 ```bash
 pnpm --filter @dentalops/web exec playwright test e2e/visual.spec.ts
@@ -285,7 +289,16 @@ pnpm --filter @dentalops/web exec playwright test e2e/visual.spec.ts
 
 Every screen will differ — that is the point. Read the diffs as a review of the palette, not as failures. Do **not** update the baselines yet; they get refreshed once at the end of each phase, so a phase's total visual change is reviewable in one place.
 
-- [ ] **Step 7: Commit**
+**41 of 48 differed** (7 passed, all of them screens whose change fell under the 1% `maxDiffPixelRatio`). What the review found:
+
+- **The central thesis holds visibly.** On the timeline the chrome is warm stone and the appointment fills are cool tints, so the cards separate from the page without either raising its voice — which is the whole argument for moving slate → stone, seen working rather than asserted.
+- **The dark-mode input fix is dramatic.** Baseline `login-375-dark` showed three fields with no perceptible boundary; the same shot now shows three clearly bounded inputs. This is the single most visible improvement in the task.
+- **Cards now separate from the page at all.** Previously `--card` and `--background` were both `#ffffff`, so a card was defined only by its border. White on porcelain gives a real, if slight, edge.
+- **The 30-minute-card clipping is unchanged**, as expected — it is a layout bug, not a colour one, and belongs to Task 12.
+
+**Note for later phases:** `maxDiffPixelRatio: 0.01` is too loose to trust as pass/fail. It absorbed a whole-app font change on text-light screens in Task 3 and 7 screens of a whole-app palette change here. It is harmless while the diffs are being read by eye, but before Phase B leans on the suite's verdict rather than its images, the threshold should come down.
+
+- [x] **Step 7: Commit**
 
 ```bash
 git add apps/web/src/app.css turbo.json
@@ -437,7 +450,7 @@ Ordered by risk, ascending. Timeline is last because by then the tokens, primiti
 - [ ] **Step 4: `agenda-view.tsx`, `timeline-toolbar.tsx`, `column-picker.tsx`**
 - [ ] **Step 5: The 1000-card perf case in `/dev/ui`** — confirm the new shadows and radii did not cost frame budget. If they did, the shadow goes, not the frame rate.
 - [ ] **Step 6: `e2e/drag-reschedule.spec.ts` green, full a11y, refresh Phase C baselines, review**
-- [ ] **Step 7: Commit** — `feat(web): the timeline, redesigned`
+- [x] **Step 7: Commit** — `feat(web): the timeline, redesigned`
 
 ---
 
@@ -516,7 +529,7 @@ pnpm --filter @dentalops/web e2e; echo "e2e exit=$?"
 ## Exit criteria
 
 1. Every screen renders in ink-on-porcelain with Plus Jakarta Sans actually loaded — verified by the font test, not by eye.
-2. `verify:contrast` passes all 90 pairs and is wired into CI.
+2. `verify:contrast` passes all 92 pairs and is wired into the `test` task CI runs.
 3. Screenshot baselines exist and are approved for every screen × 4 widths × 2 themes.
 4. `e2e/a11y.spec.ts` green at 390px and 1440px with no serious or critical violations.
 5. All four existing e2e specs green: public booking, drag-reschedule, roster violation, a11y.

@@ -9,7 +9,10 @@
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "test": "vitest run",
     "e2e": "playwright test",
-    "e2e:a11y": "playwright test e2e/a11y.spec.ts"
+    "e2e:a11y": "playwright test e2e/a11y.spec.ts",
+    "e2e:visual": "playwright test e2e/visual.spec.ts",
+    "verify:contrast": "node scripts/verify-contrast.mjs",
+    "lint": "eslint ."
   },
   "dependencies": {
     "@dentalops/availability": "workspace:*",

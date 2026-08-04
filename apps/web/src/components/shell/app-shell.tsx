@@ -63,7 +63,10 @@ export const AppShell = () => {
       </a>
       <OfflineBanner />
       {isDemo() ? (
-        <div className="bg-warning px-4 py-1 text-center text-xs font-medium text-warning-foreground">
+        <div
+          data-testid="demo-banner"
+          className="bg-warning px-4 py-1 text-center text-xs font-medium text-warning-foreground"
+        >
           Demo mode — the clinic data rebuilds itself every 6 hours
         </div>
       ) : null}

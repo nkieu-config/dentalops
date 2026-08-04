@@ -10,7 +10,7 @@
     "build": "turbo run build",
     "typecheck": "turbo run typecheck",
     "test": "turbo run test",
-    "lint": "eslint ."
+    "lint": "turbo run lint"
   },
   "devDependencies": {
     "eslint": "^10.8.0",

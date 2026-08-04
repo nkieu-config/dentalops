@@ -13,7 +13,7 @@ A scheduler shows **8 columns of colored blocks at once**. If the brand color is
 
 > **Chrome is quiet. Data carries the color. Status is reserved.**
 
-- **Brand primary** appears only on chrome: buttons, active nav, links, focus rings. Never on an appointment card.
+- **Brand primary** appears only on chrome: buttons, active nav, links, focus rings. Never on an appointment card. Since W11 the primary *is* ink, so chrome spends no hue at all.
 - **Appointment cards** use a low-saturation tinted surface with a saturated 3px left border. The border carries the hue; the fill stays readable.
 - **Semantic status colors** (red / amber / emerald) are reserved for meaning and never used decoratively — so when red appears, it always means a violation or conflict.
 - **Off-shift regions** are neutral hatch only. They must recede, never compete.
@@ -29,12 +29,39 @@ more visible. Dark mode was already fine (`#042F2E` on `#2DD4BF` = 7.77:1) and i
 The lesson worth keeping: §7's checklist claimed this was verified, and it was not. A checklist item
 that no machine checks is a statement of intent.
 
+### Identity change in W11 — the brand stopped spending a hue
+
+Teal was a good chrome colour, but it was still a *hue*, and §1's own logic says hue is the scarcest
+resource on this product. Three hues are locked to status and six are spent on services; teal was the
+tenth. W11 resolves that by giving the brand **no hue at all**: primary is ink `#1C1917` on a warm
+porcelain ground `#FAF9F7`, and every hue on screen therefore belongs to the data.
+
+The neutral moved from **slate to stone** at the same time. Slate is blue-biased, which put the chrome
+in quiet competition with sky and indigo — the two most-used service hues. Stone biases warm, so chrome
+and data now sit on opposite sides of the colour wheel and separate without either raising its voice.
+
+**Where the warmth comes from, since it no longer comes from a brand colour:** the stone neutrals, a
+rounder typeface, a larger corner radius, softer shadows, spring motion, and illustrated empty states.
+That is a deliberate trade — the personality moved from the palette into the shapes and the motion,
+which is the same trade Cal.com and Linear make.
+
+**Teal survives as `--decorative`**, used only where nothing is being reported: empty-state art, the logo
+mark, marketing accents on the public pages. It never touches a button, a status, or an appointment card.
+
+| Considered for the accent | Rejected because |
+|---|---|
+| Rose `#E11D48` | Sits in the same hue family as `--destructive`. §3's guarantee is that *red always means a violation*; a rose illustration a few hundred pixels from a red conflict ring quietly breaks that promise. |
+| Violet `#7C3AED` | Already spent — it is data hue 2, and reassigning it would force a `colorIndex` migration on seeded services. |
+| Amber, emerald | Locked to warning and success. |
+| **Teal `#0F766E`** | **Chosen.** The only hue not spoken for once it vacated chrome, and it keeps a thread back to the old identity. |
+
 ### Deliberate deviations from the ui-ux-pro-max recommendation
 
 | Tool suggested | We use | Why |
 |---|---|---|
-| Fira Code (heading) + Fira Sans | **Inter** everywhere | A monospace heading reads "developer tool" on the staff app and "unfinished" on the patient booking page. Inter is the shadcn/ui default (zero fighting with component styles), ships as one variable file, and has real tabular figures — which a scheduler needs more than a display face. |
-| Primary `#1E40AF` (saturated blue) | **Teal `#0F766E`** | Blue is the most useful hue for categorical appointment data. Spending it on chrome would force the data palette into worse hues. Teal also carries the medical association the healthcare palettes recommended. |
+| Fira Code (heading) + Fira Sans | **Plus Jakarta Sans** everywhere | A monospace heading reads "developer tool" on the staff app and "unfinished" on the patient booking page. Plus Jakarta Sans is a single variable file with genuine tabular figures, and its rounder terminals supply the friendliness the ink palette deliberately gives up. |
+| Primary `#2563EB` (calendar blue) | **Ink `#1C1917`** | Blue is the most useful hue for categorical appointment data — spending it on chrome would cost *two* data hues (sky and indigo) and leave no good sixth. Ink costs none. |
+| Soft UI Evolution's shadow-led depth | **Borders separate, shadows float** | Kept from W4. Shadows are still forbidden inside the grid; the softer shadow scale applies only to surfaces that genuinely float above the page. |
 
 ---
 
@@ -47,75 +74,101 @@ Paste into `apps/web/src/app.css` in W4. Values are Tailwind palette stops, so c
 @custom-variant dark (&:is(.dark *));
 
 :root {
-  --radius: 0.375rem;
+  --radius: 0.625rem;
 
-  --background: #ffffff;
-  --foreground: #0f172a;
+  --background: #faf9f7;
+  --foreground: #1c1917;
   --card: #ffffff;
-  --card-foreground: #0f172a;
+  --card-foreground: #1c1917;
   --popover: #ffffff;
-  --popover-foreground: #0f172a;
+  --popover-foreground: #1c1917;
 
-  --primary: #0f766e;
-  --primary-foreground: #ffffff;
-  --secondary: #f1f5f9;
-  --secondary-foreground: #0f172a;
-  --muted: #f8fafc;
-  --muted-foreground: #64748b;
-  --accent: #f1f5f9;
-  --accent-foreground: #0f172a;
+  --primary: #1c1917;
+  --primary-foreground: #fafaf9;
+  --secondary: #f0eeea;
+  --secondary-foreground: #1c1917;
+  --muted: #f5f4f1;
+  --muted-foreground: #6b645e;
+  --accent: #edeae5;
+  --accent-foreground: #1c1917;
 
   --destructive: #dc2626;
   --destructive-foreground: #ffffff;
+  --destructive-surface: #fef2f2;
+  --destructive-on-surface: #991b1b;
   --warning: #b45309;
   --warning-foreground: #ffffff;
+  --warning-surface: #fffbeb;
+  --warning-on-surface: #92400e;
   --success: #047857;
   --success-foreground: #ffffff;
+  --success-surface: #ecfdf5;
+  --success-on-surface: #065f46;
 
-  --border: #e2e8f0;
-  --input: #e2e8f0;
-  --ring: #0f766e;
+  --decorative: #0f766e;
+  --decorative-surface: #f0fdfa;
+  --decorative-on-surface: #115e59;
 
-  --grid-line: #e2e8f0;
-  --grid-line-hour: #cbd5e1;
-  --offshift: #f1f5f9;
-  --offshift-stripe: #e2e8f0;
+  --border: #e4e0db;
+  --input: #948d86;
+  --ring: #1c1917;
+  --ring-offset: #faf9f7;
+
+  --grid-line: #e7e4e0;
+  --grid-line-hour: #d6d1ca;
+  --offshift: #f5f4f1;
+  --offshift-stripe: #e7e4e0;
   --now-line: #dc2626;
+  --overlay: rgb(28 25 23 / 0.45);
+  --appointment-muted: #57534e;
 }
 
 .dark {
-  --background: #020617;
-  --foreground: #f8fafc;
-  --card: #0f172a;
-  --card-foreground: #f8fafc;
-  --popover: #0f172a;
-  --popover-foreground: #f8fafc;
+  --background: #121110;
+  --foreground: #f2f0ed;
+  --card: #1c1a18;
+  --card-foreground: #f2f0ed;
+  --popover: #1c1a18;
+  --popover-foreground: #f2f0ed;
 
-  --primary: #2dd4bf;
-  --primary-foreground: #042f2e;
-  --secondary: #1e293b;
-  --secondary-foreground: #f8fafc;
-  --muted: #0f172a;
-  --muted-foreground: #94a3b8;
-  --accent: #1e293b;
-  --accent-foreground: #f8fafc;
+  --primary: #fafaf9;
+  --primary-foreground: #1c1917;
+  --secondary: #262321;
+  --secondary-foreground: #f2f0ed;
+  --muted: #1c1a18;
+  --muted-foreground: #a8a29e;
+  --accent: #2e2b28;
+  --accent-foreground: #f2f0ed;
 
   --destructive: #f87171;
   --destructive-foreground: #450a0a;
+  --destructive-surface: #2a1615;
+  --destructive-on-surface: #fca5a5;
   --warning: #fbbf24;
   --warning-foreground: #451a03;
+  --warning-surface: #2a1f0f;
+  --warning-on-surface: #fcd34d;
   --success: #34d399;
   --success-foreground: #022c22;
+  --success-surface: #0d2620;
+  --success-on-surface: #6ee7b7;
 
-  --border: #1e293b;
-  --input: #1e293b;
-  --ring: #2dd4bf;
+  --decorative: #2dd4bf;
+  --decorative-surface: #0c2624;
+  --decorative-on-surface: #5eead4;
 
-  --grid-line: #1e293b;
-  --grid-line-hour: #334155;
-  --offshift: #0b1220;
-  --offshift-stripe: #1e293b;
+  --border: #2e2b28;
+  --input: #78716c;
+  --ring: #fafaf9;
+  --ring-offset: #121110;
+
+  --grid-line: #2e2b28;
+  --grid-line-hour: #403b37;
+  --offshift: #191716;
+  --offshift-stripe: #2e2b28;
   --now-line: #f87171;
+  --overlay: rgb(12 10 9 / 0.7);
+  --appointment-muted: #d6d3d1;
 }
 
 @theme inline {
@@ -139,15 +192,20 @@ Paste into `apps/web/src/app.css` in W4. Values are Tailwind palette stops, so c
   --color-warning-foreground: var(--warning-foreground);
   --color-success: var(--success);
   --color-success-foreground: var(--success-foreground);
+  --color-decorative: var(--decorative);
+  --color-decorative-surface: var(--decorative-surface);
+  --color-decorative-on-surface: var(--decorative-on-surface);
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);
 
-  --radius-sm: calc(var(--radius) - 2px);
+  --radius-xs: 0.25rem;
+  --radius-sm: calc(var(--radius) - 4px);
   --radius-md: var(--radius);
-  --radius-lg: calc(var(--radius) + 2px);
+  --radius-lg: calc(var(--radius) + 4px);
+  --radius-xl: calc(var(--radius) + 10px);
 
-  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-sans: "Plus Jakarta Sans Variable", ui-sans-serif, system-ui, sans-serif;
 
   --spacing-slot: 1rem;
   --spacing-hour: 4rem;
@@ -157,7 +215,7 @@ Paste into `apps/web/src/app.css` in W4. Values are Tailwind palette stops, so c
   --spacing-bottomnav: 3.5rem;
 }
 
-html { font-feature-settings: "cv11", "tnum"; }
+html { font-feature-settings: "tnum"; }
 
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
@@ -166,6 +224,18 @@ html { font-feature-settings: "cv11", "tnum"; }
   }
 }
 ```
+
+`cv11` was an Inter character variant and does nothing in Plus Jakarta Sans; it was dropped rather than
+carried over as decoration. `tnum` stays and is the load-bearing one — it was verified present in the
+Plus Jakarta Sans variable file with `fontTools` before the family was adopted, not assumed.
+
+### Ring offset is a token, not a Tailwind default
+
+`Button` focus styling is `focus-visible:ring-2 ring-ring ring-offset-2`. With the primary button now
+*ink*, an ink ring on an ink button is a 1.00:1 invisible ring — the offset is the only thing that makes
+it legible, and Tailwind's default `--tw-ring-offset-color` is hard-white, which paints a white halo on a
+dark-mode surface. `--ring-offset` must therefore be wired to the themed background and the offset colour
+set from it. This is the one place where forgetting a token produces a *silently unfocusable-looking* app.
 
 ### Time grid scale (project-specific — the most important spacing decision)
 
@@ -180,7 +250,15 @@ Zoom levels for W5: `compact` 12px/slot, `default` 16px/slot, `roomy` 24px/slot.
 
 ### Typography scale
 
-Single family: **Inter** (variable, `wght 100..900`), self-hosted or via Google Fonts with `display=swap`.
+Single family: **Plus Jakarta Sans** (variable, `wght 200..800`), self-hosted from
+`@fontsource-variable/plus-jakarta-sans`. No Google Fonts network call.
+
+> **The family name must be `"Plus Jakarta Sans Variable"`, not `"Plus Jakarta Sans"`.** Fontsource
+> registers variable faces under a `… Variable` family name. W4 through W10 shipped
+> `--font-sans: "Inter", …` against a package that registers `'Inter Variable'`, so the declared family
+> never matched, the downloaded font was never used, and every visitor without Inter installed locally
+> saw `system-ui` instead. The bundle paid for a font it did not render. Verify the name against the
+> package's own `index.css` whenever the family changes — this is a silent failure with no console error.
 
 | Role | Size / line-height | Weight |
 |---|---|---|
@@ -196,12 +274,21 @@ Rules: staff app body is 14px (density); **public booking body is never below 16
 
 ### Radius, elevation, motion
 
-- **Radius:** `--radius: 0.375rem` (6px). Cards/inputs/buttons `md`. Appointment cards `sm` (4px) — smaller blocks read cleaner. Full-round only for avatars and status dots.
-- **Elevation:** data-dense means **borders separate, shadows float**. Only three shadow levels exist:
+- **Radius:** `--radius: 0.625rem` (10px), raised from 6px in W11 — this is a large part of where the
+  softness comes from now that the palette is monochrome. Buttons, inputs, cards, dialogs use `md`.
+  Containers and sheets use `lg`/`xl`. **Appointment cards stay `xs` (4px)** — a 15-minute block is
+  16px tall, and a 10px radius on a 16px block eats the block. Full-round only for avatars, status
+  dots, and the active-nav pill.
+- **Elevation:** data-dense means **borders separate, shadows float**. Four levels, no others:
   - `shadow-none` — everything in the grid, all cards, all table rows
+  - `shadow-xs` — resting buttons and inputs only; a 1px hairline of depth, not a visible shadow
   - `shadow-md` — popover, dropdown, drawer, dialog
-  - `shadow-lg` — the card currently being dragged (the only shadow inside the grid, and it signals "lifted")
-- **Motion:** 150ms micro-interactions, 200ms drawer/dialog, exit at ~70% of enter. `transform`/`opacity` only. Realtime arrival = 250ms fade + one subtle scale pulse `0.98 → 1`. Reduced-motion is handled globally in the CSS above.
+  - `shadow-lg` — the card currently being dragged (the only shadow permitted inside the grid, and it means "lifted")
+- **Motion:** 150ms micro-interactions, 200ms drawer/dialog, exit at ~70% of enter. `transform`/`opacity`
+  only. Press feedback is `scale(0.97)` on buttons and tappable cards. List and grid entrances stagger
+  30–50ms per item. Realtime arrival = 250ms fade + one subtle scale pulse `0.98 → 1`. Spring easing
+  (`cubic-bezier(0.34, 1.24, 0.64, 1)`) on anything that *enters*; plain ease-out on anything that
+  merely changes state. Reduced-motion is handled globally in the CSS above and is not optional.
 
 ---
 
@@ -412,7 +499,10 @@ Built for `/dev/ui` gallery in W4, each with every state rendered:
 
 ## 7. Verification checklist (ties to the spec's Definition of Done)
 
-- [x] Contrast ≥ 4.5:1 body / ≥ 3:1 large — enforced by `apps/web/e2e/a11y.spec.ts`, which fails the build on any `serious` or `critical` axe violation at 390px and 1440px. This checklist item was **asserted rather than verified** until W8: the original `--primary` (teal-600 `#0d9488`) gives white text only **3.74:1**, so every primary button in the app was failing AA. Corrected to teal-700 `#0f766e` (**5.47:1**); see the deviation note below.
+- [x] Contrast ≥ 4.5:1 body / ≥ 3:1 large — enforced by `apps/web/e2e/a11y.spec.ts`, which fails the build on any `serious` or `critical` axe violation at 390px and 1440px. This checklist item was **asserted rather than verified** until W8: the original `--primary` (teal-600 `#0d9488`) gives white text only **3.74:1**, so every primary button in the app was failing AA. Corrected to teal-700 `#0f766e` (**5.47:1**).
+- [x] **Every token pair verified by script, not by eye** — W11 added `apps/web/scripts/verify-contrast.mjs`, which walks the token table and checks all 90 foreground/background combinations across both themes: body text on all five surfaces, every button label, every semantic chip, input borders against WCAG 1.4.11's 3:1, focus ring against its offset, and card text plus hue stripes against all six data hues. It exits non-zero on any failure and runs in CI. Three real failures were caught and fixed *before* any code changed: `--muted-foreground` at stone-500 fell to 4.36:1 on the muted surface, and `--input` at hairline weight was 1.17:1 where 1.4.11 wants 3:1 in both themes.
+- [x] **Font family name asserted** — a unit test reads the resolved `font-family` and fails if it is not the fontsource-registered `… Variable` name. This exists because W4–W10 silently rendered in `system-ui` while shipping an unused Inter file.
+- [ ] Visual regression: every screen at 375 / 768 / 1024 / 1440 × light/dark has an approved baseline screenshot
 - [ ] No status conveyed by color alone (icon or text always present)
 - [ ] Timeline fully keyboard-operable; visible focus ring on every card; drag has a keyboard equivalent
 - [ ] Touch targets ≥ 44px at 375px; no `body` horizontal scroll at 375 / 768 / 1024 / 1440
@@ -424,4 +514,4 @@ Built for `/dev/ui` gallery in W4, each with every state rendered:
 
 ### Anti-patterns, project-specific
 
-Never: saturated fills on appointment cards · teal on data · red/amber/emerald for anything but status · shadows inside the grid (except the dragged card) · touch drag below 768px · greyed-out unavailable slots · a spinner where a skeleton belongs · `100vh` (use `100dvh`).
+Never: saturated fills on appointment cards · teal anywhere except `--decorative` (never a button, never a status, never a card) · red/amber/emerald for anything but status · a hue on chrome · shadows inside the grid (except the dragged card) · a 10px radius on an appointment card · touch drag below 768px · greyed-out unavailable slots · a spinner where a skeleton belongs · `100vh` (use `100dvh`).

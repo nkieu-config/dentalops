@@ -1,0 +1,468 @@
+# W11 — Redesign Implementation Plan
+
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+
+**Goal:** Replace the visual identity across every screen — ink-on-porcelain instead of teal-on-slate, Plus Jakarta Sans instead of a font that never loaded, softer shapes and spring motion instead of flat rectangles — without losing a single behaviour, and build the Settings screen the README has promised since W0.
+
+**Architecture:** The redesign is almost entirely a token-layer change. `grep` over `apps/web/src` finds **zero** hardcoded hex values and **zero** raw Tailwind palette classes outside `app.css`, so the palette swap propagates from one file. What is *not* free: the seven UI primitives, the shell, and per-screen layout work. Settings is a different animal — it is a backend project wearing a frontend hat, and is scoped as its own phase for that reason.
+
+**Tech Stack:** React 19, Tailwind CSS v4, TanStack Query, Zod v4, NestJS 11, Prisma, PostgreSQL 16, Vitest, Jest + Supertest, Playwright.
+
+---
+
+## Global Constraints
+
+- No code comments. Well-named identifiers and clear structure carry the meaning.
+- No `Co-Authored-By` or any AI-attribution trailer in commit messages.
+- Never read, print, or commit `.env` contents.
+- `docs/design-system/MASTER.md` is the source of truth. It was rewritten *before* this plan. If the code and MASTER.md disagree, MASTER.md is right or MASTER.md gets edited — never a silent divergence.
+- Cross-tenant denial is **404, never 403**. Within-tenant role denial is **403** with a machine-readable `errorCode`.
+- Every new endpoint is registered in `apps/api/test/tenant-isolation.spec.ts`. `REGISTRY` values are the string union `"public" | "auth-only" | "not-found" | "filtered"`.
+- The repo is on **zod v4**: `z.uuid()`, `z.email()`, `z.iso.datetime()`, `z.looseObject()`. Never `z.string().uuid()`.
+- Adding a field to a shared contract requires `pnpm --filter @dentalops/contracts build` before the API suite sees it.
+- Playwright runs against **built** artifacts and reuses a running server. Run `pnpm build` before any e2e run that touches API or web source.
+- Vitest sets `onUnhandledRequest: "error"`. Any new fetch introduced by a redesigned screen fails its test loudly until a handler exists — that is intended, do not weaken it.
+- Run every gate **separately** with `--force`, echoing the exit code on its own line. Never pipe a gate into `grep` or `tail`; never chain with `&&`.
+
+## Hard rules the redesign must not break
+
+These already have tests. Breaking one is a regression, not a design choice.
+
+- `apps/web/e2e/a11y.spec.ts` fails the build on any *serious* or *critical* axe violation at 390px and 1440px across landing, booking, login, signup, patients, timeline and roster. It also asserts a visible focus outline, no horizontal overflow, and no clipped nav labels.
+- **`lib/geometry.ts` hardcodes `PX_PER_MIN = 16/15`, which is `--spacing-hour: 4rem` divided by 60.** The timeline's entire layout maths derives from it. `--spacing-hour`, `--spacing-slot`, `--spacing-timegutter`, `--spacing-col-min` and `--spacing-col-md` **do not change in W11**. If a later week wants a different grid density, that constant and the token move together or the grid silently misaligns.
+- Touch targets stay ≥ 44px at 375px. The existing `Input` is `h-9` (36px); forms already opt into `h-11` on small screens.
+- Public booking body text never drops below 16px (iOS auto-zooms on focus below that).
+- No status is conveyed by colour alone — every one carries an icon or a text label.
+
+---
+
+## File Structure
+
+**Created:**
+
+| Path | Responsibility |
+|---|---|
+| `apps/web/scripts/verify-contrast.mjs` | Walks the token table, checks all 90 pairs both themes, exits non-zero on failure |
+| `apps/web/e2e/visual.spec.ts` | Screenshot baselines: every screen × 4 widths × 2 themes |
+| `apps/web/e2e/screens.ts` | The shared list of screens and viewports the visual and a11y suites both iterate |
+| `apps/web/src/lib/motion.ts` | Spring easing and duration constants, so no component invents its own |
+| `apps/web/src/components/ui/card.tsx` | The surface primitive the screens keep re-implementing by hand |
+| `apps/web/src/components/ui/badge.tsx` | Semantic chip using the new `*-surface` / `*-on-surface` tokens |
+| `apps/web/src/features/settings/settings-page.tsx` | Settings shell with section nav |
+| `apps/web/src/features/settings/clinic-section.tsx` | Clinic name and public booking URL |
+| `apps/web/src/features/settings/branches-section.tsx` | Branch list, opening hours editor |
+| `apps/web/src/features/settings/services-section.tsx` | Service list, duration, buffer, colour, active |
+| `apps/web/src/features/settings/resources-section.tsx` | Chairs and equipment |
+| `apps/web/src/features/settings/staff-section.tsx` | Staff list, role, deactivate |
+| `apps/api/src/directory/directory-write.controller.ts` | Branch / service / resource writes |
+| `apps/api/src/tenant/tenant.controller.ts` | `GET` and `PATCH` the clinic profile |
+| `apps/api/prisma/migrations/*_branch_is_active` | Soft-delete column for Branch |
+
+**Modified:** `apps/web/src/app.css`, `apps/web/src/main.tsx`, `apps/web/package.json`, every file under `apps/web/src/components/ui/`, `apps/web/src/components/shell/app-shell.tsx`, all nine feature screens, `apps/web/src/pages/landing-page.tsx`, `apps/web/src/pages/dev-ui-page.tsx`, `apps/web/src/routes.tsx`, `apps/web/e2e/a11y.spec.ts`, `apps/api/src/directory/directory.service.ts`, `apps/api/src/staff/`, `packages/contracts/src/directory.ts`, `docs/design-system/MASTER.md`, `README.md`.
+
+---
+
+## Phase A — Foundation
+
+Nothing in Phase A changes a layout. It changes what things are made of, and it installs the two machines that make the rest of the week safe to attempt.
+
+### Task 1: Capture the baseline before touching anything
+
+A redesign without a before-picture cannot be reviewed, only argued about. This task must complete and be committed **before Task 3**.
+
+**Files:**
+- Create: `apps/web/e2e/screens.ts`, `apps/web/e2e/visual.spec.ts`
+
+**Decisions:**
+- **Screens and widths come from one exported list**, so the a11y suite and the visual suite can never drift apart about what "every screen" means.
+- **Widths are 375 / 768 / 1024 / 1440**, matching MASTER.md §4's reference widths.
+- **Both themes**, set by writing `localStorage["dentalops-theme"]` before the first navigation — that is the same key `initTheme()` reads.
+- **The demo banner is masked, not hidden.** `app-shell.tsx` renders an amber "Demo mode — the clinic data rebuilds itself every 6 hours" strip whenever `isDemo()` is true, which shifts everything below it by ~24px. Masking it with Playwright's `mask` option keeps the layout honest while stopping the rebuild countdown from making every screenshot a false diff.
+- **Animations disabled** via `animations: "disabled"` so a mid-transition frame never becomes the baseline.
+
+- [ ] **Step 1: The shared screen list**
+
+`apps/web/e2e/screens.ts` exports `VIEWPORTS` (the four widths with sensible heights) and `SCREENS`: an array of `{ name, path, auth: "none" | "owner", setup? }`. Public entries are `/`, `/login`, `/signup`, `/book/demo-clinic`, `/dev/ui`. Authenticated entries are `/app/timeline`, `/app/roster`, `/app/patients`, `/app/activity`. `/manage/:token` needs a booking first — reuse the helper `apps/web/e2e/public-booking.spec.ts` already has rather than writing a second one.
+
+- [ ] **Step 2: The visual spec**
+
+For each screen × viewport × theme, log in when required using the exact recipe the a11y suite uses — `page.goto("/")`, click *Try as Owner*, wait for `/app/timeline` — then navigate. Owner is the right role because nav visibility is role-gated and only Owner shows all five items.
+
+Use the timeline and roster deep-link params so the screenshots contain real data rather than an empty day: timeline `?d=<YYYY-MM-DD>&b=<branchId>`, roster `?w=<weekStart>&b=<branchId>`. `e2e/helpers.ts` already exports `nextMonday()`, `dayWindow()` and `bkkDayLabel()`; the seeded data is Asia/Bangkok and picking a date by hand will give you an empty grid.
+
+```ts
+await expect(page).toHaveScreenshot(`${name}-${width}-${theme}.png`, {
+  fullPage: true,
+  animations: "disabled",
+  mask: [page.getByTestId("demo-banner")],
+  maxDiffPixelRatio: 0.01
+})
+```
+
+Add `data-testid="demo-banner"` to the strip in `app-shell.tsx` — it is the only source change this task makes.
+
+- [ ] **Step 3: Generate and eyeball the baselines**
+
+```bash
+docker compose up -d
+pnpm --filter @dentalops/api exec prisma migrate deploy
+pnpm build
+pnpm --filter @dentalops/api db:seed
+pnpm --filter @dentalops/web exec playwright test e2e/visual.spec.ts --update-snapshots
+```
+
+Open every generated PNG. A baseline you have not looked at is worse than no baseline — it locks in whatever was broken. Note anything already wrong; those are Phase B and C's first fixes, not regressions you introduced.
+
+- [ ] **Step 4: Record the other two numbers**
+
+Lighthouse mobile on `/book/demo-clinic`, and the current axe result. Write both into the plan's exit criteria as the floor. MASTER.md §7 claims Lighthouse ≥ 90 and has never gated it; get the real number now so the redesign can be held to *at least* it.
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add apps/web/e2e apps/web/src/components/shell/app-shell.tsx
+git commit -m "test(web): screenshot baselines for every screen before the redesign"
+```
+
+### Task 2: The contrast verifier
+
+MASTER.md §7's own lesson from W8: a checklist item no machine checks is a statement of intent. The token set in MASTER.md §2 was produced by this script and three failures were fixed before it was written down; the script now becomes a gate so the next palette edit cannot regress it.
+
+**Files:**
+- Create: `apps/web/scripts/verify-contrast.mjs`
+- Modify: `apps/web/package.json`, `turbo.json`
+
+- [ ] **Step 1: Write the script**
+
+It owns a literal copy of both token tables and checks, for each theme: `foreground` and `muted-foreground` against all five surfaces at 4.5:1; every button label against its fill at 4.5:1; every semantic chip's text against its own surface at 4.5:1; each semantic colour as text on the page background at 4.5:1; `--input` against both card and background at **3:1** (WCAG 1.4.11 — a form control's boundary is required to identify it); `--ring` against `--ring-offset` at 3:1; and for all six data hues, card title and subtitle on the fill at 4.5:1 plus the 3px stripe against the page at 3:1.
+
+It prints only failures, then a total, and exits non-zero if any failed. Ninety pairs is the current count.
+
+- [ ] **Step 2: Prove it fails**
+
+Set `--muted-foreground` back to stone-500 `#78716C` and confirm it reports the 4.36:1 failure on the muted surface. Set `--input` to the old `#E2E8F0` and confirm 1.17:1. Restore both. A verifier that has never gone red is not known to work.
+
+- [ ] **Step 3: Wire it up**
+
+`"verify:contrast": "node scripts/verify-contrast.mjs"` in `apps/web/package.json`, added to the `test` task's dependencies in `turbo.json` so CI runs it.
+
+- [ ] **Step 4: Commit**
+
+```bash
+git add apps/web/scripts apps/web/package.json turbo.json
+git commit -m "test(web): gate every token pair on its contrast ratio"
+```
+
+### Task 3: The font that was never there
+
+**Files:**
+- Modify: `apps/web/package.json`, `apps/web/src/main.tsx`, `apps/web/src/app.css`
+- Create: `apps/web/src/lib/font.test.ts`
+
+**The bug being fixed.** `main.tsx` imports `@fontsource-variable/inter`, which registers the family `'Inter Variable'`. `app.css` declares `--font-sans: "Inter", ui-sans-serif, system-ui, sans-serif`. `"Inter"` does not match `"Inter Variable"`, so the declared family never resolved and every visitor without Inter installed locally has been reading `system-ui` — SF Pro on macOS, Segoe on Windows — while the bundle downloaded an Inter file it never rendered. There is no console warning for this; CSS font fallback is silent by design.
+
+- [ ] **Step 1: Write the test first**
+
+`font.test.ts` asserts that the `--font-sans` value parsed out of `app.css` begins with a family name ending in `Variable`, and that the same name appears in the installed fontsource package's `index.css`. This is a string-level test on purpose — jsdom does not do real font matching, so testing the rendered font would pass vacuously.
+
+- [ ] **Step 2: Run it against the current state, watch it fail**
+
+It must fail on `"Inter"` today. If it passes, the test is wrong.
+
+- [ ] **Step 3: Swap the package**
+
+```bash
+pnpm --filter @dentalops/web remove @fontsource-variable/inter
+pnpm --filter @dentalops/web add @fontsource-variable/plus-jakarta-sans
+```
+
+Import it as the first line of `main.tsx`, before `./app.css`. Set `--font-sans: "Plus Jakarta Sans Variable", ui-sans-serif, system-ui, sans-serif`. Change `html { font-feature-settings: "cv11", "tnum" }` to `"tnum"` alone — `cv11` was an Inter character variant and means nothing here. `tnum` is load-bearing and was confirmed present in the Plus Jakarta Sans variable file before the family was chosen.
+
+- [ ] **Step 4: Look at the timeline**
+
+Open `/dev/ui` and the timeline. Confirm the hour gutter's digits still align in a column and that nothing reflows between `09:00` and `11:11`. Tabular figures are the one typographic property this product cannot ship without.
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add apps/web/package.json apps/web/src/main.tsx apps/web/src/app.css apps/web/src/lib/font.test.ts pnpm-lock.yaml
+git commit -m "fix(web): actually load the font the design system names"
+```
+
+### Task 4: The token swap
+
+**Files:**
+- Modify: `apps/web/src/app.css`
+
+**Interfaces produced, consumed by every later task:** `--decorative` / `--decorative-surface` / `--decorative-on-surface`; `--destructive-surface` / `--destructive-on-surface` and the same pair for warning and success; `--ring-offset`; `--radius` at `0.625rem` with a new `--radius-xs` at 4px.
+
+- [ ] **Step 1: Paste the token tables from MASTER.md §2**
+
+Both `:root` and `.dark` blocks verbatim. They are the verified set — do not adjust a value here without re-running Task 2's script and updating MASTER.md in the same commit.
+
+- [ ] **Step 2: Extend `@theme inline`**
+
+Register the new colour tokens as `--color-*` so Tailwind generates utilities for them, and add `--radius-xs: 0.25rem` plus the widened `sm`/`lg`/`xl` steps.
+
+- [ ] **Step 3: Fix the ring offset**
+
+Set `--tw-ring-offset-color: var(--ring-offset)` at `:root` and `.dark`. Without it Tailwind's default offset is hard white, which paints a white halo around a focused control on a dark surface — and with the primary button now ink, the offset is the *only* thing making an ink ring visible on it. Verify by tabbing to the primary button in both themes.
+
+- [ ] **Step 4: Keep the six data hues exactly as they are**
+
+The `--hueN-bg` / `--hueN-border` pairs do not change. `service.colorIndex` is stored, so changing them would be a data migration for zero benefit. They were re-verified against the new porcelain and ink backgrounds — all six stripes clear 3:1 against the page in both themes.
+
+- [ ] **Step 5: Run the gates**
+
+```bash
+pnpm --filter @dentalops/web verify:contrast; echo "contrast exit=$?"
+pnpm --filter @dentalops/web test; echo "unit exit=$?"
+```
+
+- [ ] **Step 6: Look at every screenshot diff**
+
+```bash
+pnpm --filter @dentalops/web exec playwright test e2e/visual.spec.ts
+```
+
+Every screen will differ — that is the point. Read the diffs as a review of the palette, not as failures. Do **not** update the baselines yet; they get refreshed once at the end of each phase, so a phase's total visual change is reviewable in one place.
+
+- [ ] **Step 7: Commit**
+
+```bash
+git add apps/web/src/app.css
+git commit -m "feat(web): ink on porcelain, and give every hue back to the data"
+```
+
+### Task 5: The primitives
+
+Seven files, 141 lines total, consumed by everything else. Getting these right is most of the redesign.
+
+**Files:**
+- Modify: `apps/web/src/components/ui/{button,input,native-select,label,sheet,skeleton,empty-state}.tsx`
+- Create: `apps/web/src/components/ui/card.tsx`, `badge.tsx`, `apps/web/src/lib/motion.ts`, and tests for the two new components
+- Modify: `apps/web/src/pages/dev-ui-page.tsx`
+
+**Decisions:**
+- **`Button` gains press feedback**, `active:scale-[0.97]`, and its resting state gains `shadow-xs`. The `default` variant is now ink; `hover:opacity-90` stays because it works identically on both themes.
+- **`Input` and `NativeSelect` get `border-input`**, which is now a real 3:1 border rather than a hairline. They also get `h-11 sm:h-9` so the 44px touch floor is the default instead of something each form remembers.
+- **`Card` and `Badge` are extracted, not invented.** Both shapes are currently hand-rolled in several screens; the redesign is the moment to stop duplicating them. `Badge` takes `tone: "neutral" | "success" | "warning" | "destructive" | "decorative"` and reads the `*-surface` / `*-on-surface` pairs.
+- **`motion.ts` holds the two easings and three durations** from MASTER.md. No component writes its own `cubic-bezier`.
+- **`EmptyState` gains an optional illustration slot** — this is the one place `--decorative` is allowed to be generous.
+
+- [ ] **Step 1: Update the existing tests first**
+
+`button.test.tsx` exists. Extend it for the press-scale class and the new variant surface before changing the component.
+
+- [ ] **Step 2: Restyle the seven, add the two**
+
+- [ ] **Step 3: Extend `/dev/ui`**
+
+The gallery is 637 lines and already renders every primitive in every state with no auth and no network — it is the fastest feedback loop in the repo and the best review surface for this task. Add `Card`, `Badge` in all five tones, and the `EmptyState` illustration variant. Review the whole gallery in both themes before moving on.
+
+- [ ] **Step 4: Gates, then refresh the Phase A baselines**
+
+```bash
+pnpm --filter @dentalops/web test; echo "unit exit=$?"
+pnpm --filter @dentalops/web verify:contrast; echo "contrast exit=$?"
+pnpm build; echo "build exit=$?"
+pnpm --filter @dentalops/web e2e:a11y; echo "a11y exit=$?"
+pnpm --filter @dentalops/web exec playwright test e2e/visual.spec.ts --update-snapshots
+```
+
+Review the refreshed PNGs as a set. This is the Phase A design review.
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add apps/web/src/components/ui apps/web/src/lib/motion.ts apps/web/src/pages/dev-ui-page.tsx apps/web/e2e
+git commit -m "feat(web): rebuild the primitives on the new tokens"
+```
+
+---
+
+## Phase B — Shell and the public face
+
+Public pages first: they are what a stranger — or a recruiter — sees, and they carry the least behavioural risk.
+
+### Task 6: The app shell
+
+**Files:**
+- Modify: `apps/web/src/components/shell/{app-shell,offline-banner,out-of-scope}.tsx`
+
+**Decisions:**
+- **Active nav becomes a pill** (`--secondary` fill, `--foreground` text, full radius). At `≥1024` the sidebar stays 240px; the icon rail at `768–1023` and the bottom nav below 768 keep their current geometry — `--spacing-topbar` and `--spacing-bottomnav` are unchanged.
+- **The theme toggle icon changes with the theme.** It is currently a static `Moon` regardless of state, which tells the user nothing about what the button will do. Sun when dark is active, Moon when light is.
+- **The toggle moves out of the authenticated shell.** Landing, login, signup, booking, manage and `/dev/ui` have no way to switch themes today, so a dark-mode visitor gets a light public site. Put it in a small shared header used by the public pages too.
+- **Third state: system.** `initTheme()` currently falls back to `prefers-color-scheme` only until the first toggle, after which the user is locked to an explicit choice with no way back. Cycle light → dark → system, and add the `matchMedia` change listener that is missing so an OS switch mid-session propagates while in system mode.
+
+- [ ] **Step 1: Extend `app-shell.test.tsx` and `theme` tests first** — the icon reflects state; the cycle returns to system; a stored `"system"` follows `matchMedia` changes.
+- [ ] **Step 2: Implement**
+- [ ] **Step 3: `pnpm --filter @dentalops/web test`, then the a11y suite** — the nav-label-clipping assertion is sensitive to the pill's padding; if it goes red, the pill is too fat, not the test.
+- [ ] **Step 4: Commit** — `feat(web): a shell that says which theme it is in`
+
+### Task 7: Landing page
+
+75 lines, and the single highest-leverage screen in the repo for its purpose. The three "Try as …" demo buttons stay the primary call to action and stay first in the accessibility tree — that constraint is inherited from W10 and is not up for renegotiation.
+
+- [ ] **Step 1: Update `landing-page.test.tsx`** for whatever structure changes; the demo-button ordering assertion must survive untouched.
+- [ ] **Step 2: Rebuild the hero.** Public body text is 16px minimum. `--decorative` may be used generously here; this is the one screen with no data on it.
+- [ ] **Step 3: a11y at 390 and 1440, then commit** — `feat(web): a landing page worth the first ten seconds`
+
+### Task 8: The booking wizard and manage page
+
+~1,090 lines across the wizard host, five steps, the countdown banner, the summary, and the patient-facing manage screen.
+
+**Decisions:**
+- **Slot buttons keep their rules:** 44px minimum, `tabular-nums`, unavailable slots omitted rather than greyed. A grid of greyed slots reads as broken.
+- **The countdown banner keeps `--warning`** and gains the `*-surface` / `*-on-surface` treatment so it stops being a saturated bar. Its urgent state below 60s is a weight and icon change, never colour alone.
+- **⚡ Any available stays first** in the dentist step. W6 recorded why, and the reason has not changed.
+- **The hold-expired state stays a full replacement of the grid**, never a toast.
+
+- [ ] **Step 1: Run the existing tests, note which assert on classes** — restyle those first so the rest of the work is not fighting red tests.
+- [ ] **Step 2: Restyle the five steps and the wizard chrome**
+- [ ] **Step 3: The manage page** — 293 lines, and the only screen a patient reaches from an email. It should look finished.
+- [ ] **Step 4: `e2e/public-booking.spec.ts` must stay green**, then Lighthouse mobile on `/book/demo-clinic` — compare against Task 1's recorded number and do not ship a regression.
+- [ ] **Step 5: Commit** — `feat(web): the booking flow, redesigned`
+
+### Task 9: Login and signup
+
+426 lines including the shared `auth-form.tsx` primitives.
+
+The W10 accessibility floor is inherited whole and is already tested: a visible `<label>` per input, errors below their field wired by `aria-describedby` with `aria-invalid` on the input, focus moving to the first invalid field on a failed submit, server field errors landing on their field rather than in a toast, correct `type` and `autoComplete`, and a submit button that disables and says what it is doing.
+
+- [ ] **Step 1: Restyle `Field`, `FieldInput` and `FormError` in `auth-form.tsx`** — the three screens that use them inherit it.
+- [ ] **Step 2: The two pages**
+- [ ] **Step 3: Full unit suite, a11y, then refresh the Phase B baselines and review them as a set**
+- [ ] **Step 4: Commit** — `feat(web): auth screens on the new system`
+
+---
+
+## Phase C — The working screens
+
+Ordered by risk, ascending. Timeline is last because by then the tokens, primitives and shell have been stable for two phases.
+
+### Task 10: Patients and Activity
+
+157 + 116 + 183 lines. Both are list-with-cursor screens with skeletons, empty and error states; they are siblings and should look it.
+
+- [ ] **Step 1: Restyle both, using the new `Card` and `Badge`** rather than the hand-rolled surfaces they have now.
+- [ ] **Step 2: Empty states get illustrations** — this is where `EmptyState`'s new slot earns itself, and where the friendly micro-copy replaces "No data".
+- [ ] **Step 3: Tests, a11y, commit** — `feat(web): patients and activity, redesigned`
+
+### Task 11: Roster
+
+`roster-page.tsx` is 456 lines, the largest single file in the app: a week grid, drag-to-create, a live-validating violations panel.
+
+**Decisions:**
+- **The violations panel keeps its blocking/warning split and its deep links.** Blocking violations still disable Save.
+- **`ShiftBlock` gets the same radius discipline as appointment cards** — small blocks, small radius.
+- **Drag feedback follows `motion.ts`** and must still track the pointer in real time.
+
+- [ ] **Step 1: Restyle `shift-block.tsx`, `violation-list.tsx`, `roster-list.tsx` first** — the leaves, before the 456-line page.
+- [ ] **Step 2: The week grid**
+- [ ] **Step 3: `e2e/roster-violation.spec.ts` green, a11y green, commit** — `feat(web): the roster editor, redesigned`
+
+### Task 12: Timeline
+
+~2,100 lines across ten components and eight hooks, of which ~650 lines are behaviour that must not be touched.
+
+**Decisions:**
+- **This is a restyle, not a restructure.** Drag, resize, keyboard navigation, realtime arrival, zoom levels, virtualization and column mode all keep their current behaviour and their current geometry. The interaction model was designed in W4–W5 and re-earning it is not this week's work.
+- **`--spacing-hour` and its siblings do not move.** See the hard rules — `PX_PER_MIN` is derived from them by hand.
+- **`AppointmentCard` keeps `--radius-xs`.** A 15-minute block is 16px tall.
+- **The six status treatments are unchanged**: completed at 70% with a check, no-show with a warning stripe and icon, cancelled muted with strikethrough, conflict with a destructive ring and icon, held dashed with a countdown chip. Each keeps its icon; colour is never the only signal.
+
+- [ ] **Step 1: `appointment-card.tsx` (105 lines) alone, and review it in `/dev/ui`** against all six hues × eight states before touching anything else. The gallery renders exactly this matrix.
+- [ ] **Step 2: `time-grid.tsx`** — grid lines, hour lines, off-shift hatch, now-line. The hatch must recede; if it competes with a card, it is wrong.
+- [ ] **Step 3: The drawers and dialogs** — `create-drawer`, `appointment-drawer`, `series-dialog`.
+- [ ] **Step 4: `agenda-view.tsx`, `timeline-toolbar.tsx`, `column-picker.tsx`**
+- [ ] **Step 5: The 1000-card perf case in `/dev/ui`** — confirm the new shadows and radii did not cost frame budget. If they did, the shadow goes, not the frame rate.
+- [ ] **Step 6: `e2e/drag-reschedule.spec.ts` green, full a11y, refresh Phase C baselines, review**
+- [ ] **Step 7: Commit** — `feat(web): the timeline, redesigned`
+
+---
+
+## Phase D — Settings
+
+**Read this before starting.** Phases A–C are a redesign. Phase D is a backend project: the Settings *screen* is perhaps 600 lines of React, but the API it needs barely exists. Today, across clinic profile, branches, services, resources and staff, there is exactly **one** write endpoint — `POST /staff`. Everything else is read-only, and two of the reads are not even shaped for management.
+
+If the week runs long, **Phase D ships as W12 and Phases A–C ship without it.** Nothing in A–C depends on it. The `/app/settings` route keeps its existing `OutOfScope` placeholder, which is honest, and the README keeps its existing note. Do not half-build this; a Settings screen that can display but not save is worse than one that says it was cut.
+
+### What has to be built before a form can save anything
+
+| Domain | Exists | Missing |
+|---|---|---|
+| Clinic profile | *nothing* — `/auth/me` returns only `tenantId` | `GET /tenant`, `PATCH /tenant` |
+| Branches | `GET /branches` (omits `timezone`) | `POST`, `PATCH`, `DELETE`, and `timezone` on the read |
+| Services | `GET /services` | `POST`, `PATCH`, `DELETE` |
+| Resources | `GET /resources` (hardcodes `isActive: true`) | `POST`, `PATCH`, `DELETE`, and an `includeInactive` flag |
+| Staff | `GET /staff` (no role guard), `POST /staff` | `PATCH /staff/:id` — there is no way to deactivate a user |
+
+Two traps that must shape the design rather than be discovered later:
+
+- **Branch, Service and Resource all cascade-delete into appointments, shifts and resource claims.** A literal `DELETE` button on any of them silently destroys booking history. Service and Resource already have `isActive`; Branch does not, so soft-deleting a branch needs a migration.
+- **`openingHours` is untyped `Json`** with its shape defined only in `apps/api/src/tenant/defaults.ts` as `{mon..sun: [["09:00","20:00"]]}`. Nothing validates it. An editor writing to it needs a real zod schema first, or a bad save corrupts availability for the whole clinic.
+
+### Task 13: Contracts and the clinic profile
+
+- [ ] **Step 1:** Add to `packages/contracts/src/directory.ts`: `openingHoursSchema` (the seven day keys, each an array of `[start, end]` `HH:mm` pairs, validated as ordered and non-overlapping), `createBranchSchema` / `updateBranchSchema`, `createServiceSchema` / `updateServiceSchema`, `createResourceSchema` / `updateResourceSchema`, `updateStaffSchema`, and `clinicProfileSchema`. Build the package.
+- [ ] **Step 2:** `GET /tenant` and `PATCH /tenant` (name, slug), `@Roles("owner")`. `Tenant` is deliberately excluded from `TENANT_MODELS` in `prisma/tenant.extension.ts`, so this controller uses the unscoped client and scopes by `currentTenant().tenantId` by hand — copy how `public.service.ts` already reads it. A slug change must 409 `SLUG_TAKEN` on collision, and the response must tell the UI the public booking URL changed.
+- [ ] **Step 3:** Tests including cross-tenant 404, then register both in the isolation registry.
+- [ ] **Step 4: Commit** — `feat(api): let an owner read and rename their clinic`
+
+### Task 14: Branch, service and resource writes
+
+- [ ] **Step 1:** Migration adding `isActive` to `Branch`, defaulting true.
+- [ ] **Step 2:** Write endpoints for all three, `@Roles("owner")`, with **deactivate instead of delete** — the endpoint may be spelled `DELETE` but it sets `isActive: false`. Deactivating the last active branch is a 409, not a 500 three screens later.
+- [ ] **Step 3:** Widen `GET /branches` to return `timezone`; add `includeInactive` to `GET /resources` and drop the hardcoded filter, keeping the default behaviour identical so nothing that consumes it today changes.
+- [ ] **Step 4:** Tests per endpoint, isolation registry, `pnpm --filter @dentalops/contracts build`.
+- [ ] **Step 5: Commit** — `feat(api): manage branches, services and chairs`
+
+### Task 15: Staff writes
+
+- [ ] **Step 1:** `PATCH /staff/:id` — name, role, `isActive` — `@Roles("owner")`. An owner cannot demote or deactivate themselves, and the role union still excludes `owner`.
+- [ ] **Step 2:** Decide the `GET /staff` guard. It has none today, so any dentist can enumerate colleagues. Leaving it open is defensible for a directory; make it a decision written down rather than an oversight.
+- [ ] **Step 3:** Tests, registry, commit — `feat(api): let an owner change a colleague's role`
+
+### Task 16: The Settings screen
+
+- [ ] **Step 1:** Replace the `OutOfScope` element for `settings` in `routes.tsx` with the real screen, lazily imported like its siblings. Five sections behind a section nav — sidebar at `≥1024`, stacked cards below, per MASTER.md §4.
+- [ ] **Step 2:** Build the five sections. Forms reuse `useAuthForm`, `Field` and the `Sheet` — this is the same shape of form as the staff dialog and must not grow a second implementation.
+- [ ] **Step 3:** The opening-hours editor is the hard one. It edits seven days of interval lists and it is the only control here that can break availability for the whole clinic. It validates against `openingHoursSchema` client-side before it ever submits, and it shows what a day looks like after the edit.
+- [ ] **Step 4:** Gate the whole screen on `role === "owner"`; a receptionist reaching `/app/settings` gets an explanation, not a blank page or a wall of 403s.
+- [ ] **Step 5:** Tests per section, add `/app/settings` to the a11y sweep and to `e2e/screens.ts`, commit — `feat: the settings screen the README promised`
+
+---
+
+### Task 17: Reconcile and ship
+
+- [ ] **Step 1: Documents.** README: update the screen count by counting, not assuming; remove Settings from "what this deliberately does not do" only if Phase D shipped; record that the admin API gained writes. MASTER.md: confirm every token in `app.css` matches §2 exactly. Design doc: add a W11 section recording the identity change and *why* — the hue-budget argument is the part worth keeping.
+- [ ] **Step 2: Every gate, separately.**
+
+```bash
+pnpm lint; echo "lint exit=$?"
+pnpm turbo run typecheck --force; echo "typecheck exit=$?"
+pnpm turbo run test --force; echo "test exit=$?"
+pnpm --filter @dentalops/web verify:contrast; echo "contrast exit=$?"
+pnpm turbo run build --force; echo "build exit=$?"
+pnpm --filter @dentalops/api build; echo "api build exit=$?"
+pnpm --filter @dentalops/web e2e; echo "e2e exit=$?"
+```
+
+- [ ] **Step 3: The final visual review.** Regenerate every baseline and page through all of them, both themes, four widths. This is the deliverable, and it is the last chance to see the redesign as a whole rather than as twelve commits.
+- [ ] **Step 4: Push, watch CI, then check production.** After Render redeploys, load the live site on a real phone in both themes. Report what you saw; do not claim it works without having looked.
+
+---
+
+## Exit criteria
+
+1. Every screen renders in ink-on-porcelain with Plus Jakarta Sans actually loaded — verified by the font test, not by eye.
+2. `verify:contrast` passes all 90 pairs and is wired into CI.
+3. Screenshot baselines exist and are approved for every screen × 4 widths × 2 themes.
+4. `e2e/a11y.spec.ts` green at 390px and 1440px with no serious or critical violations.
+5. All four existing e2e specs green: public booking, drag-reschedule, roster violation, a11y.
+6. Lighthouse mobile on `/book/demo-clinic` at or above the number recorded in Task 1 Step 4.
+7. The theme toggle is reachable from public pages, shows which theme is active, and has a system option that follows the OS.
+8. The timeline's drag, resize, keyboard navigation and realtime behaviour are unchanged — proven by the existing specs, not by inspection.
+9. Either Phase D shipped and an owner can edit their clinic, branches, services, chairs and staff from the browser — or Phase D was deferred, `/app/settings` still says so honestly, and the README still lists it as a gap.

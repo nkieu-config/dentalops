@@ -1,6 +1,5 @@
 import "@fontsource-variable/inter"
 import "./app.css"
-import * as Sentry from "@sentry/react"
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 import { StrictMode } from "react"
 import { createRoot } from "react-dom/client"
@@ -11,9 +10,10 @@ import { router } from "./routes"
 
 initTheme()
 
-if (import.meta.env.VITE_SENTRY_DSN) {
+const startErrorReporting = async (dsn: string) => {
+  const Sentry = await import("@sentry/react")
   Sentry.init({
-    dsn: import.meta.env.VITE_SENTRY_DSN,
+    dsn,
     sendDefaultPii: false,
     beforeBreadcrumb: (breadcrumb) => {
       if (breadcrumb.category === "fetch" || breadcrumb.category === "xhr") {
@@ -23,6 +23,10 @@ if (import.meta.env.VITE_SENTRY_DSN) {
       return breadcrumb
     }
   })
+}
+
+if (import.meta.env.VITE_SENTRY_DSN) {
+  void startErrorReporting(import.meta.env.VITE_SENTRY_DSN)
 }
 
 const client = new QueryClient({

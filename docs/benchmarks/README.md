@@ -286,3 +286,6 @@ a fixed ~0.8 ms of auth and transport outside the interceptor predicts.
 Concurrency is measured separately in [load.md](load.md): what the API does
 when sixty patients reach for the same slot at once, and how the read path
 behaves under a sustained arrival rate.
+
+What the browser downloads before it can paint is measured in
+[bundle.md](bundle.md).

@@ -207,4 +207,4 @@ packages/config        Shared tsconfig and lint configuration
 
 ## License
 
-MIT
+MIT — see [LICENSE](LICENSE).

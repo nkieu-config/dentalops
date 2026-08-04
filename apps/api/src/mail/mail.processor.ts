@@ -7,6 +7,7 @@ import { ConfirmationJobData, MAIL_QUEUE_NAME } from "./mail.queue"
 import { MAIL_REDIS } from "./mail.redis"
 import { MAIL_TRANSPORT, MailTransport } from "./mail.transport"
 import { renderConfirmation } from "./templates"
+import { idleFriendlyWorkerOptions } from "../redis/worker-options"
 
 @Injectable()
 export class MailProcessor implements OnModuleDestroy {
@@ -21,7 +22,7 @@ export class MailProcessor implements OnModuleDestroy {
     this.worker = new Worker<ConfirmationJobData>(
       MAIL_QUEUE_NAME,
       (job: Job<ConfirmationJobData>) => this.process(job.data),
-      { connection }
+      { connection, ...idleFriendlyWorkerOptions }
     )
     this.worker.on("error", (error) => this.logger.error(`mail worker error: ${error.message}`))
     this.worker.on("failed", (_job, error) =>

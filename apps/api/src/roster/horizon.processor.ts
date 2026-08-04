@@ -6,6 +6,7 @@ import { ShiftSeriesService } from "../shifts/shift-series.service"
 import { tenantContext } from "../tenant/tenant-context"
 import { HORIZON_QUEUE_NAME } from "./horizon.queue"
 import { HORIZON_REDIS } from "./horizon.redis"
+import { idleFriendlyWorkerOptions } from "../redis/worker-options"
 
 export interface HorizonSummary {
   tenants: number
@@ -24,7 +25,10 @@ export class HorizonProcessor implements OnModuleDestroy {
     private readonly prisma: PrismaService,
     private readonly series: ShiftSeriesService
   ) {
-    this.worker = new Worker(HORIZON_QUEUE_NAME, () => this.run(), { connection })
+    this.worker = new Worker(HORIZON_QUEUE_NAME, () => this.run(), {
+      connection,
+      ...idleFriendlyWorkerOptions
+    })
     this.worker.on("error", (error) => this.logger.error(`horizon worker error: ${error.message}`))
     this.worker.on("failed", (_job, error) =>
       this.logger.warn(`horizon run failed: ${error.message}`)

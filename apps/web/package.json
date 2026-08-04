@@ -10,7 +10,7 @@
     "test": "vitest run",
     "e2e": "playwright test --project=functional",
     "e2e:a11y": "playwright test e2e/a11y.spec.ts",
-    "e2e:visual": "playwright test --project=visual",
+    "e2e:visual": "pnpm --filter @dentalops/api db:seed && playwright test --project=visual",
     "verify:contrast": "node scripts/verify-contrast.mjs",
     "lint": "eslint ."
   },

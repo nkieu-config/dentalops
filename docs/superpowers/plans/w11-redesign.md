@@ -408,9 +408,16 @@ Public pages first: they are what a stranger — or a recruiter — sees, and th
 
 75 lines, and the single highest-leverage screen in the repo for its purpose. The three "Try as …" demo buttons stay the primary call to action and stay first in the accessibility tree — that constraint is inherited from W10 and is not up for renegotiation.
 
-- [ ] **Step 1: Update `landing-page.test.tsx`** for whatever structure changes; the demo-button ordering assertion must survive untouched.
-- [ ] **Step 2: Rebuild the hero.** Public body text is 16px minimum. `--decorative` may be used generously here; this is the one screen with no data on it.
-- [ ] **Step 3: a11y at 390 and 1440, then commit** — `feat(web): a landing page worth the first ten seconds`
+- [x] **Step 1: Update `landing-page.test.tsx`** for whatever structure changes; the demo-button ordering assertion must survive untouched.
+- [x] **Step 2: Rebuild the hero.** Public body text is 16px minimum. `--decorative` may be used generously here; this is the one screen with no data on it.
+- [x] **Step 3: a11y at 390 and 1440, then commit** — `feat(web): a landing page worth the first ten seconds`
+
+**The theme toggle deliberately does not go here.** `landing-page.test.tsx` asserts the page has exactly three buttons and that every link follows them, which encodes W10's rule that the demo doors are the first thing a recruiter reaches. A header toggle would take that first tab stop. Since Task 6 restored `system` as the default, a dark-mode visitor already gets a dark landing page without touching a control, so the toggle buys nothing here and costs the one constraint this screen exists to protect. A test now pins that: no banner landmark, no theme button.
+
+**Two things the visual suite caught that review would not have.**
+
+- `h-auto` on the role buttons did not override `sm:h-9` — tailwind-merge cannot collapse a bare utility against a breakpoint-prefixed one, so every button clipped its own hint text at 640px and above. Invisible on mobile, obvious at 1440. Fixed with an explicit `sm:h-auto`.
+- The suite reported `patients` and `timeline` as changed by a task that touched neither. They were not regressions: `public-booking.spec.ts` creates a real appointment and a real patient, and Task 6's baselines had been captured *after* a functional run, so they carried that data. **`e2e:visual` now re-seeds before it runs**, which makes the suite independent of whatever the functional suite did to the database. Verified by running the functional suite and then the visual suite: 48 of 48 still pass.
 
 ### Task 8: The booking wizard and manage page
 

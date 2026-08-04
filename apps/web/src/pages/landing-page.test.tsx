@@ -42,6 +42,13 @@ describe("LandingPage", () => {
     }
   })
 
+  it("carries no chrome that would take the first tab stop from the demo buttons", () => {
+    mount()
+
+    expect(screen.queryByRole("button", { name: /theme/i })).not.toBeInTheDocument()
+    expect(screen.queryByRole("banner")).not.toBeInTheDocument()
+  })
+
   it("keeps the demo buttons primary and the two doors secondary", () => {
     mount()
 

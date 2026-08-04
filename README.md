@@ -47,6 +47,7 @@ Every headline claim below is held up by a named test. If a claim stops being tr
 | The demo reset cannot touch a real tenant | `apps/api/test/demo-reset.spec.ts` — the guard is mutation-tested |
 | Keyboard users can skip the navigation, and a focused appointment is never hidden behind the sticky header | `apps/web/e2e/a11y.spec.ts` — two WCAG 2.2 criteria axe does not check, asserted in a real browser |
 | No accessibility regressions | `apps/web/e2e/a11y.spec.ts` — axe at 390px and 1440px, failing on any serious or critical violation |
+| A password hash cannot leave the database by accident | `apps/api/test/staff.spec.ts` — the Prisma client omits it globally, so a query has to ask for it by name; removing the omission turns the test red |
 | No patient data reaches Sentry | `apps/api/test/sentry-scrub.spec.ts` — bodies, query strings, headers and nested payloads |
 | A dentist cannot see or touch another dentist's schedule | `apps/api/test/dentist-scope.spec.ts` — the list filter and the `NOT_YOUR_APPOINTMENT` refusal, both mutation-tested |
 | Sixty patients racing for one slot yield exactly one booking | `apps/api/scripts/load/booking-contention.js` — k6 drives 60 concurrent bookings of the same slot over HTTP; the thresholds fail if nobody books and if two do. Numbers in [docs/benchmarks/load.md](docs/benchmarks/load.md) |

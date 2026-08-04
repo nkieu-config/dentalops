@@ -9,7 +9,14 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
 
   constructor() {
     const url = process.env.DATABASE_URL
-    super(url ? { datasourceUrl: withPoolLimit(url) } : {})
+    super({
+      ...(url ? { datasourceUrl: withPoolLimit(url) } : {}),
+      // Nothing may read a password hash unless it says so. Every user query
+      // that reaches a client already passes an explicit select, but that is a
+      // rule people have to remember on every new query; this is the same
+      // guarantee without the remembering. AuthService.login opts back in.
+      omit: { user: { passwordHash: true } }
+    })
   }
 
   readonly scoped = this.$extends(tenantExtension)

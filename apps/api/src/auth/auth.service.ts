@@ -91,7 +91,8 @@ export class AuthService {
         email: dto.email.toLowerCase(),
         isActive: true,
         tenant: { slug: dto.clinicSlug }
-      }
+      },
+      omit: { passwordHash: false }
     })
     const valid = user && (await argon2.verify(user.passwordHash, dto.password))
     if (!valid) throw new AppException(401, "INVALID_CREDENTIALS", "Wrong clinic, email, or password")

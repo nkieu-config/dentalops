@@ -200,4 +200,16 @@ describe("POST /staff", () => {
     })
     expectStatus(res, 400)
   })
+
+  it("cannot hand out a password hash even to code that forgets to select", async () => {
+    const tenant = await prisma.tenant.findUniqueOrThrow({ where: { slug: slugA } })
+    const anyone = await prisma.user.findFirstOrThrow({ where: { tenantId: tenant.id } })
+    expect(anyone).not.toHaveProperty("passwordHash")
+
+    const declared = await prisma.user.findFirstOrThrow({
+      where: { tenantId: tenant.id },
+      omit: { passwordHash: false }
+    })
+    expect(typeof declared.passwordHash).toBe("string")
+  })
 })

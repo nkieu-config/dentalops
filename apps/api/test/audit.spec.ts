@@ -51,7 +51,10 @@ describe("audit log", () => {
     const tenant = await prisma.tenant.findUniqueOrThrow({ where: { slug } })
     tenantId = tenant.id
     const passwordHash = (
-      await prisma.user.findFirstOrThrow({ where: { tenantId: tenant.id } })
+      await prisma.user.findFirstOrThrow({
+        where: { tenantId: tenant.id },
+        omit: { passwordHash: false }
+      })
     ).passwordHash
     const dentist = await prisma.user.create({
       data: {

@@ -46,7 +46,10 @@ describe("dentist scope", () => {
 
     const tenant = await prisma.tenant.findUniqueOrThrow({ where: { slug } })
     const passwordHash = (
-      await prisma.user.findFirstOrThrow({ where: { tenantId: tenant.id } })
+      await prisma.user.findFirstOrThrow({
+        where: { tenantId: tenant.id },
+        omit: { passwordHash: false }
+      })
     ).passwordHash
 
     const dentistA = await prisma.user.create({

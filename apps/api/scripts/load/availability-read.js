@@ -1,16 +1,6 @@
 import http from "k6/http"
 import { check } from "k6"
 
-// Three connection audits capped pools that had been left at their defaults:
-// Prisma to 5 (it was sizing itself from the host's cpu count), MongoDB to 10
-// (it was on the driver default of 100). Smaller pools are right for a free
-// tier, but a pool that is too small stops being thrift and starts being a
-// queue. This holds a steady arrival rate against the read path to show which
-// one it is.
-//
-// Local only. On the deployed free instance this would measure Render's cpu
-// throttling instead.
-
 const BASE = __ENV.BASE_URL || "http://localhost:3001"
 const API = `${BASE}/api/v1`
 const RATE = Number(__ENV.RATE || 40)
@@ -28,7 +18,6 @@ export const options = {
   },
   thresholds: {
     http_req_failed: ["rate==0"],
-    // A pool acting as a queue shows up as a tail far above the median.
     http_req_duration: ["p(50)<150", "p(95)<600", "p(99)<1200"]
   }
 }

@@ -2,15 +2,6 @@ import http from "k6/http"
 import { check } from "k6"
 import { Counter } from "k6/metrics"
 
-// The project's headline claim is that a double-booking is unrepresentable
-// rather than unlikely. appointments.spec.ts proves it with 20 concurrent
-// requests inside one process; this drives it from outside, over HTTP, with
-// every virtual user racing for the same slot at once.
-//
-// Point it at a local stack, never at the free-tier deployment: Render gives
-// the API a tenth of a CPU, so a load test there measures the host's
-// throttling rather than the application's behaviour.
-
 const BASE = __ENV.BASE_URL || "http://localhost:3001"
 const API = `${BASE}/api/v1`
 const RACERS = Number(__ENV.RACERS || 60)
@@ -31,12 +22,27 @@ export const options = {
     }
   },
   thresholds: {
-    // The whole point: the database lets exactly one of them through.
     appointments_created: ["count>0", "count<2"],
     unexpected_status: ["count==0"],
     http_req_failed: ["rate==0"],
     http_req_duration: ["p(95)<2000"]
   }
+}
+
+const SEARCH_HORIZON_DAYS = 21
+
+const firstSlotOnADayThatStillHasOne = ({ auth, branchId, serviceId }) => {
+  for (let day = 2; day <= SEARCH_HORIZON_DAYS; day++) {
+    const from = new Date(Date.now() + day * 24 * 3600_000).toISOString()
+    const to = new Date(Date.now() + (day + 1) * 24 * 3600_000).toISOString()
+    const slots = http
+      .get(`${API}/availability?serviceId=${serviceId}&branchId=${branchId}&from=${from}&to=${to}`, auth)
+      .json("slots")
+    if (slots && slots.length > 0) return slots[0]
+  }
+  throw new Error(
+    `every day for the next ${SEARCH_HORIZON_DAYS} is fully booked; reseed the demo tenant`
+  )
 }
 
 export function setup() {
@@ -54,19 +60,7 @@ export function setup() {
   const patients = http.get(`${API}/patients?limit=1`, auth).json()
   const patientId = patients.items[0].id
 
-  // Each run books one of the demo tenant's free slots, so a fixed window
-  // empties out after a few runs and the script stops being repeatable. Walk
-  // forward until a day still has something free.
-  let target = null
-  for (let day = 2; day <= 21 && !target; day++) {
-    const from = new Date(Date.now() + day * 24 * 3600_000).toISOString()
-    const to = new Date(Date.now() + (day + 1) * 24 * 3600_000).toISOString()
-    const slots = http
-      .get(`${API}/availability?serviceId=${serviceId}&branchId=${branchId}&from=${from}&to=${to}`, auth)
-      .json("slots")
-    if (slots && slots.length > 0) target = slots[0]
-  }
-  if (!target) throw new Error("no free slot in the next three weeks; reseed the demo tenant")
+  const target = firstSlotOnADayThatStillHasOne({ auth, branchId, serviceId })
   return { token, branchId, serviceId, patientId, startsAt: target.startsAt, dentistId: target.dentistId }
 }
 

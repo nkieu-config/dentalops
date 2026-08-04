@@ -40,6 +40,11 @@ const expectClean = async (page: Page, context?: string) => {
   expect(report(violations), report(violations)).toBe("")
 }
 
+const signInAndAwaitShell = async (page: Page) => {
+  await signIn(page)
+  await expect(page.locator("main#main")).toBeAttached()
+}
+
 const signIn = async (page: Page) => {
   await page.goto("/")
   await page.getByRole("button", { name: /Try as Owner/ }).click()
@@ -273,9 +278,7 @@ test.describe("what axe cannot see", () => {
 
 test.describe("wcag 2.2 checks axe does not make", () => {
   test("a skip link is the first thing keyboard focus reaches", async ({ page }) => {
-    await signIn(page)
-    // signIn only waits for the url; the shell is a lazy chunk behind Suspense.
-    await expect(page.locator("main#main")).toBeAttached()
+    await signInAndAwaitShell(page)
     await page.locator("body").press("Tab")
 
     const firstStop = await page.evaluate(() => document.activeElement?.textContent ?? "")

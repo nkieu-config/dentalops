@@ -34,8 +34,16 @@ export const APP_SCREENS: Screen[] = [
   { name: "timeline", path: "/app/timeline", auth: "owner" },
   { name: "roster", path: "/app/roster", auth: "owner" },
   { name: "patients", path: "/app/patients", auth: "owner" },
-  { name: "activity", path: "/app/activity", auth: "owner" },
   { name: "settings", path: "/app/settings", auth: "owner" }
 ]
+
+export const UNSNAPSHOTTABLE = [
+  {
+    name: "activity",
+    path: "/app/activity",
+    reason:
+      "The audit feed photographs the run that photographs it. Every visit this suite makes to /app/roster appends an entry, so the list grows by eight rows per full run and every row below shifts. Masking timestamps makes it worse, not better, because the row count is what moves. It is covered by e2e/a11y.spec.ts and by the empty and error states in /dev/ui."
+  }
+] as const
 
 export const THEME_STORAGE_KEY = "dentalops-theme"

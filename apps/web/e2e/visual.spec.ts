@@ -25,11 +25,12 @@ const signIn = async (page: Page) => {
 
 const shoot = async (page: Page, name: string) => {
   await page.waitForLoadState("networkidle")
+  await page.evaluate(() => document.fonts.ready)
   await expect(page).toHaveScreenshot(`${name}.png`, {
     fullPage: true,
     animations: "disabled",
-    mask: [page.getByTestId("demo-banner")],
-    maxDiffPixelRatio: 0.01
+    mask: [page.getByTestId("demo-banner"), page.locator('[data-testid^="countdown-"]')],
+    maxDiffPixels: 0
   })
 }
 

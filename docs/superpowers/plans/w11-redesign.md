@@ -296,7 +296,31 @@ Every screen will differ — that is the point. Read the diffs as a review of th
 - **Cards now separate from the page at all.** Previously `--card` and `--background` were both `#ffffff`, so a card was defined only by its border. White on porcelain gives a real, if slight, edge.
 - **The 30-minute-card clipping is unchanged**, as expected — it is a layout bug, not a colour one, and belongs to Task 12.
 
-**Note for later phases:** `maxDiffPixelRatio: 0.01` is too loose to trust as pass/fail. It absorbed a whole-app font change on text-light screens in Task 3 and 7 screens of a whole-app palette change here. It is harmless while the diffs are being read by eye, but before Phase B leans on the suite's verdict rather than its images, the threshold should come down.
+**Note for later phases:** `maxDiffPixelRatio: 0.01` is too loose to trust as pass/fail. It absorbed a whole-app font change on text-light screens in Task 3 and 7 screens of a whole-app palette change here. **Investigated before Phase B — see "The threshold was the wrong question" below.**
+
+---
+
+## The threshold was the wrong question
+
+Asked before Phase B: should the tolerance come down? Measuring first turned the question inside out.
+
+**The experiment.** Set `maxDiffPixels: 0`, change nothing at all, re-run. If the tolerance were merely mis-set, an unchanged app would still pass. Instead **17 of 48 tests failed** — timeline at every width, booking at 768 and up, `/dev/ui` at three. The suite had a noise floor of its own, and `timeline-375` sat at ratio **0.03**, three times the tolerance it was being judged by. Tuning a number was never going to fix that.
+
+**Three causes, found by looking at the diff images rather than the counts.**
+
+| Cause | Evidence | Size | Fix |
+|---|---|---|---|
+| The webfont finishes loading at a different moment each run | Every glyph outlined in the diff, content identical, positions identical — sub-pixel rasterisation, not different data | ~4,500–5,450 px on booking and timeline | `await page.evaluate(() => document.fonts.ready)` before every shot |
+| A live countdown ticks on `/dev/ui` | `countdown-banner.tsx` runs `setInterval(…, 1000)`, and the gallery renders three of them | 44–77 px | mask `[data-testid^="countdown-"]` |
+| The activity feed records the run that photographs it | This suite visits `/app/roster` eight times per run; each visit appends an audit row, so the list grows and everything below it shifts | 1,566 px, and **29,096–115,555 px once timestamps were masked** — masking made it worse because the row *count* is what moves | excluded from the suite, with the reason recorded in `screens.ts` |
+
+The first was the whole ballgame: `document.fonts.ready` alone removed every pixel of booking and timeline noise. The middle one was cosmetic. The third is not a tolerance problem at all — a screen cannot be screenshot-tested against a log the test itself writes to, at any threshold.
+
+**Result: 48 of 48 pass at `maxDiffPixels: 0`, verified across a re-seed.** The suite is now byte-deterministic, so the tolerance is not merely lower — it is gone, and any single changed pixel on nine screens across four widths and both themes now fails the run.
+
+**What this changes for Phase B.** The suite graduates from a review aid to a real regression detector. That matters most for exactly the cross-contamination Phase B risks: Task 6 changes the shell every authenticated screen shares, and Task 9 changes the `auth-form` primitives three screens use. Those are the bugs a loose threshold would have hidden.
+
+**What it does not fix.** The baselines are still tied to the calendar — `nextMonday()` moves each week and the seed anchors its data to `new Date()`. Determinism holds within a day, not across weeks, so a stale-baseline failure still means "regenerate", not "regression". And `activity` now has no screenshot coverage; it keeps its a11y coverage and its states are still reviewable in `/dev/ui`.
 
 - [x] **Step 7: Commit**
 
@@ -537,7 +561,7 @@ pnpm --filter @dentalops/web e2e; echo "e2e exit=$?"
 
 1. Every screen renders in ink-on-porcelain with Plus Jakarta Sans actually loaded — verified by the font test, not by eye.
 2. `verify:contrast` passes all 92 pairs and is wired into the `test` task CI runs.
-3. Screenshot baselines exist and are approved for every screen × 4 widths × 2 themes.
+3. Screenshot baselines exist and are approved for nine screens × 4 widths × 2 themes, and the suite passes at `maxDiffPixels: 0` across a re-seed. `activity` is deliberately excluded — see `e2e/screens.ts` for why.
 4. `e2e/a11y.spec.ts` green at 390px and 1440px with no serious or critical violations.
 5. All four existing e2e specs green: public booking, drag-reschedule, roster violation, a11y.
 6. Lighthouse mobile on `/book/demo-clinic` at **performance ≥ 93 and accessibility 100**, and **CLS under 0.1**. The performance floor is 93, not the 95 recorded in Task 1: that measurement was taken while the webfont silently failed to load, so it was never a number a page rendering its intended typeface could match. Task 3 measured 93 / 94 / 94 with the font actually loading, and CLS unmoved at 0.088. Accessibility and CLS are unchanged floors and are not negotiable.

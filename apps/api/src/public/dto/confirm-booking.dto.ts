@@ -1,17 +1,12 @@
 import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger"
-import {
-  IsEmail,
-  IsOptional,
-  IsString,
-  IsUUID,
-  Matches,
-  MaxLength,
-  MinLength
-} from "class-validator"
+import { IsEmail, IsOptional, IsString, Matches, MaxLength, MinLength } from "class-validator"
+import { HOLD_ID_MESSAGE, HOLD_ID_PATTERN, MAX_HOLD_ID_LENGTH } from "../../holds/hold-id"
 
 export class ConfirmBookingDto {
   @ApiProperty()
-  @IsUUID()
+  @IsString()
+  @MaxLength(MAX_HOLD_ID_LENGTH)
+  @Matches(HOLD_ID_PATTERN, { message: HOLD_ID_MESSAGE })
   holdId!: string
 
   @ApiProperty()

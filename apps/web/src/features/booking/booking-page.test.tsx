@@ -15,6 +15,7 @@ const serviceId = "5f9619ff-8b86-4d01-b42d-00cf4fc964ff"
 const anong = "2f9619ff-8b86-4d01-b42d-00cf4fc964ff"
 const somchai = "8f9619ff-8b86-4d01-b42d-00cf4fc964ff"
 const holdId = "3f9619ff-8b86-4d01-b42d-00cf4fc964ff"
+const signedHoldId = "eyJhbGciOiJIUzI1NiJ9.eyJwdXJwb3NlIjoiaG9sZCJ9.qA-3_uZ0hSdEXAMPLEsig"
 const patientId = "6f9619ff-8b86-4d01-b42d-00cf4fc964ff"
 const appointmentId = "4f9619ff-8b86-4d01-b42d-00cf4fc964ff"
 
@@ -323,6 +324,50 @@ describe("BookingPage", () => {
       "/manage/header.payload.signature"
     )
     expect(screen.queryByTestId("hold-countdown")).not.toBeInTheDocument()
+  })
+
+  it("books on a signed hold exactly as it does on a redis one", async () => {
+    server.use(
+      ...handlers({
+        holdResponse: () =>
+          HttpResponse.json(
+            { holdId: signedHoldId, expiresAt: new Date(Date.now() + 300_000).toISOString() },
+            { status: 201 }
+          )
+      })
+    )
+    const user = mount()
+    await walkToSlots(user)
+    await user.click(screen.getByRole("button", { name: "10:30" }))
+    await screen.findByTestId("hold-countdown")
+    await fillDetails(user)
+
+    await user.click(screen.getByRole("button", { name: "Confirm booking" }))
+
+    expect(await screen.findByText("You are booked")).toBeInTheDocument()
+    expect(recorded.confirms).toEqual([
+      { holdId: signedHoldId, name: "Napat Chai", phone: "0812345678" }
+    ])
+  })
+
+  it("releases a signed hold through the same delete route", async () => {
+    server.use(
+      ...handlers({
+        holdResponse: () =>
+          HttpResponse.json(
+            { holdId: signedHoldId, expiresAt: new Date(Date.now() + 300_000).toISOString() },
+            { status: 201 }
+          )
+      })
+    )
+    const user = mount()
+    await walkToSlots(user)
+    await user.click(screen.getByRole("button", { name: "10:30" }))
+    await screen.findByTestId("hold-countdown")
+
+    await user.click(screen.getByRole("button", { name: "Back" }))
+
+    await waitFor(() => expect(recorded.released).toEqual([signedHoldId]))
   })
 
   it("keeps the phone number the only gate on confirming", async () => {

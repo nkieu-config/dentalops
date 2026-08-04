@@ -18,6 +18,6 @@ export class RedisModule implements OnModuleDestroy {
   constructor(@Inject(REDIS) private readonly redis: Redis) {}
 
   async onModuleDestroy() {
-    await this.redis.quit()
+    await this.redis.quit().catch(() => this.redis.disconnect())
   }
 }

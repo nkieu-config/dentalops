@@ -62,6 +62,7 @@ export { auditActorSchema, auditEntrySchema, auditPageSchema } from "./audit"
 export type { AuditActor, AuditEntry, AuditPage } from "./audit"
 export {
   publicClinicSchema,
+  holdIdSchema,
   publicHoldSchema,
   publicAppointmentSchema,
   publicBookingSchema

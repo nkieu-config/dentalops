@@ -1,5 +1,6 @@
 import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger"
-import { IsOptional, IsUUID, Matches } from "class-validator"
+import { IsOptional, IsString, IsUUID, Matches, MaxLength } from "class-validator"
+import { HOLD_ID_MESSAGE, HOLD_ID_PATTERN, MAX_HOLD_ID_LENGTH } from "../../holds/hold-id"
 
 export class QueryPublicAvailabilityDto {
   @ApiProperty()
@@ -21,6 +22,8 @@ export class QueryPublicAvailabilityDto {
 
   @ApiPropertyOptional()
   @IsOptional()
-  @IsUUID()
+  @IsString()
+  @MaxLength(MAX_HOLD_ID_LENGTH)
+  @Matches(HOLD_ID_PATTERN, { message: HOLD_ID_MESSAGE })
   exceptHoldId?: string
 }

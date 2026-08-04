@@ -1,16 +1,7 @@
-import {
-  Body,
-  Controller,
-  Delete,
-  Get,
-  HttpCode,
-  Param,
-  ParseUUIDPipe,
-  Post,
-  Query
-} from "@nestjs/common"
+import { Body, Controller, Delete, Get, HttpCode, Param, Post, Query } from "@nestjs/common"
 import { ApiTags } from "@nestjs/swagger"
 import { Public } from "../auth/public.decorator"
+import { ParseHoldIdPipe } from "../holds/hold-id"
 import { ConfirmBookingDto } from "./dto/confirm-booking.dto"
 import { CreateHoldDto } from "./dto/create-hold.dto"
 import { QueryPublicAvailabilityDto } from "./dto/query-public-availability.dto"
@@ -39,7 +30,7 @@ export class PublicController {
 
   @Delete("holds/:holdId")
   @HttpCode(204)
-  async release(@Param("holdId", ParseUUIDPipe) holdId: string) {
+  async release(@Param("holdId", ParseHoldIdPipe) holdId: string) {
     await this.publicService.releaseHold(holdId)
   }
 

@@ -17,8 +17,15 @@ export const publicClinicSchema = z.object({
   dentists: z.array(z.object({ id: z.uuid(), name: z.string() }))
 })
 
+export const holdIdSchema = z
+  .string()
+  .max(1024)
+  .regex(
+    /^([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}|[\w-]+\.[\w-]+\.[\w-]+)$/i
+  )
+
 export const publicHoldSchema = z.object({
-  holdId: z.uuid(),
+  holdId: holdIdSchema,
   expiresAt: z.iso.datetime()
 })
 

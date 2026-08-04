@@ -42,6 +42,7 @@ Every headline claim below is held up by a named test. If a claim stops being tr
 | Shrinking a shift names the appointments it strands | `apps/api/test/roster-validate.spec.ts` — a dry run that writes nothing and returns the exact appointment ids |
 | A phone booking reaches the front desk over Socket.IO | `apps/web/e2e/public-booking.spec.ts` — two browser contexts, and the desk is never reloaded |
 | Holds are a courtesy; the constraint is the authority | `apps/api/test/public-booking.spec.ts` — staff win the race, the patient's confirm gets 409 and the wizard recovers |
+| A Redis outage costs the courtesy, not the booking | `apps/api/test/booking-without-redis.spec.ts` — the app runs against a dead Redis; a patient books end to end on a signed hold and two racing patients still cannot double-book |
 | The cache cannot serve a stale answer | `apps/api/test/availability-cache.spec.ts` — six rules including tenant isolation and Redis being down |
 | The demo reset cannot touch a real tenant | `apps/api/test/demo-reset.spec.ts` — the guard is mutation-tested |
 | No accessibility regressions | `apps/web/e2e/a11y.spec.ts` — axe at 390px and 1440px, failing on any serious or critical violation |
@@ -106,8 +107,8 @@ pnpm build       # turbo build, respecting the dependency graph
 pnpm --filter @dentalops/web e2e   # playwright, all three journeys
 ```
 
-`pnpm test` runs **644 tests across 89 files** — 245 Jest specs against real Postgres, Redis and
-MongoDB in Docker, 335 Vitest tests in the web app, 60 in the availability engine and 4 in contracts.
+`pnpm test` runs **667 tests across 92 files** — 263 Jest specs against real Postgres, Redis and
+MongoDB in Docker, 337 Vitest tests in the web app, 60 in the availability engine and 7 in contracts.
 `pnpm --filter @dentalops/web e2e` adds **21 Playwright checks**: the three journeys below plus the
 accessibility sweep.
 

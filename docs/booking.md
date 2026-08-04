@@ -99,6 +99,31 @@ front desk — trades a real, present patient for a maybe.
 The same recovery state covers a lapsed hold (409 `HOLD_EXPIRED`), so both
 failure modes are one screen the patient can act on.
 
+### When Redis is unreachable
+
+The courtesy is the only part of booking that needs Redis, so an outage costs
+the courtesy and nothing else. `acquire` falls back to a **signed hold**: a JWT
+with `purpose: "hold"` carrying the tenant, dentist, service, branch and window
+the Redis record would have carried, and the same 300s life. `read` verifies it
+instead of reading Redis, `release` is a no-op, and confirm cannot tell the two
+apart. Availability stops subtracting holds, because a hold we cannot read is a
+hold we cannot honour, and a Redis hold id issued before the outage now reads
+as gone — which is the `HOLD_EXPIRED` recovery the wizard already has.
+
+The consequence is the courtesy rule arrived at from the other direction: two
+patients can reach the confirm step for the same slot, and `EXCLUDE USING GIST`
+rejects the loser exactly as it rejects the patient a receptionist beat. No
+field in the response says "degraded", because there is nothing the wizard
+would do differently. `apps/api/test/booking-without-redis.spec.ts` points the
+app at a dead Redis and books through it.
+
+The purpose claim is the load-bearing part. Manage tokens, access tokens and
+hold tokens are all signed with `JWT_SECRET`, so each verifier checks the
+purpose it expects and refuses the rest: a manage link cannot be spent as a
+hold, and a hold cannot be spent as a manage link. The cost of the fallback is
+that `holdId` stops being a UUID on the wire, so the DTOs, the release route
+and `publicHoldSchema` accept a UUID or a compact JWS and nothing else.
+
 ### After confirm
 
 Confirm upserts the patient by `(tenantId, phone)` — first name wins, a rename
@@ -115,3 +140,8 @@ Mutating booking routes accept an `Idempotency-Key` header. First call
 executes and stores `{ body }` in Redis for 24 h; replays return the stored
 body with `x-idempotent-replay: true`. Only successes are stored — a failure
 must stay retryable. Keys are scoped per tenant, method, and path.
+
+When Redis cannot answer, the interceptor runs the request without
+deduplication and logs the degradation once rather than once per request. A
+store that is merely unreachable must never be reported as
+`IDEMPOTENCY_IN_FLIGHT`: that turns a retryable outage into a permanent 409.

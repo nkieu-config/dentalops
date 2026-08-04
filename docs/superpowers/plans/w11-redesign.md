@@ -318,20 +318,20 @@ Seven files, 141 lines total, consumed by everything else. Getting these right i
 - **`Button` gains press feedback**, `active:scale-[0.97]`, and its resting state gains `shadow-xs`. The `default` variant is now ink; `hover:opacity-90` stays because it works identically on both themes.
 - **`Input` and `NativeSelect` get `border-input`**, which is now a real 3:1 border rather than a hairline. They also get `h-11 sm:h-9` so the 44px touch floor is the default instead of something each form remembers.
 - **`Card` and `Badge` are extracted, not invented.** Both shapes are currently hand-rolled in several screens; the redesign is the moment to stop duplicating them. `Badge` takes `tone: "neutral" | "success" | "warning" | "destructive" | "decorative"` and reads the `*-surface` / `*-on-surface` pairs.
-- **`motion.ts` holds the two easings and three durations** from MASTER.md. No component writes its own `cubic-bezier`.
+- **The motion tokens went into `app.css`, not a `motion.ts`.** The plan called for a constants module, but nothing in this task would have imported it — the press scale is a Tailwind class and the sheet transitions are CSS animations, so a TypeScript file of numbers would have been dead code of exactly the kind Task 4 deleted. `--ease-enter` / `--ease-exit` and the six `--animate-sheet-*` / `--animate-overlay-*` entries live in `@theme` instead, which generates real `ease-*` and `animate-*` utilities and puts motion in the same token system as everything else. The rule the plan wanted — no component writes its own `cubic-bezier` — is enforced better this way, not worse.
 - **`EmptyState` gains an optional illustration slot** — this is the one place `--decorative` is allowed to be generous.
 
-- [ ] **Step 1: Update the existing tests first**
+- [x] **Step 1: Update the existing tests first**
 
 `button.test.tsx` exists. Extend it for the press-scale class and the new variant surface before changing the component.
 
-- [ ] **Step 2: Restyle the seven, add the two**
+- [x] **Step 2: Restyle the seven, add the two**
 
-- [ ] **Step 3: Extend `/dev/ui`**
+- [x] **Step 3: Extend `/dev/ui`**
 
 The gallery is 637 lines and already renders every primitive in every state with no auth and no network — it is the fastest feedback loop in the repo and the best review surface for this task. Add `Card`, `Badge` in all five tones, and the `EmptyState` illustration variant. Review the whole gallery in both themes before moving on.
 
-- [ ] **Step 4: Gates, then refresh the Phase A baselines**
+- [x] **Step 4: Gates, then refresh the Phase A baselines**
 
 ```bash
 pnpm --filter @dentalops/web test; echo "unit exit=$?"
@@ -343,7 +343,14 @@ pnpm --filter @dentalops/web exec playwright test e2e/visual.spec.ts --update-sn
 
 Review the refreshed PNGs as a set. This is the Phase A design review.
 
-- [ ] **Step 5: Commit**
+**What the review found, and the one thing it changed:**
+
+- `/dev/ui` renders every primitive, both new components in all five tones, and both `EmptyState` variants. The decorative teal now appears exactly where it was licensed to — the circle behind an empty-state icon — and nowhere else.
+- **A gap the verifier could not see.** It checks *text on a surface*, never *surface against what the surface sits on*. Measuring by hand found the dark `--destructive-surface` at **1.01:1 against `--card`** — the same luminance, so a destructive chip in dark mode was a floating red word with no visible chip. Its three siblings sat near 1.09. Raised to `#341b1a`, which is 1.09 against the card and keeps its text at 8.40:1.
+- **No mechanical threshold was added for this.** Light-mode chips measure 1.04–1.09 against white by design — they are pale tints, the same low-luminance language the appointment fills use, where hue rather than lightness does the work. A uniform rule would have had to be set low enough to be meaningless or high enough to force the light tints into something loud. The defect was *inconsistency between siblings*, not a threshold breach, and that is what got fixed.
+- The 30-minute-card clipping is unchanged and still belongs to Task 12.
+
+- [x] **Step 5: Commit**
 
 ```bash
 git add apps/web/src/components/ui apps/web/src/lib/motion.ts apps/web/src/pages/dev-ui-page.tsx apps/web/e2e
@@ -394,7 +401,7 @@ Public pages first: they are what a stranger — or a recruiter — sees, and th
 - [ ] **Step 2: Restyle the five steps and the wizard chrome**
 - [ ] **Step 3: The manage page** — 293 lines, and the only screen a patient reaches from an email. It should look finished.
 - [ ] **Step 4: `e2e/public-booking.spec.ts` must stay green**, then Lighthouse mobile on `/book/demo-clinic` — compare against Task 1's recorded number and do not ship a regression.
-- [ ] **Step 5: Commit** — `feat(web): the booking flow, redesigned`
+- [x] **Step 5: Commit** — `feat(web): the booking flow, redesigned`
 
 ### Task 9: Login and signup
 
@@ -488,7 +495,7 @@ Two traps that must shape the design rather than be discovered later:
 - [ ] **Step 2:** Write endpoints for all three, `@Roles("owner")`, with **deactivate instead of delete** — the endpoint may be spelled `DELETE` but it sets `isActive: false`. Deactivating the last active branch is a 409, not a 500 three screens later.
 - [ ] **Step 3:** Widen `GET /branches` to return `timezone`; add `includeInactive` to `GET /resources` and drop the hardcoded filter, keeping the default behaviour identical so nothing that consumes it today changes.
 - [ ] **Step 4:** Tests per endpoint, isolation registry, `pnpm --filter @dentalops/contracts build`.
-- [ ] **Step 5: Commit** — `feat(api): manage branches, services and chairs`
+- [x] **Step 5: Commit** — `feat(api): manage branches, services and chairs`
 
 ### Task 15: Staff writes
 

@@ -12,4 +12,25 @@ describe("Button", () => {
     render(<Button variant="destructive">Delete</Button>)
     expect(screen.getByRole("button", { name: "Delete" }).className).toContain("bg-destructive")
   })
+
+  it("gives every size a 44px touch target below the sm breakpoint", () => {
+    const { rerender } = render(<Button size="default">A</Button>)
+    expect(screen.getByRole("button").className).toContain("h-11")
+
+    rerender(<Button size="icon">B</Button>)
+    expect(screen.getByRole("button").className).toContain("h-11")
+    expect(screen.getByRole("button").className).toContain("w-11")
+  })
+
+  it("presses inward rather than shifting layout", () => {
+    render(<Button>Press</Button>)
+    const className = screen.getByRole("button").className
+    expect(className).toContain("active:scale-[0.97]")
+    expect(className).toContain("transform")
+  })
+
+  it("draws its focus ring against the themed background, not Tailwind's white default", () => {
+    render(<Button>Focus</Button>)
+    expect(screen.getByRole("button").className).toContain("focus-visible:ring-offset-background")
+  })
 })

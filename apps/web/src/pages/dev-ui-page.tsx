@@ -10,10 +10,13 @@ import { AlertTriangle, CalendarX, ServerCrash } from "lucide-react"
 import { useMemo, useState } from "react"
 import { OfflineBannerView } from "../components/shell/offline-banner"
 import { SlotPickerView, type SlotPickerState } from "../components/slot-picker"
+import { Badge } from "../components/ui/badge"
 import { Button } from "../components/ui/button"
+import { Card, CardBody, CardDescription, CardHeader, CardTitle } from "../components/ui/card"
 import { EmptyState } from "../components/ui/empty-state"
 import { Input } from "../components/ui/input"
 import { Label } from "../components/ui/label"
+import { NativeSelect } from "../components/ui/native-select"
 import { Skeleton } from "../components/ui/skeleton"
 import { CountdownBanner } from "../features/booking/countdown-banner"
 import { SlotStep } from "../features/booking/steps/slot-step"
@@ -449,9 +452,46 @@ export const DevUiPage = () => (
       <div className="max-w-xs space-y-2">
         <Label htmlFor="demo-input">Label</Label>
         <Input id="demo-input" placeholder="Input" />
+        <NativeSelect id="demo-select" defaultValue="chair-1">
+          <option value="chair-1">Chair 1</option>
+          <option value="chair-2">Chair 2</option>
+        </NativeSelect>
         <Skeleton className="h-9 w-full" />
       </div>
+      <div className="flex flex-wrap items-center gap-2">
+        <Badge>Neutral</Badge>
+        <Badge tone="success">Confirmed</Badge>
+        <Badge tone="warning">No show</Badge>
+        <Badge tone="destructive">Conflict</Badge>
+        <Badge tone="decorative">New</Badge>
+      </div>
+      <div className="grid gap-3 sm:grid-cols-2">
+        <Card>
+          <CardHeader>
+            <CardTitle>Sukhumvit</CardTitle>
+            <CardDescription>Open 09:00–20:00, Monday to Saturday</CardDescription>
+          </CardHeader>
+          <CardBody className="text-sm text-muted-foreground">
+            Three chairs, six services, four dentists rostered this week.
+          </CardBody>
+        </Card>
+        <Card>
+          <CardHeader>
+            <CardTitle>Ladprao</CardTitle>
+            <CardDescription>Open 10:00–18:00, Tuesday to Sunday</CardDescription>
+          </CardHeader>
+          <CardBody className="text-sm text-muted-foreground">
+            Two chairs, six services, two dentists rostered this week.
+          </CardBody>
+        </Card>
+      </div>
       <EmptyState icon={CalendarX} title="No appointments" hint="Drag on the grid to create one" />
+      <EmptyState
+        icon={CalendarX}
+        title="Nothing booked on this day yet"
+        hint="Drag anywhere on the grid to start an appointment, or pick a patient to book for."
+        action={<Button>Add an appointment</Button>}
+      />
     </section>
     <section className="space-y-3">
       <h2 className="text-lg font-semibold">AppointmentCard</h2>

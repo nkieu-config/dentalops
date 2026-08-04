@@ -141,7 +141,7 @@ Paste into `apps/web/src/app.css` in W4. Values are Tailwind palette stops, so c
 
   --destructive: #f87171;
   --destructive-foreground: #450a0a;
-  --destructive-surface: #2a1615;
+  --destructive-surface: #341b1a;
   --destructive-on-surface: #fca5a5;
   --warning: #fbbf24;
   --warning-foreground: #451a03;

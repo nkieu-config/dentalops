@@ -30,7 +30,9 @@ import {
 } from "./wizard-reducer"
 
 const stepDot = (index: number, current: number) =>
-  index <= current ? "h-2.5 w-2.5 rounded-full bg-primary" : "h-2.5 w-2.5 rounded-full bg-border"
+  index <= current
+    ? "h-1.5 flex-1 rounded-full bg-primary transition-colors duration-150"
+    : "h-1.5 flex-1 rounded-full bg-border transition-colors duration-150"
 
 export const BookingPage = () => {
   const { clinicSlug = "" } = useParams()

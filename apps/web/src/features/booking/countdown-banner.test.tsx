@@ -81,3 +81,41 @@ describe("CountdownBanner", () => {
     expect(screen.getByText("4:00").className).toContain("tabular-nums")
   })
 })
+
+describe("CountdownBanner does not lean on colour", () => {
+  beforeEach(() => {
+    vi.useFakeTimers()
+    vi.setSystemTime(NOW)
+  })
+
+  afterEach(() => {
+    vi.useRealTimers()
+  })
+
+  it("marks each stage with its own icon and weight, not only its own hue", () => {
+    mountAt(90_000)
+    const banner = () => screen.getByTestId("hold-countdown")
+    const glyph = () => banner().querySelector("svg")?.innerHTML ?? ""
+    const bold = () => banner().className.includes("font-semibold")
+
+    const calm = glyph()
+    expect(bold()).toBe(false)
+
+    tick(45_000)
+    expect(banner()).toHaveAttribute("data-urgency", "urgent")
+    const urgent = glyph()
+    expect(urgent).not.toBe(calm)
+    expect(bold()).toBe(true)
+
+    tick(60_000)
+    expect(banner()).toHaveAttribute("data-urgency", "expired")
+    expect(glyph()).not.toBe(urgent)
+  })
+
+  it("never mixes a semantic colour with opacity, which no contrast check can verify", () => {
+    mountAt(90_000)
+    expect(screen.getByTestId("hold-countdown").className).not.toMatch(
+      /(bg|text|border)-(warning|destructive|success)\//
+    )
+  })
+})

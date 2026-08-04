@@ -1,4 +1,5 @@
-import { Timer } from "lucide-react"
+import { AlarmClock, Timer, TimerOff } from "lucide-react"
+import type { LucideIcon } from "lucide-react"
 import { useEffect, useRef, useState } from "react"
 import { fmtTime } from "../timeline/lib/geometry"
 
@@ -17,10 +18,19 @@ const remainingLabel = (remainingMs: number): string => {
   return `${Math.floor(total / 60)}:${String(total % 60).padStart(2, "0")}`
 }
 
-const tone: Record<CountdownUrgency, string> = {
-  normal: "border-warning/40 bg-warning/10 text-warning",
-  urgent: "border-destructive/40 bg-destructive/10 text-destructive",
-  expired: "border-border bg-muted text-muted-foreground"
+const tone: Record<CountdownUrgency, { className: string; icon: LucideIcon }> = {
+  normal: {
+    className: "border-warning bg-warning-surface text-warning-on-surface",
+    icon: Timer
+  },
+  urgent: {
+    className: "border-destructive bg-destructive-surface text-destructive-on-surface font-semibold",
+    icon: AlarmClock
+  },
+  expired: {
+    className: "border-border bg-muted text-muted-foreground",
+    icon: TimerOff
+  }
 }
 
 export const CountdownBanner = ({ expiresAt, startsAt, onExpire }: CountdownBannerProps) => {
@@ -44,14 +54,16 @@ export const CountdownBanner = ({ expiresAt, startsAt, onExpire }: CountdownBann
     if (expired) expire.current()
   }, [expired])
 
+  const { className, icon: Icon } = tone[urgency]
+
   return (
     <div
       role="status"
       data-testid="hold-countdown"
       data-urgency={urgency}
-      className={`flex items-center gap-2 rounded-md border px-3 py-2 text-base ${tone[urgency]}`}
+      className={`flex items-center gap-2 rounded-md border px-3 py-2 text-base ${className}`}
     >
-      <Timer className="h-5 w-5 shrink-0" aria-hidden />
+      <Icon className="h-5 w-5 shrink-0" aria-hidden />
       {expired ? (
         <span>Your hold expired</span>
       ) : (

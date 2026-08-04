@@ -429,11 +429,17 @@ Public pages first: they are what a stranger — or a recruiter — sees, and th
 - **⚡ Any available stays first** in the dentist step. W6 recorded why, and the reason has not changed.
 - **The hold-expired state stays a full replacement of the grid**, never a toast.
 
-- [ ] **Step 1: Run the existing tests, note which assert on classes** — restyle those first so the rest of the work is not fighting red tests.
-- [ ] **Step 2: Restyle the five steps and the wizard chrome**
-- [ ] **Step 3: The manage page** — 293 lines, and the only screen a patient reaches from an email. It should look finished.
-- [ ] **Step 4: `e2e/public-booking.spec.ts` must stay green**, then Lighthouse mobile on `/book/demo-clinic` — compare against Task 1's recorded number and do not ship a regression.
+- [x] **Step 1: Run the existing tests, note which assert on classes** — restyle those first so the rest of the work is not fighting red tests.
+- [x] **Step 2: Restyle the five steps and the wizard chrome**
+- [x] **Step 3: The manage page** — 293 lines, and the only screen a patient reaches from an email. It should look finished.
+- [x] **Step 4: `e2e/public-booking.spec.ts` must stay green**, then Lighthouse mobile on `/book/demo-clinic` — compare against Task 1's recorded number and do not ship a regression.
 - [x] **Step 5: Commit** — `feat(web): the booking flow, redesigned`
+
+**The countdown banner was the last of the opacity mixes.** It shipped `bg-warning/10 text-warning`, a hand-mixed tint whose contrast no checker can evaluate because the composited colour exists only at paint time. It now reads `--warning-surface` / `--warning-on-surface`, which the verifier measures. `auth-form.tsx` is the only one left; Task 9 takes it.
+
+**Urgency stopped being a hue change.** Below sixty seconds the banner previously swapped warning for destructive and nothing else, which is colour alone — the thing section 3 forbids and the a11y suite cannot see, because axe has no way to know that two colours mean two states. It now changes icon *and* weight as well, and a test walks all three stages asserting the glyph differs each time.
+
+**Measured, not assumed:** Lighthouse performance 94 against the floor of 93, accessibility 100, CLS unmoved at 0.088. The visual suite reported `booking` and nothing else — the manage page has no screenshot because it needs a live token, so it stays covered by its ten unit tests.
 
 ### Task 9: Login and signup
 

@@ -272,6 +272,8 @@ Single family: **Plus Jakarta Sans** (variable, `wght 200..800`), self-hosted fr
 
 Rules: staff app body is 14px (density); **public booking body is never below 16px** (iOS auto-zoom on focus). Any element rendering a time, duration, count, or price gets `tabular-nums` — non-negotiable, it prevents column jitter.
 
+**Thai renders in the system face, by design.** Plus Jakarta Sans covers Latin, Latin-Extended and Vietnamese — no Thai. Clinic names and any other Thai content fall through to `ui-sans-serif` / `system-ui`, which resolves to a real Thai face on every target platform. The UI is English; adding a Thai webfont would cost bundle weight for content that is incidental. If Thai ever becomes UI language rather than data, this decision gets revisited, not patched.
+
 ### Radius, elevation, motion
 
 - **Radius:** `--radius: 0.625rem` (10px), raised from 6px in W11 — this is a large part of where the

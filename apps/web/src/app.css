@@ -108,7 +108,7 @@
   --radius-md: var(--radius);
   --radius-lg: calc(var(--radius) + 2px);
 
-  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-sans: "Plus Jakarta Sans Variable", ui-sans-serif, system-ui, sans-serif;
 
   --spacing-slot: 1rem;
   --spacing-hour: 4rem;
@@ -119,7 +119,7 @@
   --spacing-bottomnav: 3.5rem;
 }
 
-html { font-feature-settings: "cv11", "tnum"; }
+html { font-feature-settings: "tnum"; }
 
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {

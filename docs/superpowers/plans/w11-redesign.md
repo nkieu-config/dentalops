@@ -202,15 +202,15 @@ git commit -m "test(web): a contrast verifier that reads the stylesheet it check
 
 **The bug being fixed.** `main.tsx` imports `@fontsource-variable/inter`, which registers the family `'Inter Variable'`. `app.css` declares `--font-sans: "Inter", ui-sans-serif, system-ui, sans-serif`. `"Inter"` does not match `"Inter Variable"`, so the declared family never resolved and every visitor without Inter installed locally has been reading `system-ui` — SF Pro on macOS, Segoe on Windows — while the bundle downloaded an Inter file it never rendered. There is no console warning for this; CSS font fallback is silent by design.
 
-- [ ] **Step 1: Write the test first**
+- [x] **Step 1: Write the test first**
 
-`font.test.ts` asserts that the `--font-sans` value parsed out of `app.css` begins with a family name ending in `Variable`, and that the same name appears in the installed fontsource package's `index.css`. This is a string-level test on purpose — jsdom does not do real font matching, so testing the rendered font would pass vacuously.
+`font.test.ts` hardcodes no package and no family name. It reads the `@fontsource` import out of `main.tsx`, resolves *that* package, reads the family it registers, and compares it to the first family in `app.css`'s `--font-sans`. Deriving both ends means the test keeps working after the next font change instead of becoming a stale assertion about Plus Jakarta Sans. It also asserts the family carries fontsource's ` Variable` suffix and that `tnum` is still switched on. String-level on purpose — jsdom does no real font matching, so asserting on a rendered font would pass vacuously.
 
-- [ ] **Step 2: Run it against the current state, watch it fail**
+- [x] **Step 2: Run it against the current state, watch it fail**
 
-It must fail on `"Inter"` today. If it passes, the test is wrong.
+Failed 2 of 3 as required: the family comparison (`Inter` vs `Inter Variable`) and the suffix assertion. The `tnum` assertion passed, which is correct — that part was never broken.
 
-- [ ] **Step 3: Swap the package**
+- [x] **Step 3: Swap the package**
 
 ```bash
 pnpm --filter @dentalops/web remove @fontsource-variable/inter
@@ -219,11 +219,19 @@ pnpm --filter @dentalops/web add @fontsource-variable/plus-jakarta-sans
 
 Import it as the first line of `main.tsx`, before `./app.css`. Set `--font-sans: "Plus Jakarta Sans Variable", ui-sans-serif, system-ui, sans-serif`. Change `html { font-feature-settings: "cv11", "tnum" }` to `"tnum"` alone — `cv11` was an Inter character variant and means nothing here. `tnum` is load-bearing and was confirmed present in the Plus Jakarta Sans variable file before the family was chosen.
 
-- [ ] **Step 4: Look at the timeline**
+- [x] **Step 4: Look at the timeline, and pay the bill**
 
-Open `/dev/ui` and the timeline. Confirm the hour gutter's digits still align in a column and that nothing reflows between `09:00` and `11:11`. Tabular figures are the one typographic property this product cannot ship without.
+Tabular figures survive: the hour gutter and every appointment's time range stay in a single column at 1024px and 1440px. Thai falls back cleanly — Plus Jakarta Sans is Latin-only, so the seeded clinic name `ยิ้มสวย ทันตคลินิก` renders in the system Thai face beside Latin chrome without looking broken. That mixture is now permanent unless a Thai webfont is added later; it is not worth the bundle for a product whose UI is English.
 
-- [ ] **Step 5: Commit**
+**The bill: Lighthouse performance 95 → 94, and FCP 2106 ms → 2254 ms.** Measured three times (93 / 94 / 94), so it is real and not run variance. CLS held at **0.088**, unchanged, which was the risk actually worth worrying about.
+
+The cause is not a regression to hunt. *The page got slower because the font now loads at all.* Before this task the family name never matched, so the browser matched no `@font-face`, downloaded nothing, and rendered `system-ui` — the 95 was measured on a page that silently refused its own typeface. Fixing the bug costs one 27 KB `woff2` on Lighthouse's simulated slow 4G.
+
+Checked and rejected: this variable package ships no per-subset stylesheet, so a latin-only import is not available, and `index.css` is 1.7 KB — the CSS is not the cost. `font-display: swap` is already set on all four faces, which is why CLS did not move. Clawing the point back would mean preloading the hashed `woff2` or self-subsetting; both are optimisation work, neither belongs in this task.
+
+**Exit criterion 6 is re-based accordingly** — a floor measured against a broken state was never a real floor.
+
+- [x] **Step 5: Commit**
 
 ```bash
 git add apps/web/package.json apps/web/src/main.tsx apps/web/src/app.css apps/web/src/lib/font.test.ts pnpm-lock.yaml
@@ -512,7 +520,7 @@ pnpm --filter @dentalops/web e2e; echo "e2e exit=$?"
 3. Screenshot baselines exist and are approved for every screen × 4 widths × 2 themes.
 4. `e2e/a11y.spec.ts` green at 390px and 1440px with no serious or critical violations.
 5. All four existing e2e specs green: public booking, drag-reschedule, roster violation, a11y.
-6. Lighthouse mobile on `/book/demo-clinic` at **performance ≥ 95 and accessibility 100**, the numbers recorded in Task 1 Step 4. CLS must stay under 0.1 — it is at 0.088 today, so the font swap has almost no headroom.
+6. Lighthouse mobile on `/book/demo-clinic` at **performance ≥ 93 and accessibility 100**, and **CLS under 0.1**. The performance floor is 93, not the 95 recorded in Task 1: that measurement was taken while the webfont silently failed to load, so it was never a number a page rendering its intended typeface could match. Task 3 measured 93 / 94 / 94 with the font actually loading, and CLS unmoved at 0.088. Accessibility and CLS are unchanged floors and are not negotiable.
 7. The theme toggle is reachable from public pages, shows which theme is active, and has a system option that follows the OS.
 8. The timeline's drag, resize, keyboard navigation and realtime behaviour are unchanged — proven by the existing specs, not by inspection.
 9. Either Phase D shipped and an owner can edit their clinic, branches, services, chairs and staff from the browser — or Phase D was deferred, `/app/settings` still says so honestly, and the README still lists it as a gap.

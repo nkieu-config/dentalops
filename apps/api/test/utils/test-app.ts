@@ -16,9 +16,11 @@ export const listen = async (app: INestApplication): Promise<Server> => {
 
 export const createTestApp = async (
   builder: TestingModuleBuilder = Test.createTestingModule({ imports: [AppModule] }),
+  options: { globalPrefix?: string } = {}
 ): Promise<TestApp> => {
   const moduleRef = await builder.compile()
   const app = moduleRef.createNestApplication({ forceCloseConnections: true })
+  if (options.globalPrefix) app.setGlobalPrefix(options.globalPrefix)
   app.use(cookieParser())
   app.useGlobalPipes(new ValidationPipe({ whitelist: true, transform: true }))
   return { app, server: await listen(app) }

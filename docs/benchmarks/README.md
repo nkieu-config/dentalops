@@ -282,3 +282,7 @@ a fixed ~0.8 ms of auth and transport outside the interceptor predicts.
   database write produces a stale answer until the 10-minute TTL expires. `availability-cache.spec.ts`
   uses that property deliberately to prove a cache hit, and `availability.spec.ts` was changed to
   create time blocks through `POST /time-blocks` rather than Prisma for exactly this reason.
+
+Concurrency is measured separately in [load.md](load.md): what the API does
+when sixty patients reach for the same slot at once, and how the read path
+behaves under a sustained arrival rate.

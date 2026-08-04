@@ -45,6 +45,7 @@ Every headline claim below is held up by a named test. If a claim stops being tr
 | A Redis outage costs the courtesy, not the booking | `apps/api/test/booking-without-redis.spec.ts` — the app runs against a dead Redis; a patient books end to end on a signed hold and two racing patients still cannot double-book |
 | The cache cannot serve a stale answer | `apps/api/test/availability-cache.spec.ts` — six rules including tenant isolation and Redis being down |
 | The demo reset cannot touch a real tenant | `apps/api/test/demo-reset.spec.ts` — the guard is mutation-tested |
+| Keyboard users can skip the navigation, and a focused appointment is never hidden behind the sticky header | `apps/web/e2e/a11y.spec.ts` — two WCAG 2.2 criteria axe does not check, asserted in a real browser |
 | No accessibility regressions | `apps/web/e2e/a11y.spec.ts` — axe at 390px and 1440px, failing on any serious or critical violation |
 | No patient data reaches Sentry | `apps/api/test/sentry-scrub.spec.ts` — bodies, query strings, headers and nested payloads |
 | A dentist cannot see or touch another dentist's schedule | `apps/api/test/dentist-scope.spec.ts` — the list filter and the `NOT_YOUR_APPOINTMENT` refusal, both mutation-tested |

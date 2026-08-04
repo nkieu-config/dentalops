@@ -270,3 +270,46 @@ test.describe("what axe cannot see", () => {
     }
   })
 })
+
+test.describe("wcag 2.2 checks axe does not make", () => {
+  test("a skip link is the first thing keyboard focus reaches", async ({ page }) => {
+    await signIn(page)
+    // signIn only waits for the url; the shell is a lazy chunk behind Suspense.
+    await expect(page.locator("main#main")).toBeAttached()
+    await page.locator("body").press("Tab")
+
+    const firstStop = await page.evaluate(() => document.activeElement?.textContent ?? "")
+    expect(firstStop).toContain("Skip to the schedule")
+
+    await page.keyboard.press("Enter")
+    await expect(page.locator("main#main")).toBeVisible()
+  })
+
+  test("a focused appointment is not hidden behind the sticky column header", async ({
+    page,
+    request
+  }) => {
+    await signIn(page)
+    await busyDay(page, request)
+
+    const cards = page.locator("[data-appt]")
+    await expect(cards.first()).toBeVisible()
+    const count = Math.min(await cards.count(), 12)
+
+    const headerBottom = await page
+      .locator(".sticky.top-0")
+      .first()
+      .evaluate((el) => el.getBoundingClientRect().bottom)
+
+    for (let i = 0; i < count; i++) {
+      const card = cards.nth(i)
+      await card.focus()
+      const box = await card.boundingBox()
+      if (!box) continue
+      expect(
+        box.y + box.height,
+        `card ${i} sits entirely above the sticky header at ${headerBottom}px`
+      ).toBeGreaterThan(headerBottom)
+    }
+  })
+})

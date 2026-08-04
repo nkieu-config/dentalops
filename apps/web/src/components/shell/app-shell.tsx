@@ -55,6 +55,12 @@ export const AppShell = () => {
 
   return (
     <div className="flex min-h-dvh flex-col">
+      <a
+        href="#main"
+        className="sr-only rounded-md bg-primary px-4 py-2 text-primary-foreground focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-50"
+      >
+        Skip to the schedule
+      </a>
       <OfflineBanner />
       {isDemo() ? (
         <div className="bg-warning px-4 py-1 text-center text-xs font-medium text-warning-foreground">
@@ -88,7 +94,7 @@ export const AppShell = () => {
             <NavList items={items} railOnly={false} />
           </div>
         </aside>
-        <main className="min-w-0 flex-1 pb-bottomnav md:pb-0">
+        <main id="main" className="min-w-0 flex-1 pb-bottomnav md:pb-0">
           <Outlet />
         </main>
       </div>

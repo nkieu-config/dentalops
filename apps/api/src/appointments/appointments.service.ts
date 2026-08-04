@@ -181,11 +181,9 @@ export class AppointmentsService {
         } as never
       })
       const claims = await this.pickResources(tx, dto.branchId, requirements, win)
-      for (const claim of claims) {
-        await tx.resourceClaim.create({
-          data: { appointmentId: appointment.id, ...claim } as never
-        })
-      }
+      await tx.resourceClaim.createMany({
+        data: claims.map((claim) => ({ appointmentId: appointment.id, ...claim })) as never
+      })
       return tx.appointment.findUniqueOrThrow({
         where: { id: appointment.id },
         include: APPOINTMENT_INCLUDE
@@ -345,9 +343,9 @@ export class AppointmentsService {
           current.service.requirements,
           win
         )
-        for (const claim of claims) {
-          await tx.resourceClaim.create({ data: { appointmentId: id, ...claim } as never })
-        }
+        await tx.resourceClaim.createMany({
+          data: claims.map((claim) => ({ appointmentId: id, ...claim })) as never
+        })
         return tx.appointment.findUniqueOrThrow({
           where: { id },
           include: APPOINTMENT_INCLUDE

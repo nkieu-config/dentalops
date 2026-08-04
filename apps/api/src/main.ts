@@ -5,10 +5,12 @@ import { DocumentBuilder, SwaggerModule } from "@nestjs/swagger"
 import cookieParser from "cookie-parser"
 import { AppModule } from "./app.module"
 import { requireSecret } from "./auth/token-secrets"
+import { assertProductionEnv } from "./common/environment"
 
 async function bootstrap() {
   requireSecret("JWT_SECRET")
   requireSecret("JWT_REFRESH_SECRET")
+  assertProductionEnv()
 
   const app = await NestFactory.create(AppModule)
   app.setGlobalPrefix("api/v1")

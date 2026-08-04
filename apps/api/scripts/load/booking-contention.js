@@ -54,14 +54,19 @@ export function setup() {
   const patients = http.get(`${API}/patients?limit=1`, auth).json()
   const patientId = patients.items[0].id
 
-  const from = new Date(Date.now() + 36 * 3600_000).toISOString()
-  const to = new Date(Date.now() + 60 * 3600_000).toISOString()
-  const slots = http
-    .get(`${API}/availability?serviceId=${serviceId}&branchId=${branchId}&from=${from}&to=${to}`, auth)
-    .json("slots")
-  if (!slots || slots.length === 0) throw new Error("the demo tenant reported no free slots")
-
-  const target = slots[0]
+  // Each run books one of the demo tenant's free slots, so a fixed window
+  // empties out after a few runs and the script stops being repeatable. Walk
+  // forward until a day still has something free.
+  let target = null
+  for (let day = 2; day <= 21 && !target; day++) {
+    const from = new Date(Date.now() + day * 24 * 3600_000).toISOString()
+    const to = new Date(Date.now() + (day + 1) * 24 * 3600_000).toISOString()
+    const slots = http
+      .get(`${API}/availability?serviceId=${serviceId}&branchId=${branchId}&from=${from}&to=${to}`, auth)
+      .json("slots")
+    if (slots && slots.length > 0) target = slots[0]
+  }
+  if (!target) throw new Error("no free slot in the next three weeks; reseed the demo tenant")
   return { token, branchId, serviceId, patientId, startsAt: target.startsAt, dentistId: target.dentistId }
 }
 

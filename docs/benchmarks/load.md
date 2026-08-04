@@ -61,5 +61,22 @@ instance allocated 0.1 of one — had turned thrift into a queue. It does not
 answer that, because at this rate the read path barely reaches Postgres at all.
 
 What does answer it is the contention test above: 60 simultaneous writes, each
-one a transaction taking row locks, through a pool of 5, with no failures and
-a 132 ms p95. The pool is not the constraint at this scale.
+one a transaction taking row locks, through a pool of 5, with no failures. The
+pool is not the constraint at this scale.
+
+## What the contention test then found
+
+A NestJS review flagged the resource claims being inserted one row at a time
+inside the booking transaction. One or two extra round trips is nothing on an
+idle system — but these happen while the transaction holds row locks, and 59
+other transactions are queued behind them. Replacing the loop with a single
+`createMany` was worth measuring rather than assuming.
+
+| | p95 across runs | median |
+|---|---|---|
+| One `create` per claim | 194, 218, 231, 277, 299 ms | 231 ms |
+| One `createMany` | 111, 116, 136 ms | **116 ms** |
+
+Twice as fast under 60-way contention, and the two ranges do not overlap. The
+same change is invisible on an uncontended request, which is why it took a load
+test to see it at all.

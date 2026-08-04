@@ -1,5 +1,11 @@
 import type { ThrottlerStorage } from "@nestjs/throttler"
-import { createRedisClient } from "../src/redis/redis-client"
+import { createServer, type Server as TcpServer } from "node:net"
+import {
+  COMMAND_TIMEOUT_MS,
+  createRedisClient,
+  queueOptions,
+  requestPathOptions
+} from "../src/redis/redis-client"
 import { ResilientThrottlerStorage } from "../src/common/resilient-throttler.storage"
 
 const UNREACHABLE = "redis://127.0.0.1:6399"
@@ -72,5 +78,32 @@ describe("surviving a redis outage", () => {
     else process.env.REDIS_URL = previous
 
     expect(seen.length).toBeGreaterThan(0)
+  })
+
+  it("gives up on a redis that accepts the connection and then says nothing", async () => {
+    const silent: TcpServer = createServer(() => undefined)
+    await new Promise<void>((resolve) => silent.listen(0, "127.0.0.1", resolve))
+    const port = (silent.address() as { port: number }).port
+
+    const previous = process.env.REDIS_URL
+    process.env.REDIS_URL = `redis://127.0.0.1:${port}`
+    const client = createRedisClient("silent-test", requestPathOptions)
+
+    const started = Date.now()
+    await expect(client.get("anything")).rejects.toThrow()
+    const elapsed = Date.now() - started
+
+    expect(elapsed).toBeLessThan(COMMAND_TIMEOUT_MS * 4)
+
+    client.disconnect()
+    await new Promise<void>((resolve) => silent.close(() => resolve()))
+    if (previous === undefined) delete process.env.REDIS_URL
+    else process.env.REDIS_URL = previous
+  })
+
+  it("leaves the queue clients able to block, which is what BullMQ needs", () => {
+    expect(requestPathOptions.commandTimeout).toBe(COMMAND_TIMEOUT_MS)
+    expect(queueOptions.commandTimeout).toBeUndefined()
+    expect(queueOptions.maxRetriesPerRequest).toBeNull()
   })
 })

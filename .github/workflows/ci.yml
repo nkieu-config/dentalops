@@ -125,6 +125,7 @@ jobs:
             -e DIRECT_URL="postgresql://dentalops:dentalops@localhost:5432/dentalops" \
             -e MONGODB_URL="mongodb://localhost:27017/dentalops_ci" \
             -e REDIS_URL="redis://localhost:6379" \
+            -e WEB_ORIGIN="http://localhost:3001" \
             -e JWT_SECRET=ci-test-secret \
             -e JWT_REFRESH_SECRET=ci-test-refresh-secret \
             -e RUN_DEMO_SEED=true \

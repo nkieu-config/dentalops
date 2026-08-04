@@ -7,6 +7,10 @@ const apiOrigin = `http://localhost:${apiPort}`
 
 export default defineConfig({
   testDir: "./e2e",
+  projects: [
+    { name: "functional", testIgnore: /visual\.spec\.ts/ },
+    { name: "visual", testMatch: /visual\.spec\.ts/ }
+  ],
   timeout: 60_000,
   retries: 0,
   reporter: process.env.CI ? [["github"], ["list"]] : [["list"]],

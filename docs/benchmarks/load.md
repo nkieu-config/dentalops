@@ -9,6 +9,11 @@ instance with a tenth of a CPU in front of a Redis that is currently over its
 monthly command quota; a load test there would measure the host's throttling
 and a degraded code path, not the application.
 
+The contention run is a CI gate: the `docker` job builds the production image,
+starts it against real Postgres, Redis and MongoDB, and drives k6 through it,
+so the claim below fails the build if it stops being true. The read script
+stays manual — see why at the end.
+
 ```bash
 docker compose up -d
 pnpm --filter @dentalops/api build

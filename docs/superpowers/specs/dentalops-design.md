@@ -415,7 +415,7 @@ Parallel tracks outside this plan (start alongside W0): OSS contributions ~1 h/d
 | W0 infra yak-shaving | Hard 4-day timebox; cut and move on |
 | W7 overload | Pre-declared contingency; roster editor reuses TimeGrid |
 | Timeline scope creep | Performance/a11y specs are the finish line, not "feels done" |
-| Render cold start hurting demos | UptimeRobot ping + 5-s DoD budget includes it |
+| Render cold start hurting demos | Unmitigated, by measurement. A keep-alive ping was set up and then removed: it held the instance awake, which held three BullMQ workers polling Redis around the clock, and burned Upstash's 500,000-command monthly free tier in about a day and a half. Measured idle draw is 1.80 commands/second, so the quota covers roughly 2.6 hours of uptime a day. The cold start is documented in the README instead. |
 | BE debugging eating FE polish (the classic failure) | W4/W5 protected; W8 declared ~70% FE in advance |
 | Demo data trashed by visitors | 6-hourly reseed job + reset button |
 

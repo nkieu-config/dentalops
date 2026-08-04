@@ -144,6 +144,10 @@ jobs:
           exit 1
       - name: Assert audit log is connected
         run: grep -q '"auditLog":"connected"' health.json
+      - name: Install k6
+        uses: grafana/setup-k6-action@v1
+      - name: Sixty patients race for one slot
+        run: k6 run apps/api/scripts/load/booking-contention.js
       - name: Container logs
         if: failure()
         run: docker logs dentalops-api

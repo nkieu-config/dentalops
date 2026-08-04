@@ -46,6 +46,11 @@ services:
 
       - key: WEB_ORIGIN
         sync: false
+      # Neon gives two hostnames for the same database. DATABASE_URL takes the
+      # one containing "-pooler"; DIRECT_URL takes the one without it. Setting
+      # both to the pooler makes `prisma migrate deploy` run through PgBouncer,
+      # which cannot hold the advisory locks a migration takes. The API warns at
+      # startup if this pair looks wrong.
       - key: DATABASE_URL
         sync: false
       - key: DIRECT_URL

@@ -19,6 +19,8 @@ import {
   SubscribeAck,
   SubscribeInput
 } from "./realtime.events"
+import { isStaffSession } from "../auth/jwt.strategy"
+import { secretFor } from "../auth/token-secrets"
 
 export interface RealtimeSocketData {
   tenantId: string
@@ -72,12 +74,10 @@ export class RealtimeGateway implements OnGatewayInit {
   private async authenticate(socket: RealtimeSocket): Promise<void> {
     const token: unknown = socket.handshake.auth?.token
     if (typeof token !== "string" || token.length === 0) throw new Error("UNAUTHORIZED")
-    const payload = await this.jwt.verifyAsync<JwtPayload>(token, {
-      secret: process.env.JWT_SECRET
+    const payload = await this.jwt.verifyAsync<Partial<JwtPayload>>(token, {
+      secret: secretFor("access")
     })
-    if (typeof payload.tenantId !== "string" || payload.tenantId.length === 0) {
-      throw new Error("UNAUTHORIZED")
-    }
+    if (!isStaffSession(payload)) throw new Error("UNAUTHORIZED")
     socket.data.tenantId = payload.tenantId
   }
 }

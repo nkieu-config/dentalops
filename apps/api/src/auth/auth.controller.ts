@@ -1,6 +1,6 @@
 import { Body, Controller, Get, HttpCode, Post, Req, Res } from "@nestjs/common"
 import { ApiBearerAuth, ApiTags } from "@nestjs/swagger"
-import { SkipThrottle } from "@nestjs/throttler"
+import { SkipThrottle, Throttle } from "@nestjs/throttler"
 import type { Request, Response } from "express"
 import { AuthService } from "./auth.service"
 import { CurrentUser } from "./current-user.decorator"
@@ -20,7 +20,8 @@ const cookieOptions = {
   maxAge: 7 * 24 * 60 * 60 * 1000
 }
 
-@SkipThrottle()
+const CREDENTIAL_ATTEMPTS = { default: { limit: 10, ttl: 60_000 } }
+
 @ApiTags("auth")
 @Controller("auth")
 export class AuthController {
@@ -44,6 +45,7 @@ export class AuthController {
 
   @Post("signup")
   @Public()
+  @Throttle(CREDENTIAL_ATTEMPTS)
   @HttpCode(200)
   async signup(@Body() dto: SignupDto, @Res() res: Response) {
     return this.respond(res, await this.auth.signup(dto))
@@ -51,6 +53,7 @@ export class AuthController {
 
   @Post("login")
   @Public()
+  @Throttle(CREDENTIAL_ATTEMPTS)
   @HttpCode(200)
   async login(@Body() dto: LoginDto, @Res() res: Response) {
     return this.respond(res, await this.auth.login(dto))
@@ -65,6 +68,7 @@ export class AuthController {
 
   @Post("refresh")
   @Public()
+  @SkipThrottle()
   @HttpCode(200)
   async refresh(@Req() req: Request, @Res() res: Response) {
     const token = (req.cookies as Record<string, string> | undefined)?.[REFRESH_COOKIE]
@@ -72,6 +76,7 @@ export class AuthController {
   }
 
   @Get("me")
+  @SkipThrottle()
   @ApiBearerAuth()
   me(@CurrentUser() user: AuthenticatedUser) {
     return user

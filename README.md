@@ -48,6 +48,7 @@ Every headline claim below is held up by a named test. If a claim stops being tr
 | No accessibility regressions | `apps/web/e2e/a11y.spec.ts` — axe at 390px and 1440px, failing on any serious or critical violation |
 | No patient data reaches Sentry | `apps/api/test/sentry-scrub.spec.ts` — bodies, query strings, headers and nested payloads |
 | A dentist cannot see or touch another dentist's schedule | `apps/api/test/dentist-scope.spec.ts` — the list filter and the `NOT_YOUR_APPOINTMENT` refusal, both mutation-tested |
+| A patient's manage link cannot act as staff | `apps/api/test/token-scope.spec.ts` — every token purpose is signed with its own derived key, so a manage or hold token is rejected as a bearer credential and a staff token is rejected as a manage link |
 | An audit failure cannot break a booking | `apps/api/test/audit.spec.ts` — write path, 30-day TTL index, tenant scope, and a cursor that never repeats a row |
 | A stranger's brand-new clinic can reach a booked appointment | `apps/api/test/signup-journey.spec.ts` — signup, hire a dentist, roster them, book the first free slot, and that dentist logs in to exactly one booking, all over HTTP |
 

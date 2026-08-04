@@ -9,6 +9,7 @@ import { PrismaService } from "../src/prisma/prisma.service"
 import { REDIS } from "../src/redis/redis.module"
 import { createTestApp } from "./utils/test-app"
 import { expectStatus } from "./utils/expect-status"
+import { secretFor } from "../src/auth/token-secrets"
 
 const THROTTLER_KEY_PATTERN = "*:default}:*"
 const BKK_DATE = "2027-06-07"
@@ -258,7 +259,7 @@ describe("public booking confirm and manage links", () => {
       })
 
   const signManageToken = (payload: Record<string, unknown>) =>
-    jwt.signAsync(payload, { secret: process.env.JWT_SECRET, expiresIn: "30d" })
+    jwt.signAsync(payload, { secret: secretFor("manage"), expiresIn: "30d" })
 
   beforeAll(async () => {
     ;({ app, server } = await createTestApp())

@@ -8,6 +8,7 @@ import { DEFAULT_OPENING_HOURS, DEFAULT_SERVICES } from "../tenant/defaults"
 import { DemoLoginDto } from "./dto/demo-login.dto"
 import { LoginDto } from "./dto/login.dto"
 import { SignupDto } from "./dto/signup.dto"
+import { secretFor } from "./token-secrets"
 
 export interface AuthTokens {
   accessToken: string
@@ -38,11 +39,11 @@ export class AuthService {
       name: user.name
     }
     const accessToken = await this.jwt.signAsync(payload, {
-      secret: process.env.JWT_SECRET,
+      secret: secretFor("access"),
       expiresIn: "15m"
     })
     const refreshToken = await this.jwt.signAsync(payload, {
-      secret: process.env.JWT_REFRESH_SECRET,
+      secret: secretFor("refresh"),
       expiresIn: "7d"
     })
     return { accessToken, refreshToken }
@@ -111,7 +112,7 @@ export class AuthService {
     let payload: JwtPayload
     try {
       payload = await this.jwt.verifyAsync<JwtPayload>(refreshToken, {
-        secret: process.env.JWT_REFRESH_SECRET
+        secret: secretFor("refresh")
       })
     } catch {
       throw new AppException(401, "INVALID_REFRESH_TOKEN", "Refresh token invalid or expired")

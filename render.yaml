@@ -26,6 +26,12 @@ services:
     #   preDeployCommand: apps/api/node_modules/.bin/prisma migrate deploy --schema apps/api/prisma/schema.prisma
 
     envVars:
+      # The API docs are deliberately public on this deployment: it is a
+      # portfolio piece and the surface is meant to be readable. Without this
+      # the docs are served only outside production.
+      - key: EXPOSE_API_DOCS
+        value: "true"
+
       - key: RUN_MIGRATIONS
         value: "true"
 

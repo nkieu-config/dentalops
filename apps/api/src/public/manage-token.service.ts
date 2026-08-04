@@ -2,6 +2,7 @@ import { Injectable } from "@nestjs/common"
 import { JwtService } from "@nestjs/jwt"
 import { AppException } from "../common/app.exception"
 import { currentTenant } from "../tenant/tenant-context"
+import { secretFor } from "../auth/token-secrets"
 
 export const MANAGE_PURPOSE = "manage"
 export const MANAGE_TOKEN_TTL = "30d"
@@ -24,7 +25,7 @@ export class ManageTokenService {
     if (!ctx) throw new AppException(404, "CLINIC_NOT_FOUND", "Clinic not found")
     return this.jwt.signAsync(
       { sub: appointmentId, tenantId: ctx.tenantId, purpose: MANAGE_PURPOSE },
-      { secret: process.env.JWT_SECRET, expiresIn: MANAGE_TOKEN_TTL }
+      { secret: secretFor("manage"), expiresIn: MANAGE_TOKEN_TTL }
     )
   }
 
@@ -32,7 +33,7 @@ export class ManageTokenService {
     let claims: ManageTokenClaims
     try {
       claims = await this.jwt.verifyAsync<ManageTokenClaims>(token, {
-        secret: process.env.JWT_SECRET
+        secret: secretFor("manage")
       })
     } catch {
       throw invalidToken()

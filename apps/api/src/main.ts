@@ -4,8 +4,12 @@ import { NestFactory } from "@nestjs/core"
 import { DocumentBuilder, SwaggerModule } from "@nestjs/swagger"
 import cookieParser from "cookie-parser"
 import { AppModule } from "./app.module"
+import { requireSecret } from "./auth/token-secrets"
 
 async function bootstrap() {
+  requireSecret("JWT_SECRET")
+  requireSecret("JWT_REFRESH_SECRET")
+
   const app = await NestFactory.create(AppModule)
   app.setGlobalPrefix("api/v1")
   app.enableCors({ origin: process.env.WEB_ORIGIN ?? "http://localhost:5173", credentials: true })
@@ -17,7 +21,9 @@ async function bootstrap() {
     .setVersion("0.1.0")
     .addBearerAuth()
     .build()
-  SwaggerModule.setup("api/docs", app, SwaggerModule.createDocument(app, swaggerConfig))
+  if (process.env.EXPOSE_API_DOCS === "true" || process.env.NODE_ENV !== "production") {
+    SwaggerModule.setup("api/docs", app, SwaggerModule.createDocument(app, swaggerConfig))
+  }
 
   app.enableShutdownHooks()
   await app.listen(process.env.PORT ?? 3001)

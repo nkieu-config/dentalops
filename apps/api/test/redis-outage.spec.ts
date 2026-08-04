@@ -14,7 +14,21 @@ describe("surviving a redis outage", () => {
     const record = await storage.increment("key", 60_000, 60, 0, "default")
 
     expect(record.isBlocked).toBe(false)
-    expect(record.totalHits).toBe(0)
+    expect(record.totalHits).toBe(1)
+  })
+
+  it("still counts locally, so an outage does not lift the limit entirely", async () => {
+    const failing: ThrottlerStorage = {
+      increment: () => Promise.reject(new Error("max requests limit exceeded"))
+    }
+    const storage = new ResilientThrottlerStorage(failing)
+
+    const verdicts = []
+    for (let i = 0; i < 5; i++) verdicts.push(await storage.increment("same", 60_000, 3, 0, "default"))
+
+    expect(verdicts.slice(0, 3).every((v) => !v.isBlocked)).toBe(true)
+    expect(verdicts.at(-1)!.isBlocked).toBe(true)
+    expect((await storage.increment("other", 60_000, 3, 0, "default")).isBlocked).toBe(false)
   })
 
   it("enforces the limit again as soon as redis answers", async () => {

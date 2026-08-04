@@ -8,6 +8,7 @@ import { REDIS } from "../redis/redis.module"
 import { currentTenant, TenantContextData } from "../tenant/tenant-context"
 import { isSignedHold } from "./hold-id"
 import { ACQUIRE_HOLD, RELEASE_HOLD } from "./hold.lua"
+import { secretFor } from "../auth/token-secrets"
 
 export const HOLD_TTL_SECONDS = 300
 export const SLOT_MS = 900_000
@@ -200,7 +201,7 @@ export class HoldsService {
         startsAt: record.startsAt,
         endsAt: record.endsAt
       },
-      { secret: process.env.JWT_SECRET, expiresIn: HOLD_TTL_SECONDS }
+      { secret: secretFor("hold"), expiresIn: HOLD_TTL_SECONDS }
     )
   }
 
@@ -208,7 +209,7 @@ export class HoldsService {
     let claims: SignedHoldClaims
     try {
       claims = await this.jwt.verifyAsync<SignedHoldClaims>(token, {
-        secret: process.env.JWT_SECRET
+        secret: secretFor("hold")
       })
     } catch {
       return null

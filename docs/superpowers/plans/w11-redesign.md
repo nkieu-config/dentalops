@@ -80,11 +80,11 @@ A redesign without a before-picture cannot be reviewed, only argued about. This 
 - **The demo banner is masked, not hidden.** `app-shell.tsx` renders an amber "Demo mode — the clinic data rebuilds itself every 6 hours" strip whenever `isDemo()` is true, which shifts everything below it by ~24px. Masking it with Playwright's `mask` option keeps the layout honest while stopping the rebuild countdown from making every screenshot a false diff.
 - **Animations disabled** via `animations: "disabled"` so a mid-transition frame never becomes the baseline.
 
-- [ ] **Step 1: The shared screen list**
+- [x] **Step 1: The shared screen list**
 
 `apps/web/e2e/screens.ts` exports `VIEWPORTS` (the four widths with sensible heights) and `SCREENS`: an array of `{ name, path, auth: "none" | "owner", setup? }`. Public entries are `/`, `/login`, `/signup`, `/book/demo-clinic`, `/dev/ui`. Authenticated entries are `/app/timeline`, `/app/roster`, `/app/patients`, `/app/activity`. `/manage/:token` needs a booking first — reuse the helper `apps/web/e2e/public-booking.spec.ts` already has rather than writing a second one.
 
-- [ ] **Step 2: The visual spec**
+- [x] **Step 2: The visual spec**
 
 For each screen × viewport × theme, log in when required using the exact recipe the a11y suite uses — `page.goto("/")`, click *Try as Owner*, wait for `/app/timeline` — then navigate. Owner is the right role because nav visibility is role-gated and only Owner shows all five items.
 
@@ -101,7 +101,7 @@ await expect(page).toHaveScreenshot(`${name}-${width}-${theme}.png`, {
 
 Add `data-testid="demo-banner"` to the strip in `app-shell.tsx` — it is the only source change this task makes.
 
-- [ ] **Step 3: Generate and eyeball the baselines**
+- [x] **Step 3: Generate and eyeball the baselines**
 
 ```bash
 docker compose up -d
@@ -113,11 +113,40 @@ pnpm --filter @dentalops/web exec playwright test e2e/visual.spec.ts --update-sn
 
 Open every generated PNG. A baseline you have not looked at is worse than no baseline — it locks in whatever was broken. Note anything already wrong; those are Phase B and C's first fixes, not regressions you introduced.
 
-- [ ] **Step 4: Record the other two numbers**
+- [x] **Step 4: Record the other two numbers**
 
-Lighthouse mobile on `/book/demo-clinic`, and the current axe result. Write both into the plan's exit criteria as the floor. MASTER.md §7 claims Lighthouse ≥ 90 and has never gated it; get the real number now so the redesign can be held to *at least* it.
+Recorded 2026-08-05 against the seeded demo tenant (120 patients, 397 shifts, 1,388 appointments):
 
-- [ ] **Step 5: Commit**
+| Measure | Baseline | Notes |
+|---|---|---|
+| Lighthouse performance (mobile, `/book/demo-clinic`) | **95** | MASTER.md §7 claimed ≥ 90 and never gated it. The claim was true. |
+| Lighthouse accessibility | **100** | |
+| Lighthouse best-practices / SEO | **100 / 100** | |
+| LCP / FCP / Speed Index | 2.3 s / 2.1 s / 2.1 s | |
+| Total blocking time | 10 ms | |
+| Cumulative layout shift | **0.088** | Under the 0.1 threshold, but only just. The font swap in Task 3 is the most likely thing to push it over. |
+| `e2e/a11y.spec.ts` | **20 / 20 green** | |
+| Baseline screenshots | **80 PNG, 7.5 MB** | 10 screens × 4 widths × 2 themes |
+
+### What the baselines showed — defects that already existed
+
+Per Step 3: these are Phase B and C's first fixes, not regressions the redesign introduced.
+
+1. **Short appointment cards clip their own text.** In `timeline-1440-light`, the 12:20–12:50 card renders three lines into a 30-minute slot that is 32px tall; the patient name is sliced in half and hidden under the next card. Any appointment ≤ 30 minutes at default zoom has this. Task 12 owns it.
+2. **Dark-mode inputs are effectively invisible.** `login-375-dark` shows three form fields whose borders vanish into the background — the visual confirmation of the `--input` 1.22:1 measurement. Task 4's token swap fixes it.
+3. **The demo banner never renders after a hard navigation.** `isDemo()` reads in-memory session state, and `page.goto()` reloads the app, so `refreshSession()` restores the session without the demo flag. The `mask` in the visual spec is currently a no-op. Harmless for screenshots, but it means a demo user who reloads loses the banner that explains the data resets.
+4. **The activity feed screenshots the test that took them.** `activity-375-light` contains one row — "Anong Prasert checked the roster" — written moments earlier by this same run visiting `/app/roster`. Its content and its timestamp are both non-deterministic.
+
+### Two limits on what this suite can be
+
+Discovered while generating, and they change how the suite should be used rather than blocking it.
+
+- **The baselines are time-dependent and will rot.** `nextMonday()` moves every week, the seed generates appointments relative to now, and the activity feed timestamps are wall-clock. A run next month diffs against a different world.
+- **Snapshots are written as `<name>-visual-darwin.png`.** Playwright appends project and platform. CI runs Linux and renders text differently, so these files can never match there. Already handled: `4f116b2` split the Playwright config into `functional` and `visual` projects and pointed CI's `e2e` script at `functional` only, so the visual suite is out of the gate by construction.
+
+Together: **this is a same-session before/after instrument, not a durable CI gate.** That is exactly what the redesign needs — capture, change, compare within a day. If a durable gate is ever wanted, it needs Linux baselines generated inside the CI container and a frozen clock; neither is worth doing for W11.
+
+- [x] **Step 5: Commit**
 
 ```bash
 git add apps/web/e2e apps/web/src/components/shell/app-shell.tsx
@@ -462,7 +491,7 @@ pnpm --filter @dentalops/web e2e; echo "e2e exit=$?"
 3. Screenshot baselines exist and are approved for every screen × 4 widths × 2 themes.
 4. `e2e/a11y.spec.ts` green at 390px and 1440px with no serious or critical violations.
 5. All four existing e2e specs green: public booking, drag-reschedule, roster violation, a11y.
-6. Lighthouse mobile on `/book/demo-clinic` at or above the number recorded in Task 1 Step 4.
+6. Lighthouse mobile on `/book/demo-clinic` at **performance ≥ 95 and accessibility 100**, the numbers recorded in Task 1 Step 4. CLS must stay under 0.1 — it is at 0.088 today, so the font swap has almost no headroom.
 7. The theme toggle is reachable from public pages, shows which theme is active, and has a system option that follows the OS.
 8. The timeline's drag, resize, keyboard navigation and realtime behaviour are unchanged — proven by the existing specs, not by inspection.
 9. Either Phase D shipped and an owner can edit their clinic, branches, services, chairs and staff from the browser — or Phase D was deferred, `/app/settings` still says so honestly, and the README still lists it as a gap.

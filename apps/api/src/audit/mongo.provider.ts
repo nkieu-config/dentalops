@@ -23,7 +23,14 @@ export const mongoProvider: Provider = {
   useFactory: async (): Promise<MongoConnection | null> => {
     const url = process.env.MONGODB_URL
     if (!url) return null
-    const client = new MongoClient(url, { serverSelectionTimeoutMS: 5000 })
+    const client = new MongoClient(url, {
+      serverSelectionTimeoutMS: 5_000,
+      connectTimeoutMS: 10_000,
+      socketTimeoutMS: 20_000,
+      maxPoolSize: 10,
+      minPoolSize: 0,
+      maxIdleTimeMS: 60_000
+    })
     try {
       await client.connect()
       return { client, dbName: databaseFromUrl(url) }

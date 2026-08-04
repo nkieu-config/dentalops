@@ -136,6 +136,26 @@ describe("audit log", () => {
     expect((entry!.after as { status: string }).status).toBe("completed")
   })
 
+  it("sizes its pool for a shared free-tier cluster rather than the driver default", async () => {
+    const options = (audit as unknown as { mongo: { client: { options: Record<string, unknown> } } })
+      .mongo.client.options
+    expect(options.maxPoolSize).toBe(10)
+    expect(options.minPoolSize).toBe(0)
+    expect(options.socketTimeoutMS).toBeGreaterThan(0)
+  })
+
+  it("keeps serving when its indexes cannot be created", async () => {
+    const failing = {
+      createIndex: () => Promise.reject(new Error("not authorized on dentalops")),
+      indexes: () => Promise.resolve([])
+    }
+    const service: AuditService = Object.create(AuditService.prototype) as AuditService
+    Object.defineProperty(service, "collection", { get: () => failing })
+    Object.defineProperty(service, "logger", { value: { warn: () => undefined } })
+
+    await expect(service.onModuleInit()).resolves.toBeUndefined()
+  })
+
   it("expires entries so a free-tier cluster cannot fill up", async () => {
     const indexes = await audit.describeIndexes()
     const ttl = indexes.find((i) => i.expireAfterSeconds !== undefined)

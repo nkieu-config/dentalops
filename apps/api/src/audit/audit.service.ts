@@ -1,4 +1,4 @@
-import { Inject, Injectable, OnModuleDestroy, OnModuleInit } from "@nestjs/common"
+import { Inject, Injectable, Logger, OnModuleDestroy, OnModuleInit } from "@nestjs/common"
 import * as Sentry from "@sentry/nestjs"
 import { Collection, ObjectId } from "mongodb"
 import { currentTenant } from "../tenant/tenant-context"
@@ -38,6 +38,8 @@ export const auditActor = (): AuditEntry["actor"] => {
 
 @Injectable()
 export class AuditService implements OnModuleInit, OnModuleDestroy {
+  private readonly logger = new Logger(AuditService.name)
+
   constructor(@Inject(MONGO) private readonly mongo: MongoConnection | null) {}
 
   get enabled(): boolean {
@@ -53,8 +55,15 @@ export class AuditService implements OnModuleInit, OnModuleDestroy {
   async onModuleInit() {
     const collection = this.collection
     if (!collection) return
-    await collection.createIndex({ tenantId: 1, at: -1 })
-    await collection.createIndex({ at: 1 }, { expireAfterSeconds: RETENTION_SECONDS })
+    try {
+      await collection.createIndex({ tenantId: 1, at: -1 })
+      await collection.createIndex({ at: 1 }, { expireAfterSeconds: RETENTION_SECONDS })
+    } catch (error) {
+      Sentry.captureException(error)
+      this.logger.warn(
+        `audit indexes could not be created: ${(error as Error).message} — the log still writes, but reads will scan and entries will not expire`
+      )
+    }
   }
 
   async onModuleDestroy() {

@@ -447,10 +447,28 @@ Public pages first: they are what a stranger — or a recruiter — sees, and th
 
 The W10 accessibility floor is inherited whole and is already tested: a visible `<label>` per input, errors below their field wired by `aria-describedby` with `aria-invalid` on the input, focus moving to the first invalid field on a failed submit, server field errors landing on their field rather than in a toast, correct `type` and `autoComplete`, and a submit button that disables and says what it is doing.
 
-- [ ] **Step 1: Restyle `Field`, `FieldInput` and `FormError` in `auth-form.tsx`** — the three screens that use them inherit it.
-- [ ] **Step 2: The two pages**
-- [ ] **Step 3: Full unit suite, a11y, then refresh the Phase B baselines and review them as a set**
+- [x] **Step 1: Restyle `Field`, `FieldInput` and `FormError` in `auth-form.tsx`** — the three screens that use them inherit it.
+- [x] **Step 2: The two pages**
+- [x] **Step 3: Full unit suite, a11y, then refresh the Phase B baselines and review them as a set**
 - [x] **Step 4: Commit** — `feat(web): auth screens on the new system`
+
+**The last opacity mix is gone.** `FormError` shipped `border-destructive/40 bg-destructive/10`; it now reads the verified `--destructive-surface` / `--destructive-on-surface` pair. Every semantic surface in the app is now a measured token — `grep -rE "(bg|text|border)-(destructive|warning|success|decorative)/"` over `src/` returns nothing.
+
+**Both error surfaces gained an icon.** A red field error and a red alert banner were colour plus position; anyone who cannot separate red from the body text had only the position. Both carry an `AlertCircle` now, and two tests hold it.
+
+**The blast radius was exactly right.** Editing three shared primitives changed `login` and `signup` and nothing else — the cross-contamination check Phase B was ordered around, coming back clean on the one task most able to leak.
+
+---
+
+## Phase B review — the four tasks as a set
+
+Baselines refreshed and read at all four widths in both themes.
+
+- **The public face now leads with the product, not its name.** The landing page opens on what the software does; the booking wizard shows progress instead of implying it; the auth screens are legible in dark mode for the first time, because Task 4 gave their inputs a 3:1 border.
+- **Every semantic colour in the app is now a token a machine can check.** Three hand-mixed opacity tints existed at the start of the phase — countdown banner, form error, field error. All three are gone, and the rule is pinned by tests in both files rather than by intention.
+- **Nothing conveys state by colour alone any more.** The countdown's urgent minute changes icon and weight; both error surfaces carry an icon. Neither was reachable by axe, which is why both needed their own tests.
+- **The deterministic visual suite paid for itself three times**: the `h-auto` versus `sm:h-9` clipping that was invisible on a phone, the baseline contamination from the functional suite, and confirmation on every task that shared code changed only what it should.
+- **Left standing:** the 30-minute appointment card still clips its own text — a layout bug belonging to Task 12 — and the manage page still has no screenshot coverage because it needs a live booking token.
 
 ---
 

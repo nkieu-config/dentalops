@@ -133,3 +133,24 @@ describe("AuthCard", () => {
     expect(screen.getByText("form goes here")).toBeInTheDocument()
   })
 })
+
+describe("errors do not rely on colour", () => {
+  it("gives a field error and a form error an icon as well as a hue", () => {
+    const { container: fieldBox } = render(
+      <Field id="email" label="Email" error="That email is already in use">
+        {(aria) => <FieldInput {...aria} />}
+      </Field>
+    )
+    expect(fieldBox.querySelector("svg")).toBeInTheDocument()
+
+    const { container: formBox } = render(<FormError message="We could not sign you in" />)
+    expect(formBox.querySelector("svg")).toBeInTheDocument()
+  })
+
+  it("never mixes a semantic colour with opacity, which no contrast check can verify", () => {
+    render(<FormError message="We could not sign you in" />)
+    expect(screen.getByRole("alert").className).not.toMatch(
+      /(bg|text|border)-(destructive|warning|success)\//
+    )
+  })
+})

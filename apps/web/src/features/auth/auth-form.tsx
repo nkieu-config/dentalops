@@ -1,3 +1,4 @@
+import { AlertCircle } from "lucide-react"
 import { forwardRef, type InputHTMLAttributes, type ReactElement, type ReactNode } from "react"
 import { PublicHeader } from "../../components/shell/public-header"
 import { Button } from "../../components/ui/button"
@@ -33,7 +34,8 @@ export const Field = ({ id, label, error, hint, children }: FieldProps): ReactEl
         "aria-describedby": describedBy.length > 0 ? describedBy : undefined
       })}
       {error ? (
-        <p id={errorId} className="text-sm font-medium text-destructive">
+        <p id={errorId} className="flex items-start gap-1.5 text-sm font-medium text-destructive">
+          <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
           {error}
         </p>
       ) : null}
@@ -57,8 +59,9 @@ export const FormError = ({ message }: { message: string | null }): ReactElement
   message ? (
     <p
       role="alert"
-      className="rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm font-medium text-destructive"
+      className="flex items-start gap-2 rounded-md border border-destructive bg-destructive-surface px-3 py-2 text-sm font-medium text-destructive-on-surface"
     >
+      <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
       {message}
     </p>
   ) : null
@@ -103,12 +106,14 @@ export const AuthCard = ({ title, subtitle, children, footer }: AuthCardProps): 
   <div className="flex min-h-dvh flex-col">
     <PublicHeader />
     <main className="mx-auto flex w-full max-w-md flex-1 flex-col justify-center gap-6 px-4 py-10">
-      <header className="space-y-1">
-        <h1 className="text-2xl font-semibold tracking-tight">{title}</h1>
-        {subtitle ? <p className="text-sm text-muted-foreground">{subtitle}</p> : null}
+      <header className="space-y-2">
+        <h1 className="text-2xl font-semibold tracking-tight text-balance">{title}</h1>
+        {subtitle ? (
+          <p className="text-base leading-relaxed text-muted-foreground">{subtitle}</p>
+        ) : null}
       </header>
       {children}
-      {footer ? <footer className="text-sm text-muted-foreground">{footer}</footer> : null}
+      {footer ? <footer className="text-base text-muted-foreground">{footer}</footer> : null}
     </main>
   </div>
 )

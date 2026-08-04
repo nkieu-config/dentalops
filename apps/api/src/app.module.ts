@@ -18,6 +18,7 @@ import { LatencyController } from "./common/latency.controller"
 import { LatencyInterceptor } from "./common/latency.interceptor"
 import { LatencyRegistry } from "./common/latency.registry"
 import { RequestIdMiddleware } from "./common/request-id.middleware"
+import { ResilientThrottlerStorage } from "./common/resilient-throttler.storage"
 import { DirectoryModule } from "./directory/directory.module"
 import { HealthController } from "./health/health.controller"
 import { PatientsModule } from "./patients/patients.module"
@@ -42,7 +43,7 @@ import { TenantContextMiddleware } from "./tenant/tenant-context.middleware"
       inject: [REDIS],
       useFactory: (redis: Redis) => ({
         throttlers: [{ name: "default", ttl: 60_000, limit: 60 }],
-        storage: new ThrottlerStorageRedisService(redis)
+        storage: new ResilientThrottlerStorage(new ThrottlerStorageRedisService(redis))
       })
     }),
     AuthModule,

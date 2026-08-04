@@ -1,5 +1,6 @@
 import { Global, Inject, Module, OnModuleDestroy } from "@nestjs/common"
 import Redis from "ioredis"
+import { createRedisClient } from "./redis-client"
 
 export const REDIS = "REDIS_CLIENT"
 
@@ -8,10 +9,7 @@ export const REDIS = "REDIS_CLIENT"
   providers: [
     {
       provide: REDIS,
-      useFactory: () =>
-        new Redis(process.env.REDIS_URL ?? "redis://localhost:6379", {
-          maxRetriesPerRequest: 2
-        })
+      useFactory: () => createRedisClient("app", { maxRetriesPerRequest: 2 })
     }
   ],
   exports: [REDIS]

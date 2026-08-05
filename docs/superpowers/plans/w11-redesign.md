@@ -501,9 +501,13 @@ Proven by re-running the suite against a fresh seed: 48 of 48.
 - **`ShiftBlock` gets the same radius discipline as appointment cards** — small blocks, small radius.
 - **Drag feedback follows `motion.ts`** and must still track the pointer in real time.
 
-- [ ] **Step 1: Restyle `shift-block.tsx`, `violation-list.tsx`, `roster-list.tsx` first** — the leaves, before the 456-line page.
-- [ ] **Step 2: The week grid**
-- [ ] **Step 3: `e2e/roster-violation.spec.ts` green, a11y green, commit** — `feat(web): the roster editor, redesigned`
+- [x] **Step 1: Restyle `shift-block.tsx`, `violation-list.tsx`, `roster-list.tsx` first** — the leaves, before the 456-line page.
+- [x] **Step 2: The week grid**
+- [x] **Step 3: `e2e/roster-violation.spec.ts` green, a11y green, commit** — `feat(web): the roster editor, redesigned`
+
+The week grid's header row became a sticky muted band with label-cased day names, so the grid reads as a table rather than as cells that happen to be in rows. `ShiftBlock` took the same 4px radius as an appointment card — small blocks, small radius — and the violation rows moved onto card surfaces. The grid's own border language was already right and was left alone.
+
+**Roster changed at six of eight screenshots, not eight.** Below 768px the screen renders `roster-list`, not the grid, and that component was not touched. The suite agreeing with the breakpoint map is the check working, not a gap in it.
 
 ### Task 12: Timeline
 
@@ -515,8 +519,10 @@ Proven by re-running the suite against a fresh seed: 48 of 48.
 - **`AppointmentCard` keeps `--radius-xs`.** A 15-minute block is 16px tall.
 - **The six status treatments are unchanged**: completed at 70% with a check, no-show with a warning stripe and icon, cancelled muted with strikethrough, conflict with a destructive ring and icon, held dashed with a countdown chip. Each keeps its icon; colour is never the only signal.
 
-- [ ] **Step 1: `appointment-card.tsx` (105 lines) alone, and review it in `/dev/ui`** against all six hues × eight states before touching anything else. The gallery renders exactly this matrix.
-- [ ] **Step 2: `time-grid.tsx`** — grid lines, hour lines, off-shift hatch, now-line. The hatch must recede; if it competes with a card, it is wrong.
+- [x] **Step 1: `appointment-card.tsx` (105 lines) alone, and review it in `/dev/ui`** against all six hues × eight states before touching anything else. The gallery renders exactly this matrix.
+
+**The clipping defect recorded in Task 1 is fixed.** The card always rendered three lines — time, service, patient — into whatever height the appointment bought, so anything 30 minutes or shorter sliced its own last line and hid the remainder under the next card. It now measures: below 44px the patient name goes `sr-only`, below 30px the service name follows. The text stays in the DOM, so the button's accessible name is unchanged and every test that reads a card by its patient still passes. Radius moved to the 4px `--radius-xs` the design system reserves for blocks this small.
+- [x] **Step 2: `time-grid.tsx`** — grid lines, hour lines, off-shift hatch, now-line. The hatch must recede; if it competes with a card, it is wrong.
 - [ ] **Step 3: The drawers and dialogs** — `create-drawer`, `appointment-drawer`, `series-dialog`.
 - [ ] **Step 4: `agenda-view.tsx`, `timeline-toolbar.tsx`, `column-picker.tsx`**
 - [ ] **Step 5: The 1000-card perf case in `/dev/ui`** — confirm the new shadows and radii did not cost frame budget. If they did, the shadow goes, not the frame rate.

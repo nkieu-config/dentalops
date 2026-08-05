@@ -37,7 +37,7 @@ const Group = ({ violations, staffName, linkFor, heading, icon: Icon, tone, test
           return (
             <li
               key={`${violation.rule}-${violation.staffId}-${index}`}
-              className="flex gap-2 rounded-md border border-border p-2 text-sm"
+              className="flex gap-2 rounded-md border border-border bg-card p-2.5 text-sm"
             >
               <Icon className={cn("mt-0.5 h-4 w-4 shrink-0", tone)} aria-label={heading} />
               <div className="min-w-0 space-y-0.5">

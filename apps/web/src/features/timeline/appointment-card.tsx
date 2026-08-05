@@ -39,6 +39,8 @@ export const AppointmentCard = ({
   const cancelled = appointment.status === "cancelled"
   const noShow = appointment.status === "no_show"
   const completed = appointment.status === "completed"
+  const roomForPatient = height >= 44
+  const roomForService = height >= 30
 
   return (
     <button
@@ -51,7 +53,7 @@ export const AppointmentCard = ({
       onClick={() => onClick(appointment)}
       onPointerDown={onMoveStart}
       className={cn(
-        "absolute z-[5] flex scroll-mb-bottomnav scroll-mt-topbar flex-col items-start overflow-hidden rounded-sm border-l-[3px] px-1.5 py-0.5 text-left text-xs leading-tight text-card-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+        "absolute z-[5] flex scroll-mb-bottomnav scroll-mt-topbar flex-col items-start overflow-hidden rounded-xs border-l-[3px] px-1.5 py-0.5 text-left text-xs leading-tight text-card-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
         completed && "opacity-70",
         cancelled && "border-l-border bg-muted text-muted-foreground",
         conflict && "ring-2 ring-destructive",
@@ -86,10 +88,22 @@ export const AppointmentCard = ({
           {cancelled ? <Ban className="h-3 w-3" aria-label="Cancelled" /> : null}
         </span>
       </span>
-      <span className={cn("truncate font-medium", cancelled && "line-through")}>
+      <span
+        className={cn(
+          "w-full truncate font-medium",
+          cancelled && "line-through",
+          !roomForService && "sr-only"
+        )}
+      >
         {appointment.service.name}
       </span>
-      <span className={cn("truncate", !cancelled && "text-appointment-muted")}>
+      <span
+        className={cn(
+          "w-full truncate",
+          !cancelled && "text-appointment-muted",
+          !roomForPatient && "sr-only"
+        )}
+      >
         {appointment.patient.name}
       </span>
       {onResizeStart ? (

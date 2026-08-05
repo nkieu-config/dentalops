@@ -367,8 +367,8 @@ export const RosterPage = () => {
                 </Button>
               </div>
             ) : null}
-            <div className="flex border-b border-border">
-              <div className="w-40 shrink-0 px-2 py-1 text-sm font-medium">Staff</div>
+            <div className="sticky top-0 z-10 flex border-b border-border bg-muted">
+              <div className="w-40 shrink-0 px-2 py-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Staff</div>
               {visibleDates.map((date) => (
                 <div
                   key={date}
@@ -377,7 +377,7 @@ export const RosterPage = () => {
                     if (element) dayEls.current.set(date, element)
                     else dayEls.current.delete(date)
                   }}
-                  className="flex-1 border-l border-border px-2 py-1 text-sm font-medium tabular-nums"
+                  className="flex-1 border-l border-border px-2 py-1.5 text-xs font-semibold uppercase tracking-wide tabular-nums text-muted-foreground"
                 >
                   {fmtWeekday(date)}
                 </div>
@@ -417,7 +417,7 @@ export const RosterPage = () => {
             data-testid="violations-panel"
             className="w-80 shrink-0 overflow-y-auto border-l border-border p-4"
           >
-            <h2 className="mb-3 text-sm font-semibold">Validation</h2>
+            <h2 className="mb-3 text-base font-semibold">Validation</h2>
             {panel}
           </aside>
         ) : null}

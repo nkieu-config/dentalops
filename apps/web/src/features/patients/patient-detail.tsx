@@ -82,7 +82,7 @@ export const PatientDetail = () => {
 
       {patient ? (
         <>
-          <h1 className="pt-3 text-lg font-semibold">{patient.name}</h1>
+          <h1 className="pt-3 text-xl font-semibold tracking-tight">{patient.name}</h1>
           <div className="flex flex-wrap gap-x-4 gap-y-1 pb-4 text-sm">
             <a className="underline underline-offset-2" href={`tel:${patient.phone}`}>
               {patient.phone}
@@ -103,7 +103,7 @@ export const PatientDetail = () => {
               hint="Bookings for this patient will be listed here."
             />
           ) : (
-            <ul aria-label="Appointment history" className="rounded-md border border-border">
+            <ul aria-label="Appointment history" className="overflow-hidden rounded-md border border-border bg-card">
               {patient.appointments.map((appointment) => (
                 <HistoryRow key={appointment.id} appointment={appointment} />
               ))}

@@ -1,6 +1,6 @@
 import { patientPageSchema, type Patient } from "@dentalops/contracts"
 import { useInfiniteQuery } from "@tanstack/react-query"
-import { SearchX, TriangleAlert, Users } from "lucide-react"
+import { ChevronRight, SearchX, TriangleAlert, Users } from "lucide-react"
 import { useEffect, useState } from "react"
 import { Link, useSearchParams } from "react-router"
 import { Button } from "../../components/ui/button"
@@ -22,10 +22,11 @@ const PatientRow = ({ patient, search }: { patient: Patient; search: string }) =
   <li className="border-b border-border last:border-b-0">
     <Link
       to={detailPath(patient.id, search)}
-      className="flex min-h-11 flex-wrap items-baseline gap-x-3 gap-y-1 px-4 py-3 hover:bg-accent"
+      className="flex min-h-11 items-center gap-3 px-4 py-3 transition-colors duration-150 hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
     >
-      <span className="min-w-0 flex-1 font-medium">{patient.name}</span>
-      <span className="text-sm tabular-nums text-muted-foreground">{patient.phone}</span>
+      <span className="min-w-0 flex-1 truncate font-medium">{patient.name}</span>
+      <span className="shrink-0 text-sm tabular-nums text-muted-foreground">{patient.phone}</span>
+      <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />
     </Link>
   </li>
 )
@@ -93,16 +94,16 @@ export const PatientsPage = () => {
 
     if (patients.length === 0) {
       return search ? (
-        <div className="flex flex-col items-center gap-3">
-          <EmptyState
-            icon={SearchX}
-            title={`No patient matches “${search}”`}
-            hint="Try part of a name or a phone number."
-          />
-          <Button variant="secondary" className="min-h-11" onClick={clearSearch}>
-            Clear the search
-          </Button>
-        </div>
+        <EmptyState
+          icon={SearchX}
+          title={`No patient matches “${search}”`}
+          hint="Try part of a name, or the last few digits of a phone number."
+          action={
+            <Button variant="secondary" onClick={clearSearch}>
+              Clear the search
+            </Button>
+          }
+        />
       ) : (
         <EmptyState
           icon={Users}
@@ -114,7 +115,7 @@ export const PatientsPage = () => {
 
     return (
       <>
-        <ul aria-label="Patients" className="rounded-md border border-border">
+        <ul aria-label="Patients" className="overflow-hidden rounded-md border border-border bg-card">
           {patients.map((patient) => (
             <PatientRow key={patient.id} patient={patient} search={search} />
           ))}
@@ -137,14 +138,14 @@ export const PatientsPage = () => {
 
   return (
     <div className="mx-auto max-w-3xl p-4">
-      <h1 className="px-1 pb-3 text-lg font-semibold">Patients</h1>
-      <div className="space-y-1 pb-4">
+      <h1 className="pb-4 text-xl font-semibold tracking-tight">Patients</h1>
+      <div className="space-y-1.5 pb-5">
         <Label htmlFor="patient-search">Search patients</Label>
         <Input
           id="patient-search"
           type="search"
           autoComplete="off"
-          className="h-11 sm:h-9"
+          placeholder="Name or phone number"
           value={draft}
           onChange={(event) => {
             setDraft(event.target.value)

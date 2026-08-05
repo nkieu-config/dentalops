@@ -91,9 +91,19 @@ export interface DemoSeedCounts {
   shiftSeries: number
 }
 
+const anchorTime = (): Date => {
+  const pinned = process.env.DEMO_SEED_NOW
+  if (!pinned) return new Date()
+  const parsed = new Date(pinned)
+  if (Number.isNaN(parsed.getTime())) {
+    throw new Error(`DEMO_SEED_NOW is not a date this runtime can parse: ${pinned}`)
+  }
+  return parsed
+}
+
 export async function seedDemoTenant(client: PrismaClient): Promise<DemoSeedCounts> {
   prisma = client
-  const now = new Date()
+  const now = anchorTime()
 
   await prisma.tenant.deleteMany({ where: { slug: DEMO_SLUG } })
 

@@ -480,9 +480,17 @@ Ordered by risk, ascending. Timeline is last because by then the tokens, primiti
 
 157 + 116 + 183 lines. Both are list-with-cursor screens with skeletons, empty and error states; they are siblings and should look it.
 
-- [ ] **Step 1: Restyle both, using the new `Card` and `Badge`** rather than the hand-rolled surfaces they have now.
-- [ ] **Step 2: Empty states get illustrations** — this is where `EmptyState`'s new slot earns itself, and where the friendly micro-copy replaces "No data".
-- [ ] **Step 3: Tests, a11y, commit** — `feat(web): patients and activity, redesigned`
+- [x] **Step 1: Restyle both, using the new `Card` and `Badge`** rather than the hand-rolled surfaces they have now.
+- [x] **Step 2: Empty states get illustrations** — this is where `EmptyState`'s new slot earns itself, and where the friendly micro-copy replaces "No data".
+- [x] **Step 3: Tests, a11y, commit** — `feat(web): patients and activity, redesigned`
+
+**The visual suite caught something neither screen caused.** It reported `timeline` changed by a task that touched only patients and activity. The diff showed different appointments on the same date — so not a restyle, a reseed.
+
+`demo-seed.ts` anchored its data to `new Date()`, the exact instant. Its randomness was already deterministic (`mulberry32(20260801)`), but the anchor moved continuously, so seeding at 04:00 and again at 11:57 laid the generated appointments against a different offset and produced a different clinic. **The earlier claim that "determinism holds within a day" was wrong — it held for minutes.** Every baseline for timeline and roster was rotting between runs, which would have made Tasks 11 and 12 unverifiable exactly where verification matters most.
+
+The seed now accepts `DEMO_SEED_NOW`, and `e2e:visual` passes `TZ=Asia/Bangkok date +%Y-%m-%dT00:00:00+07:00` — the start of the Bangkok day. That is stable by construction for every run on the same date, and unlike a hardcoded date it keeps tracking the calendar, so `nextMonday()` still lands on seeded data. Production seeding is untouched: with the variable unset the anchor is still `new Date()`.
+
+Proven by re-running the suite against a fresh seed: 48 of 48.
 
 ### Task 11: Roster
 

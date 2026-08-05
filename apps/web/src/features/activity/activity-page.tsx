@@ -87,7 +87,7 @@ const entryKey = (entry: AuditEntry): string =>
 const ActivityRow = ({ entry }: { entry: AuditEntry }) => {
   const at = entry.at.getTime()
   return (
-    <li className="flex flex-wrap items-baseline gap-x-2 gap-y-1 border-b border-border px-4 py-3 last:border-b-0">
+    <li className="flex flex-wrap items-baseline gap-x-3 gap-y-1 border-b border-border px-4 py-3 last:border-b-0">
       <p className="min-w-0 flex-1">
         <span className="font-medium">{entry.actor.name}</span> {describeAction(entry)}
         {entry.entity.id ? (
@@ -120,7 +120,7 @@ export const ActivityPage = () => {
 
   const entries = query.data?.pages.flatMap((page) => page.entries) ?? []
 
-  const heading = <h1 className="px-1 pb-3 text-lg font-semibold">Activity</h1>
+  const heading = <h1 className="pb-4 text-xl font-semibold tracking-tight">Activity</h1>
 
   if (query.isPending) {
     return (
@@ -158,7 +158,7 @@ export const ActivityPage = () => {
   return (
     <div className="mx-auto max-w-3xl p-4">
       {heading}
-      <ul aria-label="Activity" className="rounded-md border border-border">
+      <ul aria-label="Activity" className="overflow-hidden rounded-md border border-border bg-card">
         {entries.map((entry) => (
           <ActivityRow key={entryKey(entry)} entry={entry} />
         ))}

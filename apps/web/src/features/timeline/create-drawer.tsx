@@ -187,7 +187,7 @@ export const CreateDrawer = ({ draft, onClose }: CreateDrawerProps) => {
               value={search}
               onChange={(e) => setSearch(e.target.value)}
             />
-            <div className="max-h-48 space-y-1 overflow-y-auto rounded-md border border-border p-1">
+            <div className="max-h-48 space-y-1 overflow-y-auto rounded-md border border-border bg-card p-1">
               {(patients.data?.items ?? []).map((p) => (
                 <button
                   key={p.id}

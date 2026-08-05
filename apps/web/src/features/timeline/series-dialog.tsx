@@ -28,8 +28,11 @@ const REASONS: Record<string, string> = {
 
 export const SeriesConflictList = ({ conflicts }: { conflicts: SeriesConflict[] }) =>
   conflicts.length === 0 ? null : (
-    <div data-testid="series-conflicts" className="rounded-md border border-destructive p-3">
-      <h3 className="flex items-center gap-1.5 text-sm font-semibold text-destructive">
+    <div
+      data-testid="series-conflicts"
+      className="rounded-md border border-destructive bg-destructive-surface p-3 text-destructive-on-surface"
+    >
+      <h3 className="flex items-center gap-1.5 text-sm font-semibold">
         <OctagonAlert className="h-4 w-4 shrink-0" aria-hidden="true" />
         <span>
           Nothing was saved — <span className="tabular-nums">{conflicts.length}</span>{" "}
@@ -41,10 +44,7 @@ export const SeriesConflictList = ({ conflicts }: { conflicts: SeriesConflict[] 
           const at = Date.parse(conflict.startsAt)
           return (
             <li key={conflict.startsAt} className="flex items-start gap-2 text-sm">
-              <OctagonAlert
-                className="mt-0.5 h-4 w-4 shrink-0 text-destructive"
-                aria-label="Conflict"
-              />
+              <OctagonAlert className="mt-0.5 h-4 w-4 shrink-0" aria-label="Conflict" />
               <span>
                 <span className="font-medium tabular-nums">
                   {fmtDay(bkkDate(at))} {fmtTime(at)}

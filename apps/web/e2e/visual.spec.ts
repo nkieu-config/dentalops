@@ -69,6 +69,11 @@ for (const theme of THEMES) {
 
         for (const screen of APP_SCREENS) {
           await page.goto(deepLink[screen.name] ?? (screen.path as string))
+          await expect(
+            page,
+            `${screen.name} bounced to another route — the session dropped, and shooting now would ` +
+              `record the wrong screen under the right filename`
+          ).toHaveURL(new RegExp(`${screen.path}(\\?|$)`))
           await shoot(page, `${screen.name}-${viewport.name}-${theme}`)
         }
       })

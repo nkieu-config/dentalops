@@ -75,7 +75,7 @@ export const AgendaView = ({
       {rows.length === 0 ? (
         <EmptyState icon={CalendarX} title="Nothing scheduled" hint="Try another day or dentist" />
       ) : (
-        <ul data-testid="agenda-list" className="min-h-0 flex-1 divide-y divide-border overflow-y-auto">
+        <ul data-testid="agenda-list" className="min-h-0 flex-1 divide-y divide-border overflow-y-auto bg-card">
           {rows.map((appointment, index) => {
             const start = Date.parse(appointment.startsAt)
             const end = Date.parse(appointment.endsAt)
@@ -95,7 +95,7 @@ export const AgendaView = ({
                     data-testid={`agenda-${appointment.id}`}
                     onClick={() => onOpen(appointment)}
                     className={cn(
-                      "flex min-h-11 w-full flex-col items-start gap-0.5 border-l-[3px] px-3 py-2 text-left text-sm text-card-foreground hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring",
+                      "flex min-h-11 w-full flex-col items-start gap-0.5 border-l-[3px] px-3 py-2 text-left text-sm text-card-foreground transition-colors duration-150 hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring",
                       completed && "opacity-70",
                       cancelled && "border-l-border bg-muted text-muted-foreground",
                       conflict && "ring-2 ring-inset ring-destructive"

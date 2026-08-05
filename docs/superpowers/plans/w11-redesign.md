@@ -523,9 +523,23 @@ The week grid's header row became a sticky muted band with label-cased day names
 
 **The clipping defect recorded in Task 1 is fixed.** The card always rendered three lines — time, service, patient — into whatever height the appointment bought, so anything 30 minutes or shorter sliced its own last line and hid the remainder under the next card. It now measures: below 44px the patient name goes `sr-only`, below 30px the service name follows. The text stays in the DOM, so the button's accessible name is unchanged and every test that reads a card by its patient still passes. Radius moved to the 4px `--radius-xs` the design system reserves for blocks this small.
 - [x] **Step 2: `time-grid.tsx`** — grid lines, hour lines, off-shift hatch, now-line. The hatch must recede; if it competes with a card, it is wrong.
-- [ ] **Step 3: The drawers and dialogs** — `create-drawer`, `appointment-drawer`, `series-dialog`.
-- [ ] **Step 4: `agenda-view.tsx`, `timeline-toolbar.tsx`, `column-picker.tsx`**
-- [ ] **Step 5: The 1000-card perf case in `/dev/ui`** — confirm the new shadows and radii did not cost frame budget. If they did, the shadow goes, not the frame rate.
+- [x] **Step 3: The drawers and dialogs** — `create-drawer`, `appointment-drawer`, `series-dialog`.
+- [x] **Step 4: `agenda-view.tsx`, `timeline-toolbar.tsx`, `column-picker.tsx`**
+- [x] **Step 5: The 1000-card perf case in `/dev/ui`** — **821 cards painted in 70–73 ms.** The softer shadows and larger radii cost nothing measurable, so nothing had to be given back. `e2e/perf-probe.spec.ts` keeps the measurement as a test rather than a memory, which is what would catch a future shadow being added inside the grid — the thing MASTER.md forbids and no other gate can see.
+
+### The visual suite was recording lies
+
+The suite reported `patients`, `roster` and `settings` changed by a task that touched only three timeline files. The diff image answered it: **the stored baseline for `patients-768-light` was a picture of the landing page.**
+
+During an earlier `--update-snapshots` run the session dropped mid-loop, `RequireAuth` sent the browser to `/`, and the spec went on screenshotting — writing the landing page to disk under three other screens' filenames. Every later run then compared the right screen against the wrong baseline, which is worse than no baseline: it manufactures a failure that looks like a regression and hides any real one.
+
+`visual.spec.ts` now asserts the URL still matches the screen it is about to shoot, with a message that says what went wrong. A bounced navigation fails loudly instead of being written to disk. Baselines regenerated under the guard; `patients`, `roster` and `settings` came back clean, which confirms the diagnosis.
+
+### Still open: the timeline is not byte-stable across re-seeds
+
+After regenerating, seven `timeline` screenshots still differ run to run by 6,400–7,470 px while every other screen is identical. Ruled out: the dentist columns, since `GET /staff` already orders by name; and the seed anchor, which is pinned to the Bangkok day. The remaining suspect is tie-breaking — appointments that start at the same minute have no stable secondary sort, so `layoutByDentist` can hand them different lanes each seed and cards swap horizontal position without any content changing.
+
+**This is not only a test problem.** If the order is unstable across seeds it is unstable across page loads, which means a receptionist can see two overlapping appointments swap places for no reason. Worth fixing at the query, not in the spec. Until then the timeline screenshots are review material, not a gate.
 - [ ] **Step 6: `e2e/drag-reschedule.spec.ts` green, full a11y, refresh Phase C baselines, review**
 - [x] **Step 7: Commit** — `feat(web): the timeline, redesigned`
 

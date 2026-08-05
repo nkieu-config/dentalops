@@ -558,6 +558,51 @@ login or signup screen" is superseded.
 
 ---
 
+## 11b. Reconciliation (W11) — the identity change
+
+§6 specified teal-on-slate. W11 replaced it with ink-on-porcelain, and the reasoning is the part worth
+keeping rather than the hex values.
+
+### Hue is the scarce resource on this product, and the brand was spending one
+
+A scheduler shows eight columns of coloured blocks at once, which is why §6 reserved red, amber and
+emerald for status and spent six more hues on services. Teal was the tenth. Every hue given to chrome
+is one the appointment cards cannot use, and the cards are the data a user actually came to read.
+
+Primary is now ink `#1C1917` on warm porcelain `#FAF9F7`, so **chrome spends no hue at all** and all six
+service hues stay with the cards — unchanged, so no `colorIndex` migration. The neutral moved slate →
+stone at the same time: slate is blue-biased and was in quiet competition with sky and indigo, the two
+most-used service hues, while stone biases warm and separates from them without either raising its voice.
+
+Teal survives as `--decorative`, licensed to empty-state art and the wordmark and nothing else. Rose was
+considered and rejected: it shares a hue family with `--destructive`, and §6's guarantee is that *red
+always means a violation*. An illustration in rose a few hundred pixels from a red conflict ring would
+have quietly broken that.
+
+### What replaced the warmth the palette gave up
+
+Personality moved from colour into shape and motion — a rounder typeface, a 6px→10px radius (blocks stay
+at 4px, because a 15-minute appointment is 16px tall), softer resting shadows, spring easing on entrances,
+and illustrated empty states. That is the same trade Cal.com and Linear make.
+
+### Two claims in this document were false, and are corrected
+
+- **§7's contrast checklist was asserted, never verified.** W8 caught one failure by accident. W11 wrote
+  `verify-contrast.mjs`, which parses `app.css` and measures 92 pairs across both themes, and it found
+  three more the moment it ran: `--muted-foreground` at 4.34:1 on two surfaces, and `--input` at
+  1.23:1 where WCAG 1.4.11 wants 3:1 to identify a form control. It is now a dependency of `pnpm test`.
+- **The typeface named here never loaded.** `--font-sans` asked for `"Inter"`; the package registers
+  `'Inter Variable'`. From W4 to W10 the design system's typography section described a font the product
+  did not render. Fixed in W11, and pinned by a test that derives both ends from source.
+
+### Deferred with the reason recorded
+
+Settings remains unbuilt: the screen is perhaps 600 lines of React, but the API beneath it is one write
+endpoint (`POST /staff`) and about fourteen missing ones, plus a migration for `Branch.isActive` — branch,
+service and resource deletes cascade into appointments — and a real schema for `openingHours`, which is
+untyped JSON that nothing validates today. Shipping a Settings screen that displays but cannot save would
+be worse than the notice that currently says it was cut.
+
 ## 12. Dropped between the brainstorm and this document
 
 The brainstorm that preceded §1–§9 proposed an `apps/web` stack including **Zustand**, **React Hook

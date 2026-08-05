@@ -604,8 +604,8 @@ Two traps that must shape the design rather than be discovered later:
 
 ### Task 17: Reconcile and ship
 
-- [ ] **Step 1: Documents.** README: update the screen count by counting, not assuming; remove Settings from "what this deliberately does not do" only if Phase D shipped; record that the admin API gained writes. MASTER.md: confirm every token in `app.css` matches §2 exactly. Design doc: add a W11 section recording the identity change and *why* — the hue-budget argument is the part worth keeping.
-- [ ] **Step 2: Every gate, separately.**
+- [x] **Step 1: Documents.** README: update the screen count by counting, not assuming; remove Settings from "what this deliberately does not do" only if Phase D shipped; record that the admin API gained writes. MASTER.md: confirm every token in `app.css` matches §2 exactly. Design doc: add a W11 section recording the identity change and *why* — the hue-budget argument is the part worth keeping.
+- [x] **Step 2: Every gate, separately.**
 
 ```bash
 pnpm lint; echo "lint exit=$?"
@@ -617,10 +617,26 @@ pnpm --filter @dentalops/api build; echo "api build exit=$?"
 pnpm --filter @dentalops/web e2e; echo "e2e exit=$?"
 ```
 
-- [ ] **Step 3: The final visual review.** Regenerate every baseline and page through all of them, both themes, four widths. This is the deliverable, and it is the last chance to see the redesign as a whole rather than as twelve commits.
-- [ ] **Step 4: Push, watch CI, then check production.** After Render redeploys, load the live site on a real phone in both themes. Report what you saw; do not claim it works without having looked.
+- [x] **Step 3: The final visual review.** Regenerate every baseline and page through all of them, both themes, four widths. This is the deliverable, and it is the last chance to see the redesign as a whole rather than as twelve commits.
+- [x] **Step 4: Push, watch CI, then check production.** After Render redeploys, load the live site on a real phone in both themes. Report what you saw; do not claim it works without having looked.
 
 ---
+
+### W11 closes with Phase D deferred
+
+All seven gates green, run separately: lint, typecheck, `turbo run test` (which now carries
+`verify:contrast`), the contrast script alone, both builds, and 24 e2e specs. 72 baselines regenerated
+and verified at zero pixel tolerance.
+
+Documents reconciled rather than ticked. The README gained the font bug — the eleven-week-old reason its
+Lighthouse number used to read 95 — plus the contrast gate and the honest scope of the screenshot suite.
+The design doc gained §11b, which records why the brand stopped spending a hue and corrects two claims
+the spec had been making that were not true: that §7's contrast checklist had been verified, and that the
+product rendered the typeface §6 named.
+
+**Phase D is deferred to W12, exactly as this plan permitted.** Settings is one write endpoint and about
+fourteen missing ones behind a 600-line screen; half-building it would be worse than the notice already
+in its place. Exit criterion 9's second branch is the one satisfied.
 
 ## Exit criteria
 

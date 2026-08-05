@@ -6,7 +6,7 @@ Multi-tenant appointment and roster scheduling for dental clinics — double-boo
 
 **Live:** https://trydentalops.vercel.app · **API health:** https://dentalops-api.onrender.com/api/v1/health
 
-> **Status: complete — eight build weeks shipped, a ninth that reconciled the spec with the system, and a tenth that made the multi-tenancy reachable from a browser.** Staff scheduling, public booking, recurrence and rostering are live, the availability endpoint was benchmarked before and after caching, W9 closed the gaps the design doc had claimed but the code had not honoured, and W10 added real signup and login, colleague creation, and the patients screens. Open the demo, pick a role, and drag something.
+> **Status: complete — eight build weeks shipped, a ninth that reconciled the spec with the system, a tenth that made the multi-tenancy reachable from a browser, and an eleventh that replaced the visual identity.** Staff scheduling, public booking, recurrence and rostering are live, the availability endpoint was benchmarked before and after caching, W9 closed the gaps the design doc had claimed but the code had not honoured, and W10 added real signup and login, colleague creation, and the patients screens. Open the demo, pick a role, and drag something.
 
 ## Try it in a minute
 
@@ -193,8 +193,31 @@ Worth saying plainly, because the gaps are choices rather than oversights:
   drag entirely: no endpoint moves an appointment between chairs, and a chair column has no dentist
   to build a new appointment from. A drag that silently reassigned the wrong thing would be worse
   than no drag.
-- **Lighthouse is measured, not gated.** Its performance score moved 89–94 across one session on the
-  same build. The blocking gate is axe, which is deterministic.
+- **Lighthouse is measured, not gated.** Mobile performance on the public booking page sits at 93–94
+  with accessibility at 100 and CLS at 0.088. The blocking gate is axe, which is deterministic.
+
+  The number used to read 95, and that was an artefact rather than an achievement. `app.css` asked for
+  the family `"Inter"` while `@fontsource-variable/inter` registers `'Inter Variable'`; nothing matched,
+  so from W4 to W10 the browser downloaded a font it never rendered and every visitor without Inter
+  installed locally read `system-ui`. CSS font fallback is silent, so there was no warning anywhere.
+  W11 swapped to Plus Jakarta Sans and, for the first time, the declared typeface is the one that
+  paints — which costs one 27 KB `woff2` on a simulated slow connection. A test now derives both the
+  imported package and the declared family from source and fails if they disagree.
+
+- **Colour is checked by a script, not by a checklist.** `pnpm --filter @dentalops/web verify:contrast`
+  parses `app.css` and measures all 92 foreground/background pairs across both themes — body text on
+  every surface, every button label, every semantic chip, input borders against WCAG 1.4.11's 3:1, and
+  card text and stripes against all six appointment hues. It runs inside `pnpm test`, so a palette edit
+  that breaks a ratio fails CI. It reads the shipped stylesheet rather than holding its own copy,
+  because a verifier with a duplicated table verifies the duplicate.
+
+- **Screenshots gate eight screens; the timeline is review material.** `pnpm --filter @dentalops/web
+  e2e:visual` re-seeds and compares nine screens at four widths in both themes at zero pixel tolerance.
+  The timeline is excluded from that promise: `layoutLanes` breaks a tie between two appointments
+  sharing a start and an end with `id.localeCompare`, and the seed mints fresh UUIDs, so lane order can
+  flip between re-seeds. Real users are unaffected — ids are fixed within a database. The activity feed
+  has no screenshot at all, because this suite opens the roster eight times per run and each visit
+  appends the audit row it would then photograph.
 
 What a v2 would change first: extract the timeline into a headless package, put Postgres RLS behind
 the Prisma tenant extension as defence in depth, and replace the fixed UTC offset with a real

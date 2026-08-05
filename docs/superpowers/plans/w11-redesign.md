@@ -45,7 +45,7 @@ These already have tests. Breaking one is a regression, not a design choice.
 | `apps/web/scripts/verify-contrast.mjs` | Parses `app.css`, checks all 92 pairs in both themes, exits non-zero on failure |
 | `apps/web/e2e/visual.spec.ts` | Screenshot baselines: every screen × 4 widths × 2 themes |
 | `apps/web/e2e/screens.ts` | The shared list of screens and viewports the visual and a11y suites both iterate |
-| `apps/web/src/lib/motion.ts` | Spring easing and duration constants, so no component invents its own |
+| ~~`apps/web/src/lib/motion.ts`~~ | **Not created.** Nothing would have imported it — see Task 5. The easings and animations live in `app.css`'s `@theme` instead, where they generate real `ease-*` and `animate-*` utilities. |
 | `apps/web/src/components/ui/card.tsx` | The surface primitive the screens keep re-implementing by hand |
 | `apps/web/src/components/ui/badge.tsx` | Semantic chip using the new `*-surface` / `*-on-surface` tokens |
 | `apps/web/src/features/settings/settings-page.tsx` | Settings shell with section nav |
@@ -576,7 +576,7 @@ Two traps that must shape the design rather than be discovered later:
 - [ ] **Step 1:** Add to `packages/contracts/src/directory.ts`: `openingHoursSchema` (the seven day keys, each an array of `[start, end]` `HH:mm` pairs, validated as ordered and non-overlapping), `createBranchSchema` / `updateBranchSchema`, `createServiceSchema` / `updateServiceSchema`, `createResourceSchema` / `updateResourceSchema`, `updateStaffSchema`, and `clinicProfileSchema`. Build the package.
 - [ ] **Step 2:** `GET /tenant` and `PATCH /tenant` (name, slug), `@Roles("owner")`. `Tenant` is deliberately excluded from `TENANT_MODELS` in `prisma/tenant.extension.ts`, so this controller uses the unscoped client and scopes by `currentTenant().tenantId` by hand — copy how `public.service.ts` already reads it. A slug change must 409 `SLUG_TAKEN` on collision, and the response must tell the UI the public booking URL changed.
 - [ ] **Step 3:** Tests including cross-tenant 404, then register both in the isolation registry.
-- [x] **Step 4: Commit** — `feat(api): let an owner read and rename their clinic`
+- [ ] **Step 4: Commit** — `feat(api): let an owner read and rename their clinic`
 
 ### Task 14: Branch, service and resource writes
 
@@ -584,7 +584,7 @@ Two traps that must shape the design rather than be discovered later:
 - [ ] **Step 2:** Write endpoints for all three, `@Roles("owner")`, with **deactivate instead of delete** — the endpoint may be spelled `DELETE` but it sets `isActive: false`. Deactivating the last active branch is a 409, not a 500 three screens later.
 - [ ] **Step 3:** Widen `GET /branches` to return `timezone`; add `includeInactive` to `GET /resources` and drop the hardcoded filter, keeping the default behaviour identical so nothing that consumes it today changes.
 - [ ] **Step 4:** Tests per endpoint, isolation registry, `pnpm --filter @dentalops/contracts build`.
-- [x] **Step 5: Commit** — `feat(api): manage branches, services and chairs`
+- [ ] **Step 5: Commit** — `feat(api): manage branches, services and chairs`
 
 ### Task 15: Staff writes
 

@@ -535,12 +535,17 @@ During an earlier `--update-snapshots` run the session dropped mid-loop, `Requir
 
 `visual.spec.ts` now asserts the URL still matches the screen it is about to shoot, with a message that says what went wrong. A bounced navigation fails loudly instead of being written to disk. Baselines regenerated under the guard; `patients`, `roster` and `settings` came back clean, which confirms the diagnosis.
 
-### Still open: the timeline is not byte-stable across re-seeds
+### Resolved: why the timeline is not byte-stable across re-seeds
 
-After regenerating, seven `timeline` screenshots still differ run to run by 6,400–7,470 px while every other screen is identical. Ruled out: the dentist columns, since `GET /staff` already orders by name; and the seed anchor, which is pinned to the Bangkok day. The remaining suspect is tie-breaking — appointments that start at the same minute have no stable secondary sort, so `layoutByDentist` can hand them different lanes each seed and cards swap horizontal position without any content changing.
+Seven `timeline` screenshots differed run to run by 6,400–7,470 px while every other screen was identical. Traced to `lib/lanes.ts`: `layoutLanes` sorts by `start`, then `end`, then `id.localeCompare(id)`. That last tie-break decides which of two appointments sharing a start *and* an end sits in the left lane — and `id` is a UUID the seed mints fresh every run.
 
-**This is not only a test problem.** If the order is unstable across seeds it is unstable across page loads, which means a receptionist can see two overlapping appointments swap places for no reason. Worth fixing at the query, not in the spec. Until then the timeline screenshots are review material, not a gate.
-- [ ] **Step 6: `e2e/drag-reschedule.spec.ts` green, full a11y, refresh Phase C baselines, review**
+**Proven, not guessed.** Seeding twice with the same pinned anchor and hashing the day's appointments by `(startsAt, endsAt, patient, service)` gives an identical digest both times: `89bbcc8d…`. The data is byte-identical; only the identifiers move.
+
+**An earlier note in this plan claimed a receptionist could see overlapping appointments swap places. That was wrong and is withdrawn.** Within one database the ids are fixed, so lane order is stable for every real user across every page load. The instability exists only between re-seeds, which is a property of the test fixture and not of the product.
+
+Making the timeline gateable would mean tying the lane order to content rather than identity — threading a stable key through `LaneItem` and its callers. That is a change to the layout module this task is explicitly forbidden to restructure, and it buys a test property rather than a user-facing one. **Deferred, with the reason recorded.** Until then the timeline's screenshots are review material and the other eight screens gate at zero.
+
+- [x] **Step 6: `e2e/drag-reschedule.spec.ts` green, full a11y, refresh Phase C baselines, review**
 - [x] **Step 7: Commit** — `feat(web): the timeline, redesigned`
 
 ---

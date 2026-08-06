@@ -133,21 +133,26 @@
   --color-ring: var(--ring);
   --color-overlay: var(--overlay);
 
-  --radius-xs: 0.25rem;
-  --radius-sm: calc(var(--radius) - 4px);
-  --radius-md: var(--radius);
-  --radius-lg: calc(var(--radius) + 4px);
-  --radius-xl: calc(var(--radius) + 10px);
+  --radius-control: 0.5rem;
+  --radius-card: 0.875rem;
+  --radius-hero: 1.375rem;
 
   --font-sans: "Plus Jakarta Sans Variable", ui-sans-serif, system-ui, sans-serif;
 
   --text-display: 2.25rem;
+  --text-display--line-height: 2.75rem;
   --text-page-title: 1.75rem;
+  --text-page-title--line-height: 2.25rem;
   --text-section-title: 1.25rem;
+  --text-section-title--line-height: 1.75rem;
   --text-card-title: 1rem;
+  --text-card-title--line-height: 1.5rem;
   --text-body: 0.875rem;
+  --text-body--line-height: 1.375rem;
   --text-supporting: 0.8125rem;
+  --text-supporting--line-height: 1.25rem;
   --text-meta: 0.75rem;
+  --text-meta--line-height: 1rem;
 
   --ease-enter: cubic-bezier(0.34, 1.24, 0.64, 1);
   --ease-exit: cubic-bezier(0.4, 0, 1, 1);
@@ -239,6 +244,7 @@ body {
   color: var(--color-foreground);
   font-family: var(--font-sans);
   font-size: 0.875rem;
+  font-weight: 500;
   line-height: 1.375rem;
   overflow-x: hidden;
 }

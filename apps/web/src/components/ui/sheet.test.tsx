@@ -11,7 +11,7 @@ describe("Sheet", () => {
     )
 
     expect(screen.getByRole("dialog", { name: "Edit appointment" }).className).toContain(
-      "rounded-t-2xl"
+      "rounded-t-hero"
     )
     expect(screen.getByRole("button", { name: "Close" })).toBeInTheDocument()
   })

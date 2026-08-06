@@ -85,27 +85,29 @@ but their values change to the following palette.
 | `primary-foreground` | `#FFFFFF` | Text on primary |
 | `secondary` | `#E8F3F0` | Soft selected or supporting surface |
 | `muted` | `#F0F6F4` | Quiet background and skeleton field |
-| `muted-foreground` | `#647874` | Supporting copy |
+| `muted-foreground` | `#58706A` | Supporting copy; darkened to retain 4.5:1 on every soft surface |
 | `accent` | `#DDF2ED` | Hover and selected state |
 | `border` | `#D8E6E2` | Structural boundary |
 | `ring` | `#176F6B` | Keyboard focus |
 | `success` | `#1F7A58` | Saved, valid and available state |
-| `warning` | `#A66D00` | Attention without failure |
+| `warning` | `#8C5B00` | Attention without failure; darkened to retain 4.5:1 with white text |
 | `destructive` | `#B94343` | Cancel, delete and blocking failure |
-| `decorative` | `#3DAE9F` | Non-essential branded accent |
+| `decorative` | `#237C78` | Contrast-safe decorative ink; `#3DAE9F` remains the Aqua service edge reference |
 
 Appointment/service hues remain semantic data, not product state:
 
 | Service family | Surface | Edge / label |
 |---|---|---|
-| Aqua | `#DDF3EE` | `#3DAE9F` |
-| Lilac | `#EEE8F8` | `#A48BD2` |
-| Sky | `#E4F0F8` | `#5590B3` |
-| Butter | `#FFF3D5` | `#C7972D` |
-| Blossom | `#F9E6EC` | `#C6758D` |
-| Sage | `#E7F0DD` | `#6E9B58` |
+| Aqua | `#DDF3EE` | `#237C78` |
+| Lilac | `#EEE8F8` | `#8066AE` |
+| Sky | `#E4F0F8` | `#397A9E` |
+| Butter | `#FFF3D5` | `#9E7014` |
+| Blossom | `#F9E6EC` | `#A85470` |
+| Sage | `#E7F0DD` | `#527A40` |
 
 Every combination must pass the existing contrast verification and WCAG 2.2 AA for normal text.
+The edge values above are accessible implementation variants of the original hue direction: they must
+remain at least 3:1 against the application canvas.
 Appointment labels use ink text, not a coloured foreground whose contrast depends on the hue.
 
 Dark mode is retained as a complete alternate theme, not merely inverted light mode. It uses deep

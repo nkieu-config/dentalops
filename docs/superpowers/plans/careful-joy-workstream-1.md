@@ -24,7 +24,6 @@
 
 **Files:**
 - Modify: `apps/web/src/app.css`
-- Modify: `apps/web/scripts/verify-contrast.mjs`
 - Test: `apps/web/src/lib/theme.test.ts`
 - Test: `apps/web/src/lib/font.test.ts`
 
@@ -34,7 +33,7 @@
 
 - [ ] Write failing tests that assert the expected Sea Glass token values, complete dark-token coverage and typography role declarations.
 - [ ] Run `pnpm --filter @dentalops/web test -- theme.test.ts font.test.ts` and confirm failures cite missing tokens or values.
-- [ ] Replace semantic values in `app.css`, retain all existing aliases, add named typography utilities and update every contrast pair to match the new palette.
+- [ ] Replace semantic values in `app.css`, retain all existing aliases, add named typography utilities and use the approved accessible palette variants.
 - [ ] Run `pnpm --filter @dentalops/web verify:contrast` and the focused tests; confirm both exit successfully.
 - [ ] Commit with `feat(web): establish sea glass tokens`.
 
@@ -71,6 +70,7 @@
 - Create: `apps/web/src/components/ui/alert-dialog.tsx`
 - Create: `apps/web/src/components/ui/tooltip.tsx`
 - Create: `apps/web/src/components/ui/popover.tsx`
+- Create: `apps/web/src/components/ui/dropdown-menu.tsx`
 - Create: `apps/web/src/components/ui/tabs.tsx`
 - Create: `apps/web/src/components/ui/switch.tsx`
 - Create: `apps/web/src/components/ui/segmented-control.tsx`
@@ -86,7 +86,7 @@
 
 - [ ] Write failing tests for destructive confirmation action ordering, accessible labelled segmented choices and binary switch state.
 - [ ] Run the focused tests and verify failure before adding dependencies or wrappers.
-- [ ] Add approved dependencies with pnpm, implement thin wrappers and mount `MotionConfig reducedMotion="user"` once at the application root.
+- [ ] Add approved dependencies with pnpm, implement thin wrappers including DropdownMenu for the staff user menu, and mount `MotionConfig reducedMotion="user"` once at the application root.
 - [ ] Run focused tests, `pnpm --filter @dentalops/web typecheck` and `pnpm --filter @dentalops/web test`.
 - [ ] Commit with `feat(web): add shared interaction primitives`.
 
@@ -101,7 +101,7 @@
 - Test: `apps/web/src/components/shell/clinic-identity.test.tsx`
 - Test: `apps/web/src/components/shell/system-status.test.tsx`
 
-**Consumes:** Tasks 1–3 primitives and current session role predicates.
+**Consumes:** Tasks 1–3 primitives, current session role predicates and the cached `GET /tenant` clinic-profile query used by Settings.
 
 **Produces:** Labelled desktop workspace navigation, compact tablet navigation, labelled mobile navigation, clinic context and composed demo/offline status.
 

@@ -137,4 +137,12 @@ describe("Sea Glass design tokens", () => {
     expect(css).toMatch(/--radius-card:\s*0\.875rem;/)
     expect(css).toMatch(/--radius-hero:\s*1\.375rem;/)
   })
+
+  it("separates neutral work surfaces from the Sea Glass selection signal", () => {
+    const css = stylesheet()
+    expect(css).toMatch(/--surface-subtle:\s*#F5F8F7;/)
+    expect(css).toMatch(/--selection:\s*#DDF2ED;/)
+    expect(css).toMatch(/--color-surface-subtle:\s*var\(--surface-subtle\);/)
+    expect(css).toMatch(/--color-selection:\s*var\(--selection\);/)
+  })
 })

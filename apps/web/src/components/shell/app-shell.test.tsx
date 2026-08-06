@@ -73,6 +73,11 @@ describe("AppShell navigation", () => {
     expect(screen.getByText("DentalOps")).toBeInTheDocument()
   })
 
+  it("uses the selection surface only for the active destination", () => {
+    mount("owner")
+    expect(links("Timeline")[0]!.className).toContain("bg-selection")
+  })
+
   it("guards every gated destination with the predicate its route uses", () => {
     const gated = [
       { to: "/app/roster", allows: canManageRoster },

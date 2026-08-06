@@ -595,13 +595,13 @@ and illustrated empty states. That is the same trade Cal.com and Linear make.
   `'Inter Variable'`. From W4 to W10 the design system's typography section described a font the product
   did not render. Fixed in W11, and pinned by a test that derives both ends from source.
 
-### Deferred with the reason recorded
+### W11 deferral, completed in W12
 
-Settings remains unbuilt: the screen is perhaps 600 lines of React, but the API beneath it is one write
-endpoint (`POST /staff`) and about fourteen missing ones, plus a migration for `Branch.isActive` — branch,
-service and resource deletes cascade into appointments — and a real schema for `openingHours`, which is
-untyped JSON that nothing validates today. Shipping a Settings screen that displays but cannot save would
-be worse than the notice that currently says it was cut.
+Settings was deferred in W11 because its API needed owner-gated writes, `Branch.isActive`, and validated
+opening-hours contracts. W12 completed that work: owner-only Settings now manages the clinic profile,
+branches, services, resources and staff with typed read/write contracts. Deactivation remains a deliberate
+product-policy question rather than a missing implementation: inactive branches are hidden while inactive
+services and resources remain visible, and neither has a reactivation flow yet.
 
 ## 12. Dropped between the brainstorm and this document
 

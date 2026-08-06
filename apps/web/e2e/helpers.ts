@@ -82,17 +82,17 @@ export const dayWindow = (date: string): string => {
   return `from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`
 }
 
-export const nextMonday = (): string => {
+export const nextMonday = (now = Date.now()): string => {
   for (let days = 1; days <= 7; days += 1) {
-    const candidate = new Date(Date.now() + days * DAY_MS)
+    const candidate = new Date(now + days * DAY_MS)
     if (bkkWeekday.format(candidate) === "Mon") return bkkDate.format(candidate)
   }
   throw new Error("no Monday in the next seven days")
 }
 
-export const recentWeekday = (weeksAgo = 2): string => {
+export const recentWeekday = (weeksAgo = 2, now = Date.now()): string => {
   for (let days = weeksAgo * 7; days <= weeksAgo * 7 + 7; days += 1) {
-    const candidate = new Date(Date.now() - days * DAY_MS)
+    const candidate = new Date(now - days * DAY_MS)
     if (bkkWeekday.format(candidate) === "Mon") return bkkDate.format(candidate)
   }
   throw new Error("no Monday in the target week")

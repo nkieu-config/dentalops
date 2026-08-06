@@ -5,10 +5,16 @@ on:
 
 permissions:
   contents: write
+  pull-requests: write
+
+concurrency:
+  group: refresh-visual-baselines
+  cancel-in-progress: false
 
 jobs:
   refresh:
     runs-on: ubuntu-24.04
+    timeout-minutes: 30
     services:
       postgres:
         image: postgres:16
@@ -50,6 +56,8 @@ jobs:
       MONGODB_URL: mongodb://localhost:27017/dentalops_ci
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.repository.default_branch }}
       - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v4
         with:
@@ -62,12 +70,11 @@ jobs:
       - run: pnpm build
       - run: pnpm --filter @dentalops/web exec playwright install --with-deps chromium
       - run: pnpm --filter @dentalops/web e2e:visual:update
-      - run: |
-          git add apps/web/e2e/visual.spec.ts-snapshots
-          if git diff --cached --quiet; then
-            exit 0
-          fi
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git commit -m "test(web): refresh visual baselines"
-          git push
+      - uses: peter-evans/create-pull-request@v7
+        with:
+          add-paths: apps/web/e2e/visual.spec.ts-snapshots
+          branch: chore/refresh-visual-baselines
+          delete-branch: true
+          commit-message: "test(web): refresh visual baselines"
+          title: "test(web): refresh visual baselines"
+          body: "Generated Linux visual snapshots for intentional review."

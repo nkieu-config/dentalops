@@ -3,18 +3,19 @@ import type { ZodType } from "zod"
 import { ApiError } from "../../lib/api"
 
 export type FieldErrors = Record<string, string | undefined>
+type FormValues = Record<string, unknown>
 
-export interface UseAuthFormOptions<T> {
+export interface UseAuthFormOptions<T, Values extends FormValues> {
   schema: ZodType<T>
-  initial: Record<string, string>
+  initial: Values
   onSubmit: (values: T) => Promise<void>
   fieldForErrorCode?: (code: string) => string | null
 }
 
-export interface AuthForm {
-  values: Record<string, string>
+export interface AuthForm<Values extends FormValues> {
+  values: Values
   errors: FieldErrors
-  set: (field: string, value: string) => void
+  set: <Field extends Extract<keyof Values, string>>(field: Field, value: Values[Field]) => void
   submit: (event: FormEvent) => void
   pending: boolean
   formError: string | null
@@ -26,13 +27,13 @@ const UNEXPECTED_FAILURE = "Something went wrong. Please try again."
 const messageFor = (cause: unknown): string =>
   cause instanceof Error && cause.message.length > 0 ? cause.message : UNEXPECTED_FAILURE
 
-export const useAuthForm = <T>({
+export const useAuthForm = <T, Values extends FormValues>({
   schema,
   initial,
   onSubmit,
   fieldForErrorCode
-}: UseAuthFormOptions<T>): AuthForm => {
-  const [values, setValues] = useState<Record<string, string>>(initial)
+}: UseAuthFormOptions<T, Values>): AuthForm<Values> => {
+  const [values, setValues] = useState<Values>(initial)
   const [errors, setErrors] = useState<FieldErrors>({})
   const [formError, setFormError] = useState<string | null>(null)
   const [pending, setPending] = useState(false)
@@ -44,7 +45,7 @@ export const useAuthForm = <T>({
     root.querySelector<HTMLElement>(`[name="${field}"]`)?.focus()
   }, [])
 
-  const set = useCallback((field: string, value: string) => {
+  const set = useCallback(<Field extends Extract<keyof Values, string>>(field: Field, value: Values[Field]) => {
     setValues((current) => ({ ...current, [field]: value }))
     setErrors((current) => {
       if (current[field] === undefined) return current

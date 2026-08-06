@@ -6,7 +6,7 @@ Multi-tenant appointment and roster scheduling for dental clinics — double-boo
 
 **Live:** https://trydentalops.vercel.app · **API health:** https://dentalops-api.onrender.com/api/v1/health
 
-> **Status: complete — eight build weeks shipped, a ninth that reconciled the spec with the system, a tenth that made the multi-tenancy reachable from a browser, and an eleventh that replaced the visual identity.** Staff scheduling, public booking, recurrence and rostering are live, the availability endpoint was benchmarked before and after caching, W9 closed the gaps the design doc had claimed but the code had not honoured, and W10 added real signup and login, colleague creation, and the patients screens. Open the demo, pick a role, and drag something.
+> **Status: complete — eight build weeks shipped, a ninth that reconciled the spec with the system, a tenth that made the multi-tenancy reachable from a browser, an eleventh that replaced the visual identity, and a twelfth that completed Settings.** Staff scheduling, public booking, recurrence, rostering and owner-managed clinic settings are live. Open the demo, pick a role, and drag something.
 
 ## Try it in a minute
 
@@ -157,19 +157,13 @@ Worth saying plainly, because the gaps are choices rather than oversights:
   zone-aware conversion; `expandRecurrence` already takes `utcOffsetMin` as a parameter that every
   caller lets default, which is the seam to widen first.
 - **No payments, no insurance, no clinical records.** This is scheduling.
-- **Ten of the eleven designed screens shipped.** The design doc's inventory lists eleven, counting
-  "Login / Signup" as one entry. What exists is landing, login, signup, booking wizard,
-  manage-booking, timeline, appointment drawer, roster editor, the activity feed, and the patients
-  list and detail. What does not: the **settings** editor. Branches, services, resources and staff
-  are real records behind a working API; the screen for editing them was cut so the build could
-  finish the scheduling core. The app says so where the settings screen would have been, and links
-  back to this section, rather than showing an empty page.
-- **The admin API has no edit half.** `GET /branches /services /staff /resources` exist; `/patients`
-  and `/staff` add `POST`. There is no `PATCH` or `DELETE` anywhere on that surface and no
-  `/equipment-types` at all. The design doc promised capped CRUD. `POST /staff` exists only because
-  a clinic fresh from signup has no dentists and would otherwise be a dead end; the rest of the write
-  half was never built, because without a settings screen to drive it an unused write API is a
-  liability rather than an achievement.
+- **All eleven designed screens shipped.** The design doc counts “Login / Signup” as one entry. Owners
+  can now use Settings to edit clinic details, branches and opening hours, services, chairs and
+  equipment, and colleague roles or active status. Receptionists see a clear owner-access explanation
+  instead of unusable controls.
+- **The admin API now has its edit half.** Owner-only writes cover clinic profile, branches, services,
+  resources and staff; deactivation preserves scheduling history. Authenticated staff retain the
+  tenant-scoped directory reads Timeline and Roster require, without credentials or email fields.
 - **A dead Mongo costs about five seconds at boot.** If `MONGODB_URL` is set but points at an
   unreachable server, the driver spends its full 5 s server-selection timeout before the provider
   gives up, and only then does the audit log degrade to a no-op. The API still starts and bookings

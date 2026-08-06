@@ -128,6 +128,14 @@ test.describe("staff screens", () => {
       await expect(page.getByRole("list", { name: "Patients" })).toBeVisible()
       await expectClean(page)
     })
+
+    test(`settings has no serious or critical violations at ${name}`, async ({ page }) => {
+      await page.setViewportSize(viewport)
+      await signIn(page)
+      await page.goto("/app/settings")
+      await expect(page.getByRole("navigation", { name: "Settings sections" })).toBeVisible()
+      await expectClean(page)
+    })
   }
 
   test("timeline has no serious or critical violations at 1440px", async ({ page }) => {

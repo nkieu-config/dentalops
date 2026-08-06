@@ -1,7 +1,5 @@
-import { Settings } from "lucide-react"
 import { lazy, Suspense, type ReactNode } from "react"
 import { createBrowserRouter, Navigate } from "react-router"
-import { OutOfScope } from "./components/shell/out-of-scope"
 import { Skeleton } from "./components/ui/skeleton"
 import { LoginPage } from "./features/auth/login-page"
 import { SignupPage } from "./features/auth/signup-page"
@@ -29,6 +27,9 @@ const PatientsPage = lazy(() =>
 )
 const PatientDetail = lazy(() =>
   import("./features/patients/patient-detail").then((m) => ({ default: m.PatientDetail }))
+)
+const SettingsPage = lazy(() =>
+  import("./features/settings/settings-page").then((m) => ({ default: m.SettingsPage }))
 )
 const DevUiPage = lazy(() =>
   import("./pages/dev-ui-page").then((m) => ({ default: m.DevUiPage }))
@@ -63,16 +64,7 @@ export const router = createBrowserRouter([
       { path: "activity", element: deferred(<ActivityRoute />) },
       { path: "patients", element: deferred(<PatientsPage />) },
       { path: "patients/:id", element: deferred(<PatientDetail />) },
-      {
-        path: "settings",
-        element: (
-          <OutOfScope
-            icon={Settings}
-            title="The settings screen is not part of this build"
-            reason="Branches, services, resources and staff are real records with a working API behind them. An editor for them was cut so the eight weeks could finish the scheduling core instead."
-          />
-        )
-      }
+      { path: "settings", element: deferred(<SettingsPage />) }
     ]
   },
   { path: "/dev/ui", element: deferred(<DevUiPage />) }

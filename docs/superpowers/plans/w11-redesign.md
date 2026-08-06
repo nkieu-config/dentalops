@@ -594,11 +594,11 @@ Two traps that must shape the design rather than be discovered later:
 
 ### Task 16: The Settings screen
 
-- [ ] **Step 1:** Replace the `OutOfScope` element for `settings` in `routes.tsx` with the real screen, lazily imported like its siblings. Five sections behind a section nav — sidebar at `≥1024`, stacked cards below, per MASTER.md §4.
-- [ ] **Step 2:** Build the five sections. Forms reuse `useAuthForm`, `Field` and the `Sheet` — this is the same shape of form as the staff dialog and must not grow a second implementation.
-- [ ] **Step 3:** The opening-hours editor is the hard one. It edits seven days of interval lists and it is the only control here that can break availability for the whole clinic. It validates against `openingHoursSchema` client-side before it ever submits, and it shows what a day looks like after the edit.
-- [ ] **Step 4:** Gate the whole screen on `role === "owner"`; a receptionist reaching `/app/settings` gets an explanation, not a blank page or a wall of 403s.
-- [ ] **Step 5:** Tests per section, add `/app/settings` to the a11y sweep and to `e2e/screens.ts`, commit — `feat: the settings screen the README promised`
+- [x] **Step 1:** Replace the `OutOfScope` element for `settings` in `routes.tsx` with the real screen, lazily imported like its siblings. Five sections behind a section nav — sidebar at `≥1024`, stacked cards below, per MASTER.md §4.
+- [x] **Step 2:** Build the five sections. Forms reuse `useAuthForm`, `Field` and the `Sheet` — this is the same shape of form as the staff dialog and must not grow a second implementation.
+- [x] **Step 3:** The opening-hours editor is the hard one. It edits seven days of interval lists and it is the only control here that can break availability for the whole clinic. It validates against `openingHoursSchema` client-side before it ever submits, and it shows what a day looks like after the edit.
+- [x] **Step 4:** Gate the whole screen on `role === "owner"`; a receptionist reaching `/app/settings` gets an explanation, not a blank page or a wall of 403s.
+- [x] **Step 5:** Tests per section, add `/app/settings` to the a11y sweep and to `e2e/screens.ts`, commit — `feat: the settings screen the README promised`. `e2e/screens.ts` already included Settings from the earlier W11 inventory, so its existing entry was retained; the Settings a11y coverage and all eight visual baselines were added or refreshed.
 
 ---
 
@@ -638,6 +638,14 @@ product rendered the typeface §6 named.
 fourteen missing ones behind a 600-line screen; half-building it would be worse than the notice already
 in its place. Exit criterion 9's second branch is the one satisfied.
 
+### W12 completes Phase D
+
+Phase D is no longer deferred. Task 13 added the clinic profile API, Task 14 added owner-scoped branch,
+service and resource writes plus the equipment-type directory, Task 15 added owner-scoped colleague
+editing, and Task 16 replaced the Settings notice with the complete owner workspace. The route has five
+responsive sections, client validation for opening hours, a receptionist explanation, Settings a11y
+coverage, and refreshed visual baselines at four widths in both themes.
+
 ## Exit criteria
 
 1. Every screen renders in ink-on-porcelain with Plus Jakarta Sans actually loaded — verified by the font test, not by eye.
@@ -648,4 +656,4 @@ in its place. Exit criterion 9's second branch is the one satisfied.
 6. Lighthouse mobile on `/book/demo-clinic` at **performance ≥ 93 and accessibility 100**, and **CLS under 0.1**. The performance floor is 93, not the 95 recorded in Task 1: that measurement was taken while the webfont silently failed to load, so it was never a number a page rendering its intended typeface could match. Task 3 measured 93 / 94 / 94 with the font actually loading, and CLS unmoved at 0.088. Accessibility and CLS are unchanged floors and are not negotiable.
 7. The theme toggle is reachable from public pages, shows which theme is active, and has a system option that follows the OS.
 8. The timeline's drag, resize, keyboard navigation and realtime behaviour are unchanged — proven by the existing specs, not by inspection.
-9. Either Phase D shipped and an owner can edit their clinic, branches, services, chairs and staff from the browser — or Phase D was deferred, `/app/settings` still says so honestly, and the README still lists it as a gap.
+9. [x] Phase D shipped: an owner can edit their clinic, branches, services, chairs and staff from the browser.

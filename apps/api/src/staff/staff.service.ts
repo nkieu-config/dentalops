@@ -3,10 +3,16 @@ import { Prisma } from "@prisma/client"
 import * as argon2 from "argon2"
 import { AppException } from "../common/app.exception"
 import { PrismaService } from "../prisma/prisma.service"
+import { currentTenant } from "../tenant/tenant-context"
 import { CreateStaffDto } from "./dto/create-staff.dto"
+import { UpdateStaffDto } from "./dto/update-staff.dto"
 
 const emailTaken = () =>
   new AppException(409, "EMAIL_TAKEN", "Somebody in this clinic already uses that email")
+const emptyUpdate = () => new AppException(400, "EMPTY_UPDATE", "Provide at least one field to update")
+const staffNotFound = () => new AppException(404, "NOT_FOUND", "Staff member not found")
+const selfManagementForbidden = () =>
+  new AppException(409, "SELF_MANAGEMENT_FORBIDDEN", "An owner cannot change their own role or active status")
 
 @Injectable()
 export class StaffService {
@@ -31,5 +37,21 @@ export class StaffService {
       }
       throw e
     }
+  }
+
+  async update(id: string, dto: UpdateStaffDto) {
+    if (Object.keys(dto).length === 0) throw emptyUpdate()
+    const actor = currentTenant()
+    if (!actor) throw staffNotFound()
+    if (actor.userId === id && (dto.role !== undefined || dto.isActive === false)) {
+      throw selfManagementForbidden()
+    }
+    const member = await this.prisma.scoped.user.findUnique({ where: { id }, select: { id: true } })
+    if (!member) throw staffNotFound()
+    return this.prisma.scoped.user.update({
+      where: { id },
+      data: dto,
+      select: { id: true, name: true, role: true, isActive: true }
+    })
   }
 }

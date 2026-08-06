@@ -588,9 +588,9 @@ Two traps that must shape the design rather than be discovered later:
 
 ### Task 15: Staff writes
 
-- [ ] **Step 1:** `PATCH /staff/:id` — name, role, `isActive` — `@Roles("owner")`. An owner cannot demote or deactivate themselves, and the role union still excludes `owner`.
-- [ ] **Step 2:** Decide the `GET /staff` guard. It has none today, so any dentist can enumerate colleagues. Leaving it open is defensible for a directory; make it a decision written down rather than an oversight.
-- [ ] **Step 3:** Tests, registry, commit — `feat(api): let an owner change a colleague's role`
+- [x] **Step 1:** `PATCH /staff/:id` — name, role, `isActive` — `@Roles("owner")`. An owner cannot demote or deactivate themselves, and the role union still excludes `owner`.
+- [x] **Step 2:** Decide the `GET /staff` guard. It has none today, so any dentist can enumerate colleagues. Leaving it open is defensible for a directory; make it a decision written down rather than an oversight. **Decision:** leave it authenticated and tenant-scoped for all roles. Timeline and roster need a shared directory, while the selected fields exclude email and credentials; write operations remain owner-only.
+- [x] **Step 3:** Tests, registry, commit — `feat(api): let an owner change a colleague's role`
 
 ### Task 16: The Settings screen
 

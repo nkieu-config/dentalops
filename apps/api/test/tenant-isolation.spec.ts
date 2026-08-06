@@ -47,6 +47,7 @@ const REGISTRY: Record<string, Expectation> = {
   "GET /branches": "filtered",
   "GET /staff": "filtered",
   "POST /staff": "auth-only",
+  "PATCH /staff/:id": "not-found",
   "GET /services": "filtered",
   "GET /resources": "filtered",
   "GET /equipment-types": "auth-only",

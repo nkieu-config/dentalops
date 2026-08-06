@@ -34,15 +34,18 @@ application code and remains running after the developer stops `pnpm dev`.
 
 | Command | Responsibility | Must not do |
 |---|---|---|
-| `pnpm setup` | Install dependencies, copy `.env.example` only when `.env` is absent, generate Prisma client, start healthy infrastructure, apply migrations and seed the demo tenant | Reset or overwrite an existing database |
+| `pnpm setup` | Install dependencies, copy `.env.example` only when `.env` is absent, generate Prisma client, start healthy infrastructure and apply migrations | Reset, overwrite or seed an existing database |
 | `pnpm dev` | Ensure healthy Docker infrastructure, then run only API and web watch processes | Run migrations, seed data, reset data or stop containers on exit |
 | `pnpm infra:up` | Start and wait for infrastructure | Run Node applications or mutate database schema/data |
 | `pnpm infra:down` | Stop infrastructure while retaining named volumes | Delete volumes or source files |
 | `pnpm infra:logs` | Follow Compose service logs | Start application processes |
+| `pnpm demo:seed` | Explicitly recreate the demo tenant after warning that its existing demo data is replaced | Be called by setup or dev |
 | `pnpm db:reset` | Explicitly reset the local Prisma database and reseed demo data after confirmation | Be called by another daily command |
 
 `pnpm setup` is for first use and for a freshly cloned environment. A developer who pulls a migration
 later uses `pnpm --filter @dentalops/api db:deploy` explicitly; `pnpm dev` stays non-mutating.
+`pnpm demo:seed` is separate because the existing seed deliberately deletes and recreates the demo
+tenant. A new developer who wants the one-click demo runs it after setup.
 
 ## Implementation boundaries
 
@@ -69,14 +72,14 @@ later uses `pnpm --filter @dentalops/api db:deploy` explicitly; `pnpm dev` stays
 ## Validation
 
 1. From a clean clone with Docker available, `pnpm setup` produces a generated Prisma client, migrated
-   and seeded local database, healthy services, and a usable `.env`.
+   local database, healthy services, and a usable `.env` without creating or replacing clinic data.
 2. `pnpm dev` starts from stopped infrastructure, waits for health checks, and serves API `:3001` and web
    `:5173`.
 3. Running `pnpm dev` again while infrastructure is already healthy does not reset data or create
    duplicate containers.
 4. With Docker unavailable, `pnpm dev` exits before Turbo starts and identifies the recovery command.
-5. `pnpm infra:down` preserves named volumes; `pnpm db:reset` is the only documented destructive local
-   data workflow.
+5. `pnpm demo:seed` warns before replacing the demo tenant; `pnpm infra:down` preserves named volumes;
+   `pnpm db:reset` is the only workflow that clears the entire local database.
 
 ## Rejected alternatives
 
@@ -86,4 +89,5 @@ later uses `pnpm --filter @dentalops/api db:deploy` explicitly; `pnpm dev` stays
 - **Always run `docker compose up -d` manually:** correct but leaves daily onboarding as three commands
   and does not use the health checks already present in the Compose file.
 - **Run migrations and seed on every `pnpm dev`:** convenient only until it mutates a developer's test
-  data during an ordinary edit cycle.
+  data during an ordinary edit cycle. The current demo seed specifically replaces its tenant, so it must
+  remain explicit.

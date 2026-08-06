@@ -74,8 +74,23 @@ jobs:
           path: apps/web/test-results/
           retention-days: 7
 
+  visual-preflight:
+    runs-on: ubuntu-24.04
+    outputs:
+      baseline_available: ${{ steps.snapshot.outputs.available }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: snapshot
+        run: |
+          if find apps/web/e2e/visual.spec.ts-snapshots -name '*-linux.png' -print -quit | grep -q .; then
+            echo "available=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "available=false" >> "$GITHUB_OUTPUT"
+          fi
+
   visual:
-    if: ${{ hashFiles('apps/web/e2e/visual.spec.ts-snapshots/*-linux.png') != '' }}
+    needs: visual-preflight
+    if: needs.visual-preflight.outputs.baseline_available == 'true'
     runs-on: ubuntu-24.04
     services:
       postgres:

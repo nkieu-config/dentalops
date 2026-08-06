@@ -1,6 +1,7 @@
 import { authSessionSchema } from "@dentalops/contracts"
 import { useMutation } from "@tanstack/react-query"
 import { ArrowRight } from "lucide-react"
+import { useState } from "react"
 import { Link, useNavigate } from "react-router"
 import { toast } from "sonner"
 import { Button } from "../components/ui/button"
@@ -17,22 +18,25 @@ const roles = [
   { role: "dentist", label: "Try as Dentist", hint: "Your own schedule" }
 ] as const
 
+type DemoRole = (typeof roles)[number]["role"]
+
 export const LandingPage = () => {
   const navigate = useNavigate()
+  const [unavailableRole, setUnavailableRole] = useState<DemoRole | null>(null)
   const demoLogin = useMutation({
-    mutationFn: (role: (typeof roles)[number]["role"]) =>
+    mutationFn: (role: DemoRole) =>
       api("/auth/demo-login", authSessionSchema, { method: "POST", body: { role } }),
     onSuccess: (session) => {
       setSession(session, { demo: true })
       void navigate("/app/timeline")
     },
-    onError: (error) => {
+    onError: (error, role) => {
       const asleep = !(error instanceof ApiError) || error.status >= 500
-      toast.error(
-        asleep
-          ? "The demo API is waking up — free hosting sleeps after inactivity. Give it about a minute and try again."
-          : error.message
-      )
+      if (asleep) {
+        setUnavailableRole(role)
+        return
+      }
+      toast.error(error.message)
     }
   })
 
@@ -53,21 +57,42 @@ export const LandingPage = () => {
       </div>
 
       <div className="flex flex-col gap-3">
-        {roles.map(({ role, label, hint }) => (
-          <Button
-            key={role}
-            className="h-auto w-full justify-between gap-4 px-4 py-3.5 text-left sm:h-auto"
-            variant={role === "owner" ? "default" : "secondary"}
-            disabled={demoLogin.isPending}
-            onClick={() => demoLogin.mutate(role)}
+        {unavailableRole ? (
+          <section
+            aria-live="polite"
+            className="rounded-md border border-warning bg-warning-surface p-4 text-warning-on-surface"
           >
-            <span className="flex min-w-0 flex-col gap-0.5">
-              <span className="text-base font-semibold">{label}</span>
-              <span className="text-sm font-normal opacity-80">{hint}</span>
-            </span>
-            <ArrowRight className="h-4 w-4 shrink-0 opacity-60" aria-hidden="true" />
-          </Button>
-        ))}
+            <h2 className="text-base font-semibold">Interactive demo is temporarily unavailable</h2>
+            <p className="mt-2 text-sm leading-relaxed">
+              The hosted demo is unavailable right now. Try again shortly, or run the project locally
+              with <code className="font-semibold">pnpm dev</code>.
+            </p>
+            <Button
+              className="mt-4"
+              variant="secondary"
+              disabled={demoLogin.isPending}
+              onClick={() => demoLogin.mutate(unavailableRole)}
+            >
+              Try demo again
+            </Button>
+          </section>
+        ) : (
+          roles.map(({ role, label, hint }) => (
+            <Button
+              key={role}
+              className="h-auto w-full justify-between gap-4 px-4 py-3.5 text-left sm:h-auto"
+              variant={role === "owner" ? "default" : "secondary"}
+              disabled={demoLogin.isPending}
+              onClick={() => demoLogin.mutate(role)}
+            >
+              <span className="flex min-w-0 flex-col gap-0.5">
+                <span className="text-base font-semibold">{label}</span>
+                <span className="text-sm font-normal opacity-80">{hint}</span>
+              </span>
+              <ArrowRight className="h-4 w-4 shrink-0 opacity-60" aria-hidden="true" />
+            </Button>
+          ))
+        )}
       </div>
 
       <div className="flex flex-col gap-3 border-t border-border pt-6">

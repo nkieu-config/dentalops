@@ -235,6 +235,10 @@ Worth saying plainly, because the gaps are choices rather than oversights:
   has no screenshot at all, because this suite opens the roster eight times per run and each visit
   appends the audit row it would then photograph.
 
+  Visual baselines are generated on Ubuntu, the same platform used by the blocking `visual` CI job. When
+  an intentional UI change needs new baselines, run the manually dispatched **Refresh visual baselines**
+  workflow on the branch. It updates only the Linux snapshots; review the resulting commit before merging.
+
 What a v2 would change first: extract the timeline into a headless package, put Postgres RLS behind
 the Prisma tenant extension as defence in depth, and replace the fixed UTC offset with a real
 timezone database before selling to a second country.

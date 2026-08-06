@@ -9,7 +9,8 @@ export class DirectoryService {
 
   branches() {
     return this.prisma.scoped.branch.findMany({
-      select: { id: true, name: true, openingHours: true },
+      where: { isActive: true },
+      select: { id: true, name: true, timezone: true, openingHours: true, isActive: true },
       orderBy: { name: "asc" }
     })
   }
@@ -38,8 +39,19 @@ export class DirectoryService {
 
   resources(query: QueryResourcesDto) {
     return this.prisma.scoped.resource.findMany({
-      where: { branchId: query.branchId, type: query.type, isActive: true },
-      select: { id: true, name: true, type: true, branchId: true },
+      where: {
+        branchId: query.branchId,
+        type: query.type,
+        ...(query.includeInactive === "true" ? {} : { isActive: true })
+      },
+      select: { id: true, name: true, type: true, branchId: true, equipmentTypeId: true, isActive: true },
+      orderBy: { name: "asc" }
+    })
+  }
+
+  equipmentTypes() {
+    return this.prisma.scoped.equipmentType.findMany({
+      select: { id: true, name: true },
       orderBy: { name: "asc" }
     })
   }

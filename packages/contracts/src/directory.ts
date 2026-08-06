@@ -103,6 +103,11 @@ export const branchSchema = z.object({
   openingHours: z.unknown()
 })
 
+export const branchSettingsSchema = branchSchema.extend({
+  timezone: z.string(),
+  isActive: z.boolean()
+})
+
 export const staffMemberSchema = z.object({
   id: z.uuid(),
   name: z.string(),
@@ -135,12 +140,25 @@ export const resourceSchema = z.object({
   branchId: z.uuid()
 })
 
+export const resourceSettingsSchema = resourceSchema.extend({
+  equipmentTypeId: z.uuid().nullable(),
+  isActive: z.boolean()
+})
+
+export const equipmentTypeSchema = z.object({
+  id: z.uuid(),
+  name: z.string()
+})
+
 export type Branch = z.infer<typeof branchSchema>
+export type BranchSettings = z.infer<typeof branchSettingsSchema>
 export type StaffMember = z.infer<typeof staffMemberSchema>
 export type CreateStaff = z.infer<typeof createStaffSchema>
 export type ServiceSummary = z.infer<typeof serviceSummarySchema>
 export type ResourceType = z.infer<typeof resourceTypeSchema>
 export type Resource = z.infer<typeof resourceSchema>
+export type ResourceSettings = z.infer<typeof resourceSettingsSchema>
+export type EquipmentType = z.infer<typeof equipmentTypeSchema>
 export type OpeningHours = z.infer<typeof openingHoursSchema>
 export type CreateBranch = z.infer<typeof createBranchSchema>
 export type UpdateBranch = z.infer<typeof updateBranchSchema>

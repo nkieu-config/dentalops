@@ -1,5 +1,5 @@
 import { ApiPropertyOptional } from "@nestjs/swagger"
-import { IsIn, IsOptional, IsUUID } from "class-validator"
+import { IsBooleanString, IsIn, IsOptional, IsUUID } from "class-validator"
 
 export class QueryResourcesDto {
   @ApiPropertyOptional({ format: "uuid" })
@@ -11,4 +11,9 @@ export class QueryResourcesDto {
   @IsOptional()
   @IsIn(["chair", "equipment"])
   type?: "chair" | "equipment"
+
+  @ApiPropertyOptional({ enum: ["true", "false"] })
+  @IsOptional()
+  @IsBooleanString()
+  includeInactive?: "true" | "false"
 }

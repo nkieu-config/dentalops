@@ -33,7 +33,9 @@ export class ShiftsService {
     }
     const staff = await this.prisma.scoped.user.findUnique({ where: { id: dto.staffId } })
     if (!staff) throw new AppException(404, "NOT_FOUND", "Staff member not found")
-    const branch = await this.prisma.scoped.branch.findUnique({ where: { id: dto.branchId } })
+    const branch = await this.prisma.scoped.branch.findFirst({
+      where: { id: dto.branchId, isActive: true }
+    })
     if (!branch) throw new AppException(404, "NOT_FOUND", "Branch not found")
 
     const shift = await this.prisma.scoped.shift.create({

@@ -13,11 +13,14 @@ export { userRoleSchema, sessionUserSchema, authSessionSchema } from "./auth"
 export type { UserRole, SessionUser, AuthSession } from "./auth"
 export {
   branchSchema,
+  branchSettingsSchema,
   staffMemberSchema,
   createStaffSchema,
   serviceSummarySchema,
   resourceTypeSchema,
   resourceSchema,
+  resourceSettingsSchema,
+  equipmentTypeSchema,
   openingHoursSchema,
   createBranchSchema,
   updateBranchSchema,
@@ -31,11 +34,14 @@ export {
 } from "./directory"
 export type {
   Branch,
+  BranchSettings,
   StaffMember,
   CreateStaff,
   ServiceSummary,
   ResourceType,
   Resource,
+  ResourceSettings,
+  EquipmentType,
   OpeningHours,
   CreateBranch,
   UpdateBranch,

@@ -35,6 +35,12 @@ export class AvailabilityService {
       throw new AppException(400, "RANGE_TOO_LARGE", "Window must be 31 days or less")
     }
 
+    const branch = await this.prisma.scoped.branch.findFirst({
+      where: { id: q.branchId, isActive: true },
+      select: { id: true }
+    })
+    if (!branch) throw new AppException(404, "NOT_FOUND", "Branch not found")
+
     const tenant = currentTenant()
     const cached = tenant
       ? await this.cache.read({

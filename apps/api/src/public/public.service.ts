@@ -98,6 +98,7 @@ export class PublicService {
         select: { id: true, name: true, slug: true }
       }),
       this.prisma.scoped.branch.findMany({
+        where: { isActive: true },
         select: { id: true, name: true },
         orderBy: { name: "asc" }
       }),
@@ -197,7 +198,7 @@ export class PublicService {
     if (!dentist) throw new AppException(404, "NOT_FOUND", "Dentist not found")
 
     const branch = await this.prisma.scoped.branch.findFirst({
-      where: { id: body.branchId },
+      where: { id: body.branchId, isActive: true },
       select: { id: true }
     })
     if (!branch) throw new AppException(404, "NOT_FOUND", "Branch not found")

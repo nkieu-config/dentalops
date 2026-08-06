@@ -73,6 +73,7 @@ model Branch {
   name         String
   timezone     String   @default("Asia/Bangkok")
   openingHours Json     @map("opening_hours")
+  isActive     Boolean  @default(true) @map("is_active")
   createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt    DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
 

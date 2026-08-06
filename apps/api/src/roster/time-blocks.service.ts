@@ -39,7 +39,9 @@ export class TimeBlocksService {
       if (!staff) throw new AppException(404, "NOT_FOUND", "Staff member not found")
     }
     if (dto.branchId) {
-      const branch = await this.prisma.scoped.branch.findUnique({ where: { id: dto.branchId } })
+      const branch = await this.prisma.scoped.branch.findFirst({
+        where: { id: dto.branchId, isActive: true }
+      })
       if (!branch) throw new AppException(404, "NOT_FOUND", "Branch not found")
     }
 

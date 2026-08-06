@@ -31,4 +31,9 @@ export class DirectoryController {
   resources(@Query() query: QueryResourcesDto) {
     return this.directory.resources(query)
   }
+
+  @Get("equipment-types")
+  equipmentTypes() {
+    return this.directory.equipmentTypes()
+  }
 }

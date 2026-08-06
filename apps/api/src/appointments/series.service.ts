@@ -75,7 +75,9 @@ export class SeriesService {
       where: { id: dto.dentistId, role: "dentist", isActive: true }
     })
     if (!dentist) throw new AppException(404, "NOT_FOUND", "Dentist not found")
-    const branch = await this.prisma.scoped.branch.findUnique({ where: { id: dto.branchId } })
+    const branch = await this.prisma.scoped.branch.findFirst({
+      where: { id: dto.branchId, isActive: true }
+    })
     if (!branch) throw new AppException(404, "NOT_FOUND", "Branch not found")
     const patient = await this.prisma.scoped.patient.findUnique({ where: { id: dto.patientId } })
     if (!patient) throw new AppException(404, "NOT_FOUND", "Patient not found")

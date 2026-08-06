@@ -1,7 +1,9 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 import { render, screen } from "@testing-library/react"
+import userEvent from "@testing-library/user-event"
 import { MemoryRouter } from "react-router"
 import { describe, expect, it } from "vitest"
+import { API, http, HttpResponse, server } from "../test/msw"
 import { LandingPage } from "./landing-page"
 
 const DEMO_LABELS = ["Try as Owner", "Try as Receptionist", "Try as Dentist"]
@@ -62,5 +64,28 @@ describe("LandingPage", () => {
       expect(link.className).not.toContain("bg-primary")
       expect(link.className).not.toContain("bg-secondary")
     }
+  })
+
+  it("replaces unavailable demo roles with a recovery state while keeping clinic doors available", async () => {
+    server.use(
+      http.post(`${API}/auth/demo-login`, () =>
+        HttpResponse.json(
+          { statusCode: 503, errorCode: "SERVICE_UNAVAILABLE", message: "Demo is unavailable" },
+          { status: 503 }
+        )
+      )
+    )
+    const user = userEvent.setup()
+    mount()
+
+    await user.click(screen.getByRole("button", { name: /Try as Owner/ }))
+
+    expect(
+      await screen.findByRole("heading", { name: "Interactive demo is temporarily unavailable" })
+    ).toBeVisible()
+    expect(screen.queryByRole("button", { name: /Try as Owner/ })).not.toBeInTheDocument()
+    expect(screen.getByRole("button", { name: "Try demo again" })).toBeVisible()
+    expect(screen.getByRole("link", { name: "Sign in" })).toHaveAttribute("href", "/login")
+    expect(screen.getByRole("link", { name: "Create a clinic" })).toHaveAttribute("href", "/signup")
   })
 })

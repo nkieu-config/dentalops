@@ -3,9 +3,18 @@ on:
   push:
     branches: [main]
   pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 jobs:
   ci:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
     services:
       postgres:
         image: postgres:16
@@ -74,8 +83,91 @@ jobs:
           path: apps/web/test-results/
           retention-days: 7
 
+  visual-preflight:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    outputs:
+      baseline_available: ${{ steps.snapshot.outputs.available }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: snapshot
+        run: |
+          if find apps/web/e2e/visual.spec.ts-snapshots -name '*-linux.png' -print -quit | grep -q .; then
+            echo "available=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "available=false" >> "$GITHUB_OUTPUT"
+          fi
+
+  visual:
+    needs: visual-preflight
+    if: needs.visual-preflight.outputs.baseline_available == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: dentalops
+          POSTGRES_PASSWORD: dentalops
+          POSTGRES_DB: dentalops
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U dentalops"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 20
+      redis:
+        image: redis:7
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 20
+      mongo:
+        image: mongo:7
+        ports:
+          - 27017:27017
+        options: >-
+          --health-cmd "mongosh --quiet --eval 'db.runCommand({ ping: 1 })'"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 20
+    env:
+      DATABASE_URL: postgresql://dentalops:dentalops@localhost:5432/dentalops
+      DIRECT_URL: postgresql://dentalops:dentalops@localhost:5432/dentalops
+      JWT_SECRET: ci-test-secret
+      JWT_REFRESH_SECRET: ci-test-refresh-secret
+      REDIS_URL: redis://localhost:6379
+      MONGODB_URL: mongodb://localhost:27017/dentalops_ci
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm test:local-workflow
+      - run: pnpm --filter @dentalops/api exec prisma generate
+      - run: pnpm --filter @dentalops/api exec prisma migrate deploy
+      - run: pnpm build
+      - run: pnpm --filter @dentalops/web exec playwright install --with-deps chromium
+      - run: pnpm --filter @dentalops/web e2e:visual
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: visual-regression-artifacts
+          path: |
+            apps/web/test-results/
+            apps/web/playwright-report/
+          retention-days: 7
+
   docker:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
     services:
       postgres:
         image: postgres:16

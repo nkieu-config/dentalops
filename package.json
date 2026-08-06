@@ -13,7 +13,7 @@
     "infra:logs": "node scripts/local-workflow.mjs infra-logs",
     "demo:seed": "node scripts/local-workflow.mjs demo-seed",
     "db:reset": "node scripts/local-workflow.mjs db-reset",
-    "test:local-workflow": "node --test scripts/local-workflow.test.mjs",
+    "test:local-workflow": "node --test scripts/local-workflow.test.mjs scripts/local-workflow-readme.test.mjs",
     "build": "turbo run build",
     "typecheck": "turbo run typecheck",
     "test": "turbo run test",

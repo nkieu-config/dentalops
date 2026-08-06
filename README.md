@@ -94,14 +94,36 @@ caveats and the honest reading — a 100% cache-hit workload is not real traffic
 
 ## Development
 
+### First run
+
 ```bash
-pnpm install
-docker compose up -d      # postgres 16, mongodb 7, redis 7, mailpit
-cp .env.example .env      # then fill in the connection strings
+pnpm setup
+pnpm demo:seed
 pnpm dev
 ```
 
-Web on http://localhost:5173 · API on http://localhost:3001/api/v1/health
+`pnpm setup` installs dependencies, creates `.env` only when it is absent, waits for Docker
+infrastructure and applies Prisma migrations. `pnpm demo:seed` asks before recreating the demo tenant.
+
+### Daily development
+
+```bash
+pnpm dev
+```
+
+This waits for Postgres, MongoDB and Redis in Docker, then starts NestJS on
+http://localhost:3001/api/v1/health and Vite on http://localhost:5173. Ctrl-C stops only API and web;
+Docker services keep their named volumes and continue running.
+
+```bash
+pnpm infra:up
+pnpm infra:logs
+pnpm infra:down
+pnpm db:reset
+```
+
+`pnpm db:reset` deletes all local Prisma data and reseeds it after confirmation. It is never run by
+`pnpm setup` or `pnpm dev`.
 
 ```bash
 pnpm lint        # eslint across the workspace

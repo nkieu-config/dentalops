@@ -573,9 +573,9 @@ Two traps that must shape the design rather than be discovered later:
 
 ### Task 13: Contracts and the clinic profile
 
-- [ ] **Step 1:** Add to `packages/contracts/src/directory.ts`: `openingHoursSchema` (the seven day keys, each an array of `[start, end]` `HH:mm` pairs, validated as ordered and non-overlapping), `createBranchSchema` / `updateBranchSchema`, `createServiceSchema` / `updateServiceSchema`, `createResourceSchema` / `updateResourceSchema`, `updateStaffSchema`, and `clinicProfileSchema`. Build the package.
-- [ ] **Step 2:** `GET /tenant` and `PATCH /tenant` (name, slug), `@Roles("owner")`. `Tenant` is deliberately excluded from `TENANT_MODELS` in `prisma/tenant.extension.ts`, so this controller uses the unscoped client and scopes by `currentTenant().tenantId` by hand — copy how `public.service.ts` already reads it. A slug change must 409 `SLUG_TAKEN` on collision, and the response must tell the UI the public booking URL changed.
-- [ ] **Step 3:** Tests including cross-tenant 404, then register both in the isolation registry.
+- [x] **Step 1:** Add to `packages/contracts/src/directory.ts`: `openingHoursSchema` (the seven day keys, each an array of `[start, end]` `HH:mm` pairs, validated as ordered and non-overlapping), `createBranchSchema` / `updateBranchSchema`, `createServiceSchema` / `updateServiceSchema`, `createResourceSchema` / `updateResourceSchema`, `updateStaffSchema`, and `clinicProfileSchema`. Build the package.
+- [x] **Step 2:** `GET /tenant` and `PATCH /tenant` (name, slug), `@Roles("owner")`. `Tenant` is deliberately excluded from `TENANT_MODELS` in `prisma/tenant.extension.ts`, so this controller uses the unscoped client and scopes by `currentTenant().tenantId` by hand — copy how `public.service.ts` already reads it. A slug change must 409 `SLUG_TAKEN` on collision, and the response must tell the UI the public booking URL changed.
+- [x] **Step 3:** Tests including cross-tenant 404, then register both in the isolation registry. `/tenant` has no caller-supplied foreign identifier, so its isolation test proves two owners each receive only their context-bound clinic; a stale tenant context returns `CLINIC_NOT_FOUND`. Both routes are registered as `auth-only`.
 - [ ] **Step 4: Commit** — `feat(api): let an owner read and rename their clinic`
 
 ### Task 14: Branch, service and resource writes

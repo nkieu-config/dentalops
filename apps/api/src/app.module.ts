@@ -30,6 +30,7 @@ import { REDIS, RedisModule } from "./redis/redis.module"
 import { RosterModule } from "./roster/roster.module"
 import { ShiftsModule } from "./shifts/shifts.module"
 import { StaffModule } from "./staff/staff.module"
+import { TenantModule } from "./tenant/tenant.module"
 import { TenantContextMiddleware } from "./tenant/tenant-context.middleware"
 
 @Module({
@@ -54,6 +55,7 @@ import { TenantContextMiddleware } from "./tenant/tenant-context.middleware"
     PatientsModule,
     DirectoryModule,
     StaffModule,
+    TenantModule,
     PublicModule,
     DemoModule
   ],

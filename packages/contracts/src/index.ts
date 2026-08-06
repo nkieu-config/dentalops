@@ -17,7 +17,17 @@ export {
   createStaffSchema,
   serviceSummarySchema,
   resourceTypeSchema,
-  resourceSchema
+  resourceSchema,
+  openingHoursSchema,
+  createBranchSchema,
+  updateBranchSchema,
+  createServiceSchema,
+  updateServiceSchema,
+  createResourceSchema,
+  updateResourceSchema,
+  updateStaffSchema,
+  clinicProfileSchema,
+  updateClinicProfileSchema
 } from "./directory"
 export type {
   Branch,
@@ -25,7 +35,17 @@ export type {
   CreateStaff,
   ServiceSummary,
   ResourceType,
-  Resource
+  Resource,
+  OpeningHours,
+  CreateBranch,
+  UpdateBranch,
+  CreateService,
+  UpdateService,
+  CreateResource,
+  UpdateResource,
+  UpdateStaff,
+  ClinicProfile,
+  UpdateClinicProfile
 } from "./directory"
 export {
   shiftSchema,

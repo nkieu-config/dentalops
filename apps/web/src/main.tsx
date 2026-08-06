@@ -7,6 +7,7 @@ import { RouterProvider } from "react-router"
 import { Toaster } from "sonner"
 import { initTheme } from "./lib/theme"
 import { router } from "./routes"
+import { MotionProvider } from "./components/ui/motion-provider"
 
 initTheme()
 
@@ -36,8 +37,10 @@ const client = new QueryClient({
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
     <QueryClientProvider client={client}>
-      <RouterProvider router={router} />
-      <Toaster position="top-center" richColors />
+      <MotionProvider>
+        <RouterProvider router={router} />
+        <Toaster position="top-center" richColors />
+      </MotionProvider>
     </QueryClientProvider>
   </StrictMode>
 )

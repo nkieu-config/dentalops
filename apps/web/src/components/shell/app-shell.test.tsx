@@ -1,4 +1,5 @@
 import type { UserRole } from "@dentalops/contracts"
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 import { render, screen } from "@testing-library/react"
 import { MemoryRouter, Route, Routes } from "react-router"
 import { afterEach, describe, expect, it } from "vitest"
@@ -19,14 +20,17 @@ const sessionFor = (role: UserRole) => ({
 
 const mount = (role: UserRole) => {
   setSession(sessionFor(role))
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   render(
-    <MemoryRouter initialEntries={["/app/timeline"]}>
-      <Routes>
-        <Route path="/app" element={<AppShell />}>
-          <Route path="timeline" element={<p>timeline</p>} />
-        </Route>
-      </Routes>
-    </MemoryRouter>
+    <QueryClientProvider client={client}>
+      <MemoryRouter initialEntries={["/app/timeline"]}>
+        <Routes>
+          <Route path="/app" element={<AppShell />}>
+            <Route path="timeline" element={<p>timeline</p>} />
+          </Route>
+        </Routes>
+      </MemoryRouter>
+    </QueryClientProvider>
   )
 }
 
@@ -57,6 +61,16 @@ describe("AppShell navigation", () => {
     const inBar = Array.from(bar!.querySelectorAll("a")).map((a) => a.getAttribute("href"))
     expect(inBar).toEqual(visibleNavItems(sessionFor("dentist")).map((item) => item.to))
     expect(inBar).not.toContain("/app/roster")
+  })
+
+  it("keeps Settings exclusive to the owner role", () => {
+    mount("receptionist")
+    expect(links("Settings")).toHaveLength(0)
+  })
+
+  it("shows clinic identity while the cached profile is loading", () => {
+    mount("owner")
+    expect(screen.getByText("DentalOps")).toBeInTheDocument()
   })
 
   it("guards every gated destination with the predicate its route uses", () => {

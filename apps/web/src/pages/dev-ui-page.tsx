@@ -13,6 +13,9 @@ import { SlotPickerView, type SlotPickerState } from "../components/slot-picker"
 import { Badge } from "../components/ui/badge"
 import { Button } from "../components/ui/button"
 import { Card, CardBody, CardDescription, CardHeader, CardTitle } from "../components/ui/card"
+import { InitialsAvatar } from "../components/ui/initials-avatar"
+import { PageHeader } from "../components/ui/page-header"
+import { StatusCallout } from "../components/ui/status-callout"
 import { EmptyState } from "../components/ui/empty-state"
 import { Input } from "../components/ui/input"
 import { Label } from "../components/ui/label"
@@ -441,6 +444,7 @@ export const DevUiPage = () => (
     </section>
     <section className="space-y-3">
       <h2 className="text-lg font-semibold">Primitives</h2>
+      <PageHeader title="Clinic settings" description="Shared page context appears before scoped actions."><Button>Save changes</Button></PageHeader>
       <div className="flex flex-wrap items-center gap-2">
         <Button>Default</Button>
         <Button variant="secondary">Secondary</Button>
@@ -448,6 +452,10 @@ export const DevUiPage = () => (
         <Button variant="destructive">Destructive</Button>
         <Button size="sm">Small</Button>
         <Button disabled>Disabled</Button>
+      </div>
+      <div className="grid gap-3 sm:grid-cols-2">
+        <StatusCallout tone="warning" icon={AlertTriangle} title="Needs attention">Two appointments need a chair before this roster can be saved.</StatusCallout>
+        <div className="flex items-center gap-3 rounded-card border border-border p-3"><InitialsAvatar name="Dr. Anong Srisuk" /><span className="text-sm font-semibold">Dr. Anong Srisuk</span></div>
       </div>
       <div className="max-w-xs space-y-2">
         <Label htmlFor="demo-input">Label</Label>

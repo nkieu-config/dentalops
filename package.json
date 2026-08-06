@@ -6,7 +6,14 @@
     "node": ">=22"
   },
   "scripts": {
-    "dev": "turbo run dev",
+    "setup": "node scripts/local-workflow.mjs setup",
+    "dev": "node scripts/local-workflow.mjs dev",
+    "infra:up": "node scripts/local-workflow.mjs infra-up",
+    "infra:down": "node scripts/local-workflow.mjs infra-down",
+    "infra:logs": "node scripts/local-workflow.mjs infra-logs",
+    "demo:seed": "node scripts/local-workflow.mjs demo-seed",
+    "db:reset": "node scripts/local-workflow.mjs db-reset",
+    "test:local-workflow": "node --test scripts/local-workflow.test.mjs",
     "build": "turbo run build",
     "typecheck": "turbo run typecheck",
     "test": "turbo run test",

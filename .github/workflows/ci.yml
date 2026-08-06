@@ -53,6 +53,7 @@ jobs:
           node-version: 22
           cache: pnpm
       - run: pnpm install --frozen-lockfile
+      - run: pnpm test:local-workflow
       - run: pnpm --filter @dentalops/api exec prisma generate
       - run: pnpm --filter @dentalops/api exec prisma migrate deploy
       - run: pnpm lint

@@ -1,6 +1,6 @@
 import assert from "node:assert/strict"
 import test from "node:test"
-import { createWorkflow, messages } from "./local-workflow.mjs"
+import { actions, createWorkflow, messages } from "./local-workflow.mjs"
 
 const harness = ({ envExists = true, confirmed = true } = {}) => {
   const calls = []
@@ -54,4 +54,10 @@ test("dev refuses to start when .env is missing", async () => {
   const { workflow } = harness({ envExists: false })
 
   await assert.rejects(workflow.dev(), { message: messages.missingEnv })
+})
+
+test("the runner exposes every documented action", () => {
+  assert.deepEqual(Object.keys(actions).sort(), [
+    "db-reset", "demo-seed", "dev", "infra-down", "infra-logs", "infra-up", "setup"
+  ])
 })

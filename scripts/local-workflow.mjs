@@ -15,6 +15,16 @@ export const messages = {
   usage: "Usage: node scripts/local-workflow.mjs <setup|dev|infra-up|infra-down|infra-logs|demo-seed|db-reset>"
 }
 
+export const actions = {
+  setup: "setup",
+  dev: "dev",
+  "infra-up": "infraUp",
+  "infra-down": "infraDown",
+  "infra-logs": "infraLogs",
+  "demo-seed": "demoSeed",
+  "db-reset": "dbReset"
+}
+
 export const createWorkflow = ({ run, exists, copy, confirm, pnpmCommand = "pnpm" }) => {
   const requireEnv = () => {
     if (!exists(".env")) throw new Error(messages.missingEnv)
@@ -76,15 +86,7 @@ const confirm = async (question) => {
 const copy = (from, to) => copyFile(resolve(root, from), resolve(root, to))
 const action = process.argv[2]
 const workflow = createWorkflow({ run, exists: (path) => existsSync(resolve(root, path)), copy, confirm, pnpmCommand: pnpm })
-const method = {
-  setup: workflow.setup,
-  dev: workflow.dev,
-  "infra-up": workflow.infraUp,
-  "infra-down": workflow.infraDown,
-  "infra-logs": workflow.infraLogs,
-  "demo-seed": workflow.demoSeed,
-  "db-reset": workflow.dbReset
-}[action]
+const method = workflow[actions[action]]
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
   if (!method) {

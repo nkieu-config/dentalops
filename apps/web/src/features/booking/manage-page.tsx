@@ -5,6 +5,7 @@ import { useParams } from "react-router"
 import { toast } from "sonner"
 import { SlotPickerView, type SlotPickerState } from "../../components/slot-picker"
 import { Button } from "../../components/ui/button"
+import { AlertDialog } from "../../components/ui/alert-dialog"
 import { EmptyState } from "../../components/ui/empty-state"
 import { Sheet } from "../../components/ui/sheet"
 import { Skeleton } from "../../components/ui/skeleton"
@@ -253,39 +254,15 @@ export const ManagePage = () => {
             </div>
           </Sheet>
 
-          <Sheet
+          <AlertDialog
             open={confirming}
             onOpenChange={setConfirming}
             title="Cancel this booking?"
-            side="bottom"
-          >
-            <div className="space-y-4 text-base" data-testid="cancel-confirm">
-              <p className="text-base">
-                <span className="tabular-nums">
-                  {fmtDay(bkkDate(Date.parse(appointment.startsAt)))} ·{" "}
-                  {fmtTime(Date.parse(appointment.startsAt))}
-                </span>{" "}
-                will be given to someone else. This cannot be undone.
-              </p>
-              <div className="flex flex-col gap-2">
-                <Button
-                  variant="destructive"
-                  className="min-h-12 w-full text-base"
-                  disabled={cancel.isPending}
-                  onClick={confirmCancel}
-                >
-                  {cancel.isPending ? "Cancelling…" : "Yes, cancel booking"}
-                </Button>
-                <Button
-                  variant="secondary"
-                  className="min-h-12 w-full text-base"
-                  onClick={() => setConfirming(false)}
-                >
-                  Keep my booking
-                </Button>
-              </div>
-            </div>
-          </Sheet>
+            description={`${fmtDay(bkkDate(Date.parse(appointment.startsAt)))} · ${fmtTime(Date.parse(appointment.startsAt))} will be given to someone else. This cannot be undone.`}
+            confirmLabel={cancel.isPending ? "Cancelling…" : "Cancel booking"}
+            confirmDisabled={cancel.isPending}
+            onConfirm={confirmCancel}
+          />
         </>
       ) : null}
     </main>

@@ -1,4 +1,5 @@
 import { TimerOff } from "lucide-react"
+import type { ReactNode } from "react"
 import { SlotPickerView, type SlotPickerState } from "../../../components/slot-picker"
 import { Button } from "../../../components/ui/button"
 import { fmtTime } from "../../timeline/lib/geometry"
@@ -10,6 +11,7 @@ interface SlotStepProps {
   recovery: WizardRecovery | null
   nearestFree: string | null
   holding: boolean
+  calendar?: ReactNode
   onPick: (startsAtIso: string) => void
   onDateChange: (isoDate: string) => void
   onPickAnother: () => void
@@ -26,6 +28,7 @@ export const SlotStep = ({
   recovery,
   nearestFree,
   holding,
+  calendar,
   onPick,
   onDateChange,
   onPickAnother
@@ -58,6 +61,7 @@ export const SlotStep = ({
   return (
     <div className="space-y-3" aria-busy={holding}>
       <h2 className="text-lg font-semibold">Choose a time</h2>
+      {calendar}
       <SlotPickerView date={date} state={state} onPick={onPick} onDateChange={onDateChange} />
       {state.status === "ready" && count > 0 ? (
         <p className="text-base tabular-nums text-muted-foreground">

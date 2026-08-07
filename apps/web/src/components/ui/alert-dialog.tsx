@@ -7,10 +7,19 @@ interface AlertDialogProps {
   title: string
   description: string
   confirmLabel: string
+  confirmDisabled?: boolean
   onConfirm: () => void
 }
 
-export const AlertDialog = ({ open, onOpenChange, title, description, confirmLabel, onConfirm }: AlertDialogProps) => (
+export const AlertDialog = ({
+  open,
+  onOpenChange,
+  title,
+  description,
+  confirmLabel,
+  confirmDisabled = false,
+  onConfirm
+}: AlertDialogProps) => (
   <AlertDialogPrimitive.Root open={open} onOpenChange={onOpenChange}>
     <AlertDialogPrimitive.Portal>
       <AlertDialogPrimitive.Overlay className="fixed inset-0 z-40 bg-overlay" />
@@ -19,7 +28,7 @@ export const AlertDialog = ({ open, onOpenChange, title, description, confirmLab
         <AlertDialogPrimitive.Description className="mt-2 text-supporting text-muted-foreground">{description}</AlertDialogPrimitive.Description>
         <div className="mt-5 flex justify-end gap-2">
           <AlertDialogPrimitive.Cancel asChild><Button variant="secondary">Keep appointment</Button></AlertDialogPrimitive.Cancel>
-          <AlertDialogPrimitive.Action asChild><Button variant="destructive" onClick={onConfirm}>{confirmLabel}</Button></AlertDialogPrimitive.Action>
+          <AlertDialogPrimitive.Action asChild><Button variant="destructive" disabled={confirmDisabled} onClick={onConfirm}>{confirmLabel}</Button></AlertDialogPrimitive.Action>
         </div>
       </AlertDialogPrimitive.Content>
     </AlertDialogPrimitive.Portal>

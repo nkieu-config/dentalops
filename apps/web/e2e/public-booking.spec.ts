@@ -77,10 +77,18 @@ test("J1: a phone booking lands on the staff timeline without a reload", async (
   await firstSlot.click()
 
   await expect(phonePage.getByRole("heading", { name: "Your details" })).toBeVisible()
+  await expect(phonePage.getByRole("region", { name: "Appointment recap" })).toBeVisible()
   await phonePage.getByLabel("Full name").fill(patientName)
   await phonePage.getByLabel("Mobile number").fill(patientPhone)
   await phonePage.getByRole("button", { name: "Confirm booking" }).click()
   await expect(phonePage.getByRole("heading", { name: "You are booked" })).toBeVisible()
+
+  await phonePage.getByRole("link", { name: "Change or cancel this booking" }).click()
+  await expect(phonePage.getByRole("heading", { name: "Your booking" })).toBeVisible()
+  await phonePage.getByRole("button", { name: "Cancel this booking" }).click()
+  await expect(phonePage.getByRole("alertdialog", { name: "Cancel this booking?" })).toBeVisible()
+  await phonePage.getByRole("button", { name: "Keep appointment" }).click()
+  await expect(phonePage.getByRole("alertdialog")).not.toBeVisible()
 
   const arrival = deskPage.locator("[data-appt]").filter({ hasText: patientName })
   await expect(arrival).toBeVisible({ timeout: REALTIME_TIMEOUT })

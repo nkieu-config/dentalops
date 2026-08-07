@@ -41,7 +41,11 @@ interface SlotGroup {
   slots: AvailabilitySlot[]
 }
 
-const isMorning = (startsAt: string) => Number(fmtTime(Date.parse(startsAt)).slice(0, 2)) < 12
+const hourOf = (startsAt: string) => Number(fmtTime(Date.parse(startsAt)).slice(0, 2))
+
+const isMorning = (startsAt: string) => hourOf(startsAt) < 12
+
+const isAfternoon = (startsAt: string) => hourOf(startsAt) >= 12 && hourOf(startsAt) < 17
 
 export const SlotPicker = ({
   serviceId,
@@ -87,7 +91,12 @@ export const SlotPickerView = ({ date, state, onPick, onDateChange }: SlotPicker
       .sort((a, b) => Date.parse(a.startsAt) - Date.parse(b.startsAt))
     return [
       { key: "morning", label: "Morning", slots: slots.filter((s) => isMorning(s.startsAt)) },
-      { key: "afternoon", label: "Afternoon", slots: slots.filter((s) => !isMorning(s.startsAt)) }
+      { key: "afternoon", label: "Afternoon", slots: slots.filter((s) => isAfternoon(s.startsAt)) },
+      {
+        key: "evening",
+        label: "Evening",
+        slots: slots.filter((s) => !isMorning(s.startsAt) && !isAfternoon(s.startsAt))
+      }
     ].filter((group) => group.slots.length > 0)
   }, [state])
 

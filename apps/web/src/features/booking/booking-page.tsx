@@ -9,6 +9,9 @@ import { EmptyState } from "../../components/ui/empty-state"
 import { Skeleton } from "../../components/ui/skeleton"
 import { ApiError } from "../../lib/api"
 import { bkkToday } from "../timeline/lib/geometry"
+import { BookingStepper } from "./booking-stepper"
+import { BookingCalendar } from "./booking-calendar"
+import { BookingRecap } from "./booking-recap"
 import {
   AVAILABILITY_KEY,
   useClinic,
@@ -28,11 +31,6 @@ import {
   wizardReducer,
   type RecoveryReason
 } from "./wizard-reducer"
-
-const stepDot = (index: number, current: number) =>
-  index <= current
-    ? "h-1.5 flex-1 rounded-full bg-primary transition-colors duration-150"
-    : "h-1.5 flex-1 rounded-full bg-border transition-colors duration-150"
 
 export const BookingPage = () => {
   const { clinicSlug = "" } = useParams()
@@ -85,6 +83,23 @@ export const BookingPage = () => {
       .sort((a, b) => Date.parse(a) - Date.parse(b))
     return later[0] ?? null
   }, [state.recovery, slotsByStart])
+
+  const recap = useMemo(() => {
+    if (!state.hold || !clinic.data) return null
+    const service = clinic.data.services.find((item) => item.id === state.serviceId)
+    const branch = clinic.data.branches.find((item) => item.id === state.branchId)
+    const dentist = clinic.data.dentists.find((item) => item.id === state.hold?.dentistId)
+    if (!service || !branch || !dentist) return null
+
+    return (
+      <BookingRecap
+        startsAt={state.hold.startsAt}
+        serviceName={service.name}
+        dentistName={dentist.name}
+        branchName={branch.name}
+      />
+    )
+  }, [clinic.data, state.branchId, state.hold, state.serviceId])
 
   const refreshSlots = () => {
     void queryClient.invalidateQueries({ queryKey: [AVAILABILITY_KEY] })
@@ -186,20 +201,15 @@ export const BookingPage = () => {
             </button>
           ) : null}
           <h1 className="text-lg font-semibold">
-            {clinic.isPending ? <Skeleton className="h-6 w-40" /> : clinic.data?.name}
+            {clinic.isPending ? (
+              <Skeleton className="h-6 w-40" />
+            ) : (
+              `${clinic.data?.name ?? "Clinic"} booking`
+            )}
           </h1>
         </div>
         {state.step === "confirmed" ? null : (
-          <div className="flex items-center gap-3">
-            <div className="flex flex-1 items-center gap-1.5" aria-hidden>
-              {STEP_ORDER.map((step, index) => (
-                <span key={step} className={stepDot(index, stepIndex)} />
-              ))}
-            </div>
-            <p className="text-base tabular-nums text-muted-foreground">
-              Step {stepIndex + 1}/{STEP_ORDER.length}
-            </p>
-          </div>
+          <BookingStepper current={state.step} />
         )}
       </header>
 
@@ -228,6 +238,12 @@ export const BookingPage = () => {
           recovery={state.recovery}
           nearestFree={nearestFree}
           holding={createHold.isPending}
+          calendar={
+            <BookingCalendar
+              value={state.date}
+              onChange={(date) => dispatch({ type: "choose-date", date })}
+            />
+          }
           onPick={pickSlot}
           onDateChange={(date) => dispatch({ type: "choose-date", date })}
           onPickAnother={() => dispatch({ type: "dismiss-recovery" })}
@@ -239,6 +255,7 @@ export const BookingPage = () => {
           hold={state.hold}
           details={state.details}
           submitting={confirmBooking.isPending}
+          recap={recap}
           onChange={(details) => dispatch({ type: "edit-details", details })}
           onSubmit={submitDetails}
           onExpire={() => loseHold("expired")}

@@ -134,11 +134,11 @@ describe("ManagePage", () => {
 
     await user.click(screen.getByRole("button", { name: "Cancel this booking" }))
 
-    const dialog = await screen.findByTestId("cancel-confirm")
-    expect(within(dialog).getByText(/will be given to someone else/)).toBeInTheDocument()
+    const dialog = await screen.findByRole("alertdialog", { name: "Cancel this booking?" })
+    expect(within(dialog).getByText(/cannot be undone/)).toBeInTheDocument()
     expect(cancels).toEqual([])
 
-    await user.click(within(dialog).getByRole("button", { name: "Yes, cancel booking" }))
+    await user.click(within(dialog).getByRole("button", { name: "Cancel booking" }))
 
     await waitFor(() => expect(cancels).toEqual([token]))
     expect(await screen.findByTestId("cancelled-notice")).toBeInTheDocument()
@@ -151,10 +151,10 @@ describe("ManagePage", () => {
     await screen.findByText("Mon, 3 Aug 2026 · 10:30")
 
     await user.click(screen.getByRole("button", { name: "Cancel this booking" }))
-    const dialog = await screen.findByTestId("cancel-confirm")
-    await user.click(within(dialog).getByRole("button", { name: "Keep my booking" }))
+    const dialog = await screen.findByRole("alertdialog", { name: "Cancel this booking?" })
+    await user.click(within(dialog).getByRole("button", { name: "Keep appointment" }))
 
-    await waitFor(() => expect(screen.queryByTestId("cancel-confirm")).not.toBeInTheDocument())
+    await waitFor(() => expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument())
     expect(cancels).toEqual([])
     expect(screen.getByRole("button", { name: "Cancel this booking" })).toBeInTheDocument()
   })

@@ -160,6 +160,30 @@ describe("BookingPage", () => {
     vi.useRealTimers()
   })
 
+  it("names the booking progress and separates evening availability", async () => {
+    server.use(...handlers({ slots: () => [TEN_THIRTY, slot(anong, "11:00", "11:45")] }))
+    const user = mount()
+
+    expect(await screen.findByRole("navigation", { name: "Booking progress" })).toHaveTextContent(
+      "Choose service"
+    )
+    expect(screen.getByRole("heading", { name: "Bright Smile Dental booking" })).toBeVisible()
+
+    await walkToSlots(user)
+
+    expect(screen.getByTestId("group-morning")).toBeVisible()
+    expect(screen.getByTestId("group-evening")).toBeVisible()
+  })
+
+  it("lets the patient choose another appointment date from a named calendar", async () => {
+    server.use(...handlers())
+    const user = mount()
+
+    await walkToSlots(user)
+
+    expect(screen.getByRole("region", { name: "Choose appointment date" })).toBeVisible()
+  })
+
   it("uses an accessible foreground for the selected branch", async () => {
     server.use(
       http.get(`${API}/public/${clinicSlug}`, () =>
@@ -237,6 +261,12 @@ describe("BookingPage", () => {
     expect(banner).toHaveTextContent("Holding 10:30 for 1:30")
     expect(banner).not.toHaveTextContent("5:00")
     expect(screen.getByLabelText("Full name")).toBeInTheDocument()
+    expect(screen.getByRole("region", { name: "Appointment recap" })).toHaveTextContent(
+      "Cleaning"
+    )
+    expect(screen.getByRole("region", { name: "Appointment recap" })).toHaveTextContent(
+      "Dr. Anong"
+    )
   })
 
   it("replaces the details form with the recovery state when the hold runs out", async () => {

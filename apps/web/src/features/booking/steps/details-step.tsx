@@ -1,4 +1,4 @@
-import { FormEvent } from "react"
+import { FormEvent, type ReactNode } from "react"
 import { Button } from "../../../components/ui/button"
 import { Input } from "../../../components/ui/input"
 import { CountdownBanner } from "../countdown-banner"
@@ -8,6 +8,7 @@ interface DetailsStepProps {
   hold: WizardHold
   details: WizardDetails
   submitting: boolean
+  recap: ReactNode
   onChange: (patch: Partial<WizardDetails>) => void
   onSubmit: () => void
   onExpire: () => void
@@ -24,6 +25,7 @@ export const DetailsStep = ({
   hold,
   details,
   submitting,
+  recap,
   onChange,
   onSubmit,
   onExpire
@@ -37,6 +39,7 @@ export const DetailsStep = ({
     <form className="flex flex-1 flex-col gap-4" onSubmit={submit}>
       <CountdownBanner expiresAt={hold.expiresAt} startsAt={hold.startsAt} onExpire={onExpire} />
       <h2 className="text-lg font-semibold">Your details</h2>
+      {recap}
       <div className="space-y-1">
         <label className="block text-base font-medium" htmlFor="booking-name">
           Full name

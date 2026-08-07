@@ -57,6 +57,13 @@ for (const theme of THEMES) {
           await page.goto(screen.path as string)
           await settle(page, screen)
           await shoot(page, `${screen.name}-${viewport.name}-${theme}`)
+
+          if (screen.name === "booking") {
+            await page.getByRole("button", { name: /Cleaning/ }).click()
+            await page.getByTestId("any-dentist-option").click()
+            await expect(page.getByRole("region", { name: "Choose appointment date" })).toBeVisible()
+            await shoot(page, `booking-slots-${viewport.name}-${theme}`)
+          }
         })
       }
 

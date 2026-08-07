@@ -103,7 +103,9 @@ test.describe("auth screens", () => {
     test(`login has no serious or critical violations at ${name}`, async ({ page }) => {
       await page.setViewportSize(viewport)
       await page.goto("/login")
-      await expect(page.getByRole("heading", { level: 1, name: "Sign in" })).toBeVisible()
+      await expect(
+        page.getByRole("heading", { level: 1, name: "Welcome back to your clinic" })
+      ).toBeVisible()
       await expectClean(page)
     })
 

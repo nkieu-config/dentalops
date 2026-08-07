@@ -100,6 +100,12 @@ describe("LoginPage prefill", () => {
 })
 
 describe("LoginPage inputs", () => {
+  it("sets a clinic-specific welcome context", () => {
+    renderLogin()
+
+    expect(screen.getByRole("heading", { name: "Welcome back to your clinic" })).toBeVisible()
+  })
+
   it("declares the types and autocomplete hints a password manager needs", () => {
     renderLogin()
 
@@ -116,6 +122,17 @@ describe("LoginPage inputs", () => {
     expect(password).toHaveAttribute("name", "password")
     expect(password).toHaveAttribute("type", "password")
     expect(password).toHaveAttribute("autocomplete", "current-password")
+    expect(screen.getByRole("button", { name: "Show password" })).toBeVisible()
+  })
+
+  it("reveals the password only when the patient asks", async () => {
+    const user = userEvent.setup()
+    renderLogin()
+
+    await user.click(screen.getByRole("button", { name: "Show password" }))
+
+    expect(screen.getByLabelText("Password")).toHaveAttribute("type", "text")
+    expect(screen.getByRole("button", { name: "Hide password" })).toBeVisible()
   })
 
   it("explains where the clinic URL comes from", () => {

@@ -5,6 +5,7 @@ import { z } from "zod"
 import { api, ApiError } from "../../lib/api"
 import { setSession } from "../../lib/session"
 import { AuthCard, Field, FieldInput, FormError, SubmitButton } from "./auth-form"
+import { PasswordField } from "./password-field"
 import { SLUG_PATTERN } from "./slug"
 import { useAuthForm } from "./use-auth-form"
 
@@ -67,8 +68,8 @@ export const LoginPage = (): ReactElement => {
 
   return (
     <AuthCard
-      title="Sign in"
-      subtitle="Welcome back. Your clinic is where you left it."
+      title="Welcome back to your clinic"
+      subtitle="Your schedule and team are where you left them."
       footer={
         <>
           No clinic yet? <Link to="/signup">Create a clinic</Link>
@@ -108,18 +109,14 @@ export const LoginPage = (): ReactElement => {
             />
           )}
         </Field>
-        <Field id="password" label="Password" error={form.errors.password}>
-          {(aria) => (
-            <FieldInput
-              {...aria}
-              name="password"
-              type="password"
-              autoComplete="current-password"
-              value={form.values.password}
-              onChange={(event) => form.set("password", event.target.value)}
-            />
-          )}
-        </Field>
+        <PasswordField
+          label="Password"
+          name="password"
+          autoComplete="current-password"
+          value={form.values.password}
+          error={form.errors.password}
+          onChange={(event) => form.set("password", event.target.value)}
+        />
         <SubmitButton pending={form.pending} pendingLabel="Signing you in…">
           Sign in
         </SubmitButton>

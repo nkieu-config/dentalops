@@ -263,15 +263,17 @@ git commit -m "feat(web): clarify public booking selection"
 **Files:**
 - Create: `apps/web/src/features/booking/manage-actions.tsx`
 - Create: `apps/web/src/features/booking/manage-actions.test.tsx`
+- Create: `apps/web/src/features/booking/booking-recap.tsx`
+- Create: `apps/web/src/features/booking/booking-recap.test.tsx`
 - Modify: `apps/web/src/features/booking/steps/details-step.tsx`
 - Modify: `apps/web/src/features/booking/steps/confirmed-step.tsx`
 - Modify: `apps/web/src/features/booking/booking-summary.tsx`
 - Modify: `apps/web/src/features/booking/manage-page.tsx`
 - Modify: `apps/web/src/features/booking/manage-page.test.tsx`
 
-**Consumes:** current held-slot countdown, booking summary, `AlertDialog`, cancel/reschedule mutations and manage-token data.
+**Consumes:** current held-slot countdown, wizard IDs plus public clinic data, booking summary, `AlertDialog`, cancel/reschedule mutations and manage-token data.
 
-**Produces:** A visible appointment recap before confirmation, an explicit confirmation action, visit-overview-first manage page, reschedule-first actions and a safety-first cancellation dialog with `Keep appointment` first in keyboard and visual order.
+**Produces:** `BookingRecap`, which derives selected branch, service, dentist and held time from wizard state plus public clinic data before confirmation; an explicit confirmation action; a visit-overview-first manage page; reschedule-first actions; and a safety-first cancellation dialog with `Keep appointment` first in keyboard and visual order.
 
 - [ ] **Step 1: Write failing confirmation and manage safety tests**
 
@@ -294,9 +296,12 @@ Expected: FAIL because recap landmarks, exact confirmation copy and safe cancell
 - [ ] **Step 3: Implement recap and reusable manage actions**
 
 ```tsx
-<section aria-label="Appointment recap">
-  <BookingSummary appointment={appointment} />
-</section>
+<BookingRecap
+  branch={clinic.branches.find((branch) => branch.id === state.branchId)}
+  service={clinic.services.find((service) => service.id === state.serviceId)}
+  dentist={clinic.dentists.find((dentist) => dentist.id === state.hold?.dentistId)}
+  startsAt={state.hold.startsAt}
+/>
 ```
 
 ```tsx
@@ -315,7 +320,7 @@ Expected: PASS for cancelled, forged-token, expired hold and slot-conflict journ
 - [ ] **Step 5: Commit confirmation and management changes**
 
 ```bash
-git add apps/web/src/features/booking/steps/details-step.tsx apps/web/src/features/booking/steps/confirmed-step.tsx apps/web/src/features/booking/booking-summary.tsx apps/web/src/features/booking/manage-actions.tsx apps/web/src/features/booking/manage-actions.test.tsx apps/web/src/features/booking/manage-page.tsx apps/web/src/features/booking/manage-page.test.tsx
+git add apps/web/src/features/booking/steps/details-step.tsx apps/web/src/features/booking/steps/confirmed-step.tsx apps/web/src/features/booking/booking-summary.tsx apps/web/src/features/booking/booking-recap.tsx apps/web/src/features/booking/booking-recap.test.tsx apps/web/src/features/booking/manage-actions.tsx apps/web/src/features/booking/manage-actions.test.tsx apps/web/src/features/booking/manage-page.tsx apps/web/src/features/booking/manage-page.test.tsx
 git commit -m "feat(web): clarify booking follow through"
 ```
 

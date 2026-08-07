@@ -1,0 +1,80 @@
+<style>
+  .staff-canvas { display:grid; gap:22px; }
+  .staff-layout { display:grid; grid-template-columns:minmax(0,1fr) 250px; gap:18px; align-items:start; }
+  .workspace { overflow:hidden; border:1px solid #d8e6e2; border-radius:22px; background:#f8fbfa; box-shadow:0 18px 48px rgba(35,67,62,.10); color:#263634; }
+  .appbar { display:flex; align-items:center; gap:13px; height:58px; padding:0 18px; border-bottom:1px solid #dce9e6; background:#fffefc; }
+  .mark { display:grid; place-items:center; width:27px; height:27px; border-radius:10px; background:#43b6b1; color:#fff; font-size:14px; font-weight:800; }
+  .clinic { font-size:13px; font-weight:800; letter-spacing:-.01em; }
+  .today { margin-left:auto; border:1px solid #cce6e1; border-radius:999px; padding:6px 10px; background:#eff9f6; color:#277f79; font-size:11px; font-weight:800; }
+  .avatar { display:grid; place-items:center; width:26px; height:26px; border-radius:50%; background:#ddd2ee; color:#65507e; font-size:10px; font-weight:800; }
+  .workspace-body { display:grid; grid-template-columns:138px minmax(0,1fr); min-height:450px; }
+  .workspace-nav { padding:14px 10px; border-right:1px solid #dce9e6; background:#f1f7f5; }
+  .workspace-nav b { display:block; padding:0 9px 10px; color:#69817d; font-size:10px; letter-spacing:.08em; text-transform:uppercase; }
+  .nav-item { display:flex; align-items:center; gap:8px; margin-bottom:4px; padding:9px; border-radius:11px; color:#68807c; font-size:11px; font-weight:700; }
+  .nav-item.active { background:#fff; color:#236c68; box-shadow:0 2px 7px rgba(35,67,62,.08); }
+  .nav-dot { width:8px; height:8px; border-radius:50%; background:currentColor; opacity:.7; }
+  .schedule { padding:16px; background:#f8fbfa; }
+  .schedule-heading { display:flex; align-items:flex-start; justify-content:space-between; gap:12px; margin-bottom:15px; }
+  .schedule-heading h3 { margin:0 0 3px; font-size:19px; letter-spacing:-.04em; }
+  .schedule-heading p { margin:0; color:#718884; font-size:11px; }
+  .add { border:0; border-radius:11px; padding:9px 11px; background:#43b6b1; color:#fff; font-size:11px; font-weight:800; box-shadow:0 5px 12px rgba(67,182,177,.24); }
+  .view-tabs { display:flex; gap:5px; margin-bottom:13px; }
+  .view-tab { border-radius:999px; padding:6px 9px; color:#718884; font-size:10px; font-weight:800; }
+  .view-tab.active { background:#dff3ee; color:#287c76; }
+  .grid { display:grid; grid-template-columns:42px repeat(3,minmax(88px,1fr)); overflow:hidden; border:1px solid #dce9e6; border-radius:14px; background:#fff; }
+  .grid > div { min-height:48px; border-right:1px solid #ebf1ef; border-bottom:1px solid #ebf1ef; }
+  .grid > div:nth-last-child(-n+4) { border-bottom:0; }
+  .grid-head { display:flex; align-items:center; padding:0 8px; background:#f3f8f6; color:#66807a; font-size:10px; font-weight:800; }
+  .time { padding:8px 6px; color:#93a8a3; font-size:9px; text-align:right; }
+  .slot { position:relative; background:repeating-linear-gradient(to bottom, transparent 0, transparent 23px, #f1f5f4 24px); }
+  .booking { position:absolute; inset:5px 5px auto; min-height:31px; padding:6px 7px; border-radius:8px; font-size:9px; line-height:1.25; font-weight:800; }
+  .booking small { display:block; margin-top:2px; opacity:.7; font-size:8px; font-weight:700; }
+  .aqua { background:#d9f1ed; color:#226c67; border-left:3px solid #49b8b2; }
+  .lilac { top:34px; background:#eae2f7; color:#715b91; border-left:3px solid #ae94d5; }
+  .yellow { top:14px; background:#fff0c7; color:#8d681a; border-left:3px solid #ecbf4b; }
+  .side-notes { display:grid; gap:12px; }
+  .note { padding:15px; border:1px solid var(--border); border-radius:16px; background:var(--surface); }
+  .note b { display:block; margin-bottom:5px; color:var(--text); font-size:13px; }
+  .note p { margin:0; color:var(--muted); font-size:12px; line-height:1.5; }
+  .note .key { display:inline-block; margin-top:9px; border-radius:999px; padding:4px 7px; background:#e4f5f1; color:#267a74; font-size:10px; font-weight:800; }
+  .decision { display:flex; align-items:center; justify-content:space-between; gap:16px; padding:16px 18px; border:1px solid #cfe8e3; border-radius:16px; background:#eff9f6; color:#27433f; }
+  .decision p { margin:3px 0 0; color:#54706b; font-size:13px; }
+  .decision button { flex:none; border:0; border-radius:10px; padding:9px 12px; background:#43b6b1; color:#fff; font-weight:800; cursor:pointer; }
+  @media (max-width:850px) { .staff-layout { grid-template-columns:1fr; } .side-notes { grid-template-columns:repeat(3,1fr); } }
+  @media (max-width:620px) { .workspace-body { grid-template-columns:1fr; } .workspace-nav { display:flex; overflow:auto; gap:5px; border-right:0; border-bottom:1px solid #dce9e6; padding:8px; } .workspace-nav b { display:none; } .nav-item { flex:none; margin:0; } .side-notes { grid-template-columns:1fr; } .grid { grid-template-columns:34px repeat(3,100px); overflow:auto; } .decision { align-items:flex-start; flex-direction:column; } }
+</style>
+
+<div class="staff-canvas">
+  <div>
+    <div class="label">Staff workspace direction</div>
+    <h2>Operationally capable, visually lighter.</h2>
+    <p class="subtitle">This is the visual rule for the entire staff workspace: calm surrounding chrome, clear context, and colour that describes care rather than decorates every surface.</p>
+  </div>
+
+  <div class="staff-layout">
+    <div class="workspace" aria-label="Jane-inspired DentalOps timeline concept">
+      <div class="appbar"><span class="mark">D</span><span class="clinic">Sukjai Dental Studio</span><span class="today">Wednesday · 12 Jun</span><span class="avatar">NS</span></div>
+      <div class="workspace-body">
+        <nav class="workspace-nav" aria-label="Workspace navigation"><b>Workspace</b><span class="nav-item active"><i class="nav-dot"></i>Schedule</span><span class="nav-item"><i class="nav-dot"></i>Roster</span><span class="nav-item"><i class="nav-dot"></i>Patients</span><span class="nav-item"><i class="nav-dot"></i>Activity</span><span class="nav-item"><i class="nav-dot"></i>Settings</span></nav>
+        <div class="schedule">
+          <div class="schedule-heading"><div><h3>Today’s rhythm</h3><p>One quiet overview for the whole clinic</p></div><button class="add">+ Appointment</button></div>
+          <div class="view-tabs"><span class="view-tab active">By dentist</span><span class="view-tab">By chair</span><span class="view-tab">Agenda</span></div>
+          <div class="grid">
+            <div class="grid-head"></div><div class="grid-head">Dr. Nara</div><div class="grid-head">Dr. Beam</div><div class="grid-head">Chair 3</div>
+            <div class="time">09:00</div><div class="slot"><div class="booking aqua">Cleaning<small>May · 09:00</small></div></div><div class="slot"></div><div class="slot"><div class="booking yellow">Whitening<small>Leo · 09:20</small></div></div>
+            <div class="time">10:00</div><div class="slot"><div class="booking lilac">Check-up<small>Ploy · 10:15</small></div></div><div class="slot"><div class="booking aqua">Consultation<small>Dan · 10:00</small></div></div><div class="slot"></div>
+            <div class="time">11:00</div><div class="slot"></div><div class="slot"></div><div class="slot"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <aside class="side-notes">
+      <div class="note"><b>Soft chrome</b><p>Off-white canvas and mint navigation carry the warmth. The schedule remains the hero, not the surrounding interface.</p><span class="key">light-first</span></div>
+      <div class="note"><b>Context before controls</b><p>Clinic, date and view mode are always visible. High-frequency actions sit where the decision is made.</p><span class="key">orientation</span></div>
+      <div class="note"><b>Colour has a job</b><p>Appointment colours identify treatment groups. Red belongs only to conflict and danger; it never becomes brand decoration.</p><span class="key">careful colour</span></div>
+    </aside>
+  </div>
+
+  <div class="decision"><div><b>Visual anchor for the next audit</b><p>Keep the scheduling engine dense and precise, but give every staff screen the same calm frame and considered feedback.</p></div><button type="button" data-choice="staff-foundation-approved">Use this foundation</button></div>
+</div>

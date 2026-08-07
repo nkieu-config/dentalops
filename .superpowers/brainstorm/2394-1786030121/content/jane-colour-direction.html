@@ -1,0 +1,80 @@
+<style>
+  .canvas { display:grid; gap:24px; }
+  .principles { display:grid; grid-template-columns:repeat(3,1fr); gap:14px; }
+  .principle { padding:18px; border:1px solid var(--border); border-radius:16px; background:var(--surface); }
+  .principle b { display:block; margin-bottom:6px; color:var(--text); }
+  .palette-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:18px; }
+  .palette { border:1px solid var(--border); border-radius:18px; overflow:hidden; background:#fff; cursor:pointer; transition:transform .15s ease, box-shadow .15s ease; }
+  .palette:hover { transform:translateY(-2px); box-shadow:0 12px 30px rgba(36,49,46,.12); }
+  .palette.selected { outline:3px solid #54b8bc; outline-offset:3px; }
+  .palette-top { padding:20px 18px 16px; min-height:125px; }
+  .palette-top h3 { margin:0 0 7px; font-size:19px; }
+  .palette-top p { margin:0; font-size:14px; line-height:1.45; }
+  .swatches { display:flex; padding:0 18px 18px; gap:7px; }
+  .swatch { width:31px; height:31px; border-radius:50%; border:2px solid rgba(0,0,0,.06); }
+  .mini-app { padding:14px 14px 16px; background:#f7f8f6; border-top:1px solid #e7e9e5; }
+  .mini-top { display:flex; justify-content:space-between; align-items:center; margin-bottom:11px; font-size:11px; font-weight:700; color:#32403e; }
+  .mini-pill { border-radius:999px; padding:5px 8px; font-size:10px; font-weight:700; }
+  .mini-card { display:grid; grid-template-columns:10px 1fr; gap:9px; padding:10px; border-radius:10px; background:#fff; margin-top:7px; box-shadow:0 2px 6px rgba(26,43,39,.06); }
+  .mini-line { height:7px; border-radius:99px; margin-top:3px; }
+  .mini-line.short { width:58%; }
+  .callout { padding:18px 20px; border-radius:16px; background:#eaf7f5; color:#234440; border:1px solid #c9e9e5; }
+  @media (max-width:800px) { .principles, .palette-grid { grid-template-columns:1fr; } }
+</style>
+
+<div class="canvas">
+  <div>
+    <div class="label">Visual foundation</div>
+    <h2>Jane-inspired should mean soft clarity, not a copied aqua skin.</h2>
+    <p class="subtitle">Choose the colour personality that should carry through DentalOps staff and patient experiences. Each option keeps Ink as the primary text colour and reserves red for destructive or conflict states.</p>
+  </div>
+
+  <div class="principles">
+    <div class="principle"><b>Calm surfaces</b>Warm-white canvas, quietly lifted cards, restrained borders and generous breathing room.</div>
+    <div class="principle"><b>Helpful colour</b>Brand aqua guides action; soft pastels group care and capacity without competing with text.</div>
+    <div class="principle"><b>Careful joy</b>Rounded forms, friendly feedback and small visual moments make clinic work feel lighter.</div>
+  </div>
+
+  <div class="palette-grid">
+    <div class="palette" data-choice="sea-glass" onclick="toggleSelect(this)">
+      <div class="palette-top" style="background:#F7FAF8;color:#20312F">
+        <h3>Sea Glass</h3>
+        <p>Closest to Jane’s calm aqua world. Fresh, clinical, modern and quietly optimistic.</p>
+      </div>
+      <div class="swatches"><span class="swatch" style="background:#46B7B4"></span><span class="swatch" style="background:#B9E2DC"></span><span class="swatch" style="background:#C9DDF0"></span><span class="swatch" style="background:#DED3F0"></span><span class="swatch" style="background:#F5DEA1"></span></div>
+      <div class="mini-app">
+        <div class="mini-top"><span>Today at Bright Smile</span><span class="mini-pill" style="background:#D8F0EC;color:#1B6966">6 appointments</span></div>
+        <div class="mini-card"><span style="background:#46B7B4;border-radius:8px"></span><div><div class="mini-line" style="background:#2A3937"></div><div class="mini-line short" style="background:#BCD5D1"></div></div></div>
+        <div class="mini-card"><span style="background:#B397D5;border-radius:8px"></span><div><div class="mini-line" style="background:#2A3937"></div><div class="mini-line short" style="background:#D8CFEB"></div></div></div>
+      </div>
+    </div>
+
+    <div class="palette" data-choice="garden-clinic" onclick="toggleSelect(this)">
+      <div class="palette-top" style="background:#FBFAF5;color:#34352B">
+        <h3>Garden Clinic</h3>
+        <p>Warmer and more tactile. Sage and apricot make the workspace feel handcrafted and local.</p>
+      </div>
+      <div class="swatches"><span class="swatch" style="background:#5FB8A6"></span><span class="swatch" style="background:#CDE8D2"></span><span class="swatch" style="background:#F3C9A8"></span><span class="swatch" style="background:#E8D5A8"></span><span class="swatch" style="background:#D3D9EE"></span></div>
+      <div class="mini-app">
+        <div class="mini-top"><span>Today at Bright Smile</span><span class="mini-pill" style="background:#E8F3D8;color:#56682C">6 appointments</span></div>
+        <div class="mini-card"><span style="background:#5FB8A6;border-radius:8px"></span><div><div class="mini-line" style="background:#3B3B31"></div><div class="mini-line short" style="background:#C8DCC9"></div></div></div>
+        <div class="mini-card"><span style="background:#E8AB85;border-radius:8px"></span><div><div class="mini-line" style="background:#3B3B31"></div><div class="mini-line short" style="background:#F0D5C0"></div></div></div>
+      </div>
+    </div>
+
+    <div class="palette" data-choice="bright-day" onclick="toggleSelect(this)">
+      <div class="palette-top" style="background:#FCF9F7;color:#322B31">
+        <h3>Bright Day</h3>
+        <p>The most playful option. Stronger aqua, lilac and sunshine accents make scheduling feel celebratory.</p>
+      </div>
+      <div class="swatches"><span class="swatch" style="background:#35BFC6"></span><span class="swatch" style="background:#A6E4E8"></span><span class="swatch" style="background:#CEB8F0"></span><span class="swatch" style="background:#F8DD79"></span><span class="swatch" style="background:#F4BFC7"></span></div>
+      <div class="mini-app">
+        <div class="mini-top"><span>Today at Bright Smile</span><span class="mini-pill" style="background:#D3F4F5;color:#11767A">6 appointments</span></div>
+        <div class="mini-card"><span style="background:#35BFC6;border-radius:8px"></span><div><div class="mini-line" style="background:#332D37"></div><div class="mini-line short" style="background:#BDE6E9"></div></div></div>
+        <div class="mini-card"><span style="background:#B997E7;border-radius:8px"></span><div><div class="mini-line" style="background:#332D37"></div><div class="mini-line short" style="background:#DCCDF2"></div></div></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="callout"><b>Recommendation: Sea Glass.</b> It translates the quality you like in Jane without turning DentalOps into a generic wellness brand. We can draw more playful energy from illustration, rounded composition and microcopy instead of escalating saturation.</div>
+</div>

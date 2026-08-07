@@ -4,10 +4,11 @@ import { History, TriangleAlert } from "lucide-react"
 import { Navigate } from "react-router"
 import { Button } from "../../components/ui/button"
 import { EmptyState } from "../../components/ui/empty-state"
+import { InitialsAvatar } from "../../components/ui/initials-avatar"
 import { Skeleton } from "../../components/ui/skeleton"
 import { api } from "../../lib/api"
 import { useCanViewActivity } from "../../lib/session"
-import { bkkDate, fmtDay, fmtTime } from "../timeline/lib/geometry"
+import { bkkDate, bkkToday, fmtDay, fmtTime } from "../timeline/lib/geometry"
 
 const PAGE_SIZE = 25
 
@@ -87,11 +88,13 @@ const entryKey = (entry: AuditEntry): string =>
 const ActivityRow = ({ entry }: { entry: AuditEntry }) => {
   const at = entry.at.getTime()
   return (
-    <li className="flex flex-wrap items-baseline gap-x-3 gap-y-1 border-b border-border px-4 py-3 last:border-b-0">
-      <p className="min-w-0 flex-1">
-        <span className="font-medium">{entry.actor.name}</span> {describeAction(entry)}
+    <li className="flex flex-wrap items-center gap-x-3 gap-y-1 border-b border-border px-4 py-3 last:border-b-0">
+      <InitialsAvatar name={entry.actor.name} />
+      <p className="min-w-0 flex-1 text-sm">
+        <span className="font-medium text-foreground">{entry.actor.name}</span>{" "}
+        <span className="text-muted-foreground">{describeAction(entry)}</span>
         {entry.entity.id ? (
-          <span className="text-sm text-muted-foreground">
+          <span className="text-muted-foreground">
             {" "}
             — {nounFor(entry.entity.type)} {entry.entity.id.slice(0, 8)}
           </span>
@@ -99,9 +102,9 @@ const ActivityRow = ({ entry }: { entry: AuditEntry }) => {
       </p>
       <time
         dateTime={entry.at.toISOString()}
-        className="text-sm tabular-nums text-muted-foreground"
+        className="text-xs font-medium tabular-nums text-muted-foreground"
       >
-        {fmtDay(bkkDate(at))} · {fmtTime(at)}
+        {fmtTime(at)}
       </time>
     </li>
   )
@@ -120,7 +123,7 @@ export const ActivityPage = () => {
 
   const entries = query.data?.pages.flatMap((page) => page.entries) ?? []
 
-  const heading = <h1 className="pb-4 text-xl font-semibold tracking-tight">Activity</h1>
+  const heading = <h1 className="pb-4 text-xl font-semibold tracking-tight">Clinic activity</h1>
 
   if (query.isPending) {
     return (
@@ -155,14 +158,31 @@ export const ActivityPage = () => {
     )
   }
 
+  const groupedEntries = entries.reduce<Record<string, AuditEntry[]>>((groups, entry) => {
+    const day = fmtDay(bkkDate(entry.at.getTime()))
+    const key = day === fmtDay(bkkToday()) ? "Today" : day
+    if (!groups[key]) groups[key] = []
+    groups[key].push(entry)
+    return groups
+  }, {})
+
   return (
     <div className="mx-auto max-w-3xl p-4">
       {heading}
-      <ul aria-label="Activity" className="overflow-hidden rounded-md border border-border bg-card">
-        {entries.map((entry) => (
-          <ActivityRow key={entryKey(entry)} entry={entry} />
+      <div className="space-y-6">
+        {Object.entries(groupedEntries).map(([groupDate, groupEntries]) => (
+          <section key={groupDate}>
+            <h2 className="mb-2 px-1 text-sm font-semibold tracking-wide text-muted-foreground">
+              {groupDate}
+            </h2>
+            <ul aria-label={groupDate} className="overflow-hidden rounded-md border border-border bg-card shadow-sm">
+              {groupEntries.map((entry) => (
+                <ActivityRow key={entryKey(entry)} entry={entry} />
+              ))}
+            </ul>
+          </section>
         ))}
-      </ul>
+      </div>
       {query.hasNextPage ? (
         <div className="flex justify-center pt-4">
           <Button

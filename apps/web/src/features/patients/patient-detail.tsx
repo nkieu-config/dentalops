@@ -4,9 +4,11 @@ import {
   type PatientAppointment
 } from "@dentalops/contracts"
 import { useQuery } from "@tanstack/react-query"
-import { ArrowLeft, CalendarOff, TriangleAlert } from "lucide-react"
+import { ArrowLeft, CalendarOff, Mail, Phone, TriangleAlert } from "lucide-react"
 import { Link, useParams, useSearchParams } from "react-router"
+import { buttonVariants } from "../../components/ui/button"
 import { EmptyState } from "../../components/ui/empty-state"
+import { InitialsAvatar } from "../../components/ui/initials-avatar"
 import { Skeleton } from "../../components/ui/skeleton"
 import { api } from "../../lib/api"
 import { bkkDate, fmtDay, fmtTime } from "../timeline/lib/geometry"
@@ -82,32 +84,62 @@ export const PatientDetail = () => {
 
       {patient ? (
         <>
-          <h1 className="pt-3 text-xl font-semibold tracking-tight">{patient.name}</h1>
-          <div className="flex flex-wrap gap-x-4 gap-y-1 pb-4 text-sm">
-            <a className="underline underline-offset-2" href={`tel:${patient.phone}`}>
-              {patient.phone}
-            </a>
-            <a className="underline underline-offset-2" href={`mailto:${patient.email}`}>
-              {patient.email}
-            </a>
+          <div className="flex flex-col gap-4 pb-6 pt-4 sm:flex-row sm:items-start sm:gap-6">
+            <InitialsAvatar name={patient.name} className="h-16 w-16 text-xl" />
+            <div className="min-w-0 flex-1 space-y-1">
+              <h1 className="text-2xl font-semibold tracking-tight text-foreground">{patient.name}</h1>
+              <div className="flex flex-wrap gap-2 pt-2">
+                <a href={`tel:${patient.phone}`} className={buttonVariants({ variant: "secondary", size: "sm" })}>
+                  <Phone className="mr-1.5 h-3.5 w-3.5" />
+                  {patient.phone}
+                </a>
+                <a href={`mailto:${patient.email}`} className={buttonVariants({ variant: "secondary", size: "sm" })}>
+                  <Mail className="mr-1.5 h-3.5 w-3.5" />
+                  {patient.email}
+                </a>
+              </div>
+            </div>
           </div>
+          
           {patient.notes ? (
-            <p className="pb-4 text-sm text-muted-foreground">{patient.notes}</p>
+            <div className="mb-6 rounded-md border border-border bg-surface-subtle p-4">
+              <h3 className="mb-1 text-sm font-semibold text-foreground">Front-desk note</h3>
+              <p className="text-sm text-muted-foreground">{patient.notes}</p>
+            </div>
           ) : null}
 
-          <h2 className="px-1 pb-2 text-base font-semibold">Appointment history</h2>
           {patient.appointments.length === 0 ? (
-            <EmptyState
-              icon={CalendarOff}
-              title="No appointments yet"
-              hint="Bookings for this patient will be listed here."
-            />
+            <>
+              <h2 className="px-1 pb-2 text-base font-semibold">Appointment history</h2>
+              <EmptyState
+                icon={CalendarOff}
+                title="No appointments yet"
+                hint="Bookings for this patient will be listed here."
+              />
+            </>
           ) : (
-            <ul aria-label="Appointment history" className="overflow-hidden rounded-md border border-border bg-card">
-              {patient.appointments.map((appointment) => (
-                <HistoryRow key={appointment.id} appointment={appointment} />
-              ))}
-            </ul>
+            <div className="space-y-6">
+              {[
+                { label: "Upcoming", filter: (a: PatientAppointment) => a.status === "confirmed" },
+                { label: "Previous", filter: (a: PatientAppointment) => a.status === "completed" },
+                { label: "Cancelled / No-show", filter: (a: PatientAppointment) => ["cancelled", "no_show"].includes(a.status) },
+              ].map(({ label, filter }) => {
+                const group = patient.appointments.filter(filter)
+                if (group.length === 0) return null
+                return (
+                  <section key={label}>
+                    <h2 className="mb-2 px-1 text-sm font-semibold tracking-wide text-muted-foreground">
+                      {label}
+                    </h2>
+                    <ul aria-label={label} className="overflow-hidden rounded-md border border-border bg-card shadow-sm">
+                      {group.map((appointment) => (
+                        <HistoryRow key={appointment.id} appointment={appointment} />
+                      ))}
+                    </ul>
+                  </section>
+                )
+              })}
+            </div>
           )}
         </>
       ) : null}

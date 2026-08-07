@@ -1,10 +1,11 @@
 import { patientPageSchema, type Patient } from "@dentalops/contracts"
 import { useInfiniteQuery } from "@tanstack/react-query"
-import { ChevronRight, SearchX, TriangleAlert, Users } from "lucide-react"
+import { ChevronRight, Loader2, SearchX, TriangleAlert, Users } from "lucide-react"
 import { useEffect, useState } from "react"
 import { Link, useSearchParams } from "react-router"
 import { Button } from "../../components/ui/button"
 import { EmptyState } from "../../components/ui/empty-state"
+import { InitialsAvatar } from "../../components/ui/initials-avatar"
 import { Input } from "../../components/ui/input"
 import { Label } from "../../components/ui/label"
 import { Skeleton } from "../../components/ui/skeleton"
@@ -22,10 +23,13 @@ const PatientRow = ({ patient, search }: { patient: Patient; search: string }) =
   <li className="border-b border-border last:border-b-0">
     <Link
       to={detailPath(patient.id, search)}
-      className="flex min-h-11 items-center gap-3 px-4 py-3 transition-colors duration-150 hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
+      className="flex min-h-11 items-center gap-4 px-4 py-3 transition-[background-color,box-shadow] duration-150 hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
     >
-      <span className="min-w-0 flex-1 truncate font-medium">{patient.name}</span>
-      <span className="shrink-0 text-sm tabular-nums text-muted-foreground">{patient.phone}</span>
+      <InitialsAvatar name={patient.name} />
+      <div className="flex min-w-0 flex-1 flex-col justify-center">
+        <span className="truncate font-semibold text-foreground">{patient.name}</span>
+        <span className="truncate text-sm text-muted-foreground">{patient.phone}</span>
+      </div>
       <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />
     </Link>
   </li>
@@ -141,16 +145,23 @@ export const PatientsPage = () => {
       <h1 className="pb-4 text-xl font-semibold tracking-tight">Patients</h1>
       <div className="space-y-1.5 pb-5">
         <Label htmlFor="patient-search">Search patients</Label>
-        <Input
-          id="patient-search"
-          type="search"
-          autoComplete="off"
-          placeholder="Name or phone number"
-          value={draft}
-          onChange={(event) => {
-            setDraft(event.target.value)
-          }}
-        />
+        <div className="relative">
+          <Input
+            id="patient-search"
+            type="search"
+            autoComplete="off"
+            placeholder="Name or phone number"
+            value={draft}
+            onChange={(event) => {
+              setDraft(event.target.value)
+            }}
+          />
+          {draft !== search || query.isFetching ? (
+            <div className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground">
+              <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+            </div>
+          ) : null}
+        </div>
       </div>
       {body()}
     </div>

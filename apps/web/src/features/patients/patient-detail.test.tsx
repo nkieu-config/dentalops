@@ -74,15 +74,17 @@ describe("PatientDetail", () => {
       "mailto:kanya@example.com"
     )
 
-    const rows = within(screen.getByRole("list", { name: "Appointment history" })).getAllByRole(
-      "listitem"
-    )
-    expect(rows).toHaveLength(2)
-    expect(rows[0]).toHaveTextContent("Cleaning")
-    expect(rows[0]).toHaveTextContent("Dr. Anong")
-    expect(rows[0]).toHaveTextContent("10:30")
-    expect(rows[0]).toHaveTextContent("Confirmed")
-    expect(rows[1]).toHaveTextContent("No-show")
+    const upcoming = screen.getByRole("list", { name: "Upcoming" })
+    const cancelled = screen.getByRole("list", { name: "Cancelled / No-show" })
+    
+    expect(within(upcoming).getAllByRole("listitem")).toHaveLength(1)
+    expect(upcoming).toHaveTextContent("Cleaning")
+    expect(upcoming).toHaveTextContent("Dr. Anong")
+    expect(upcoming).toHaveTextContent("10:30")
+    expect(upcoming).toHaveTextContent("Confirmed")
+    
+    expect(within(cancelled).getAllByRole("listitem")).toHaveLength(1)
+    expect(cancelled).toHaveTextContent("No-show")
   })
 
   it("links every appointment to the timeline on its own day and branch", async () => {
@@ -117,7 +119,7 @@ describe("PatientDetail", () => {
     mount()
 
     expect(await screen.findByText("No appointments yet")).toBeInTheDocument()
-    expect(screen.queryByRole("list", { name: "Appointment history" })).not.toBeInTheDocument()
+    expect(screen.queryByRole("list", { name: "Upcoming" })).not.toBeInTheDocument()
   })
 
   it("says so when the patient cannot be loaded", async () => {

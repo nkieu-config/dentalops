@@ -209,7 +209,9 @@ describe("DevUiPage", () => {
   it("demonstrates the shared careful joy context primitives", () => {
     renderGallery()
     expect(screen.getByRole("heading", { name: "Clinic settings" })).toBeInTheDocument()
-    expect(screen.getByRole("status")).toHaveTextContent("Needs attention")
+    expect(screen.getByText("Needs attention").closest('[role="status"]')).toHaveTextContent(
+      "Needs attention"
+    )
     expect(screen.getByLabelText("Dr. Anong Srisuk")).toHaveTextContent("DA")
   })
 })

@@ -15,7 +15,7 @@ describe("SegmentedControl", () => {
       />
     )
 
-    await userEvent.click(screen.getByRole("button", { name: "Agenda" }))
+    await userEvent.click(screen.getByRole("radio", { name: "Agenda" }))
     expect(onValueChange).toHaveBeenCalledWith("agenda")
   })
 })

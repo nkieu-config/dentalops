@@ -19,13 +19,13 @@ export const Sheet = ({ open, onOpenChange, title, side = "right", children }: S
         className={cn(
           "fixed z-50 bg-card text-card-foreground shadow-md focus:outline-none overflow-y-auto",
           side === "right" &&
-            "inset-y-0 right-0 w-full max-w-md border-l border-border p-6 data-[state=open]:animate-sheet-in-right data-[state=closed]:animate-sheet-out-right",
+            "inset-y-0 right-0 w-full max-w-md border-l border-border p-5 sm:p-6 data-[state=open]:animate-sheet-in-right data-[state=closed]:animate-sheet-out-right",
           side === "bottom" &&
-            "inset-x-0 bottom-0 max-h-[85dvh] rounded-t-xl border-t border-border p-6 data-[state=open]:animate-sheet-in-bottom data-[state=closed]:animate-sheet-out-bottom"
+            "inset-x-0 bottom-0 max-h-[85dvh] rounded-t-hero border-t border-border p-5 sm:p-6 data-[state=open]:animate-sheet-in-bottom data-[state=closed]:animate-sheet-out-bottom"
         )}
       >
         <div className="mb-4 flex items-center justify-between">
-          <Dialog.Title className="text-lg font-semibold">{title}</Dialog.Title>
+          <Dialog.Title className="text-card-title font-bold">{title}</Dialog.Title>
           <Dialog.Close
             aria-label="Close"
             className="rounded-md p-1 hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"

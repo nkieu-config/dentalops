@@ -32,5 +32,6 @@ describe("Button", () => {
   it("draws its focus ring against the themed background, not Tailwind's white default", () => {
     render(<Button>Focus</Button>)
     expect(screen.getByRole("button").className).toContain("focus-visible:ring-offset-background")
+    expect(screen.getByRole("button").className).toContain("rounded-control")
   })
 })

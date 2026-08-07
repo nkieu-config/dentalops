@@ -1,8 +1,10 @@
 import type { UserRole } from "@dentalops/contracts"
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 import { render, screen } from "@testing-library/react"
 import { MemoryRouter, Route, Routes } from "react-router"
-import { afterEach, describe, expect, it } from "vitest"
+import { afterEach, beforeEach, describe, expect, it } from "vitest"
 import { canManageRoster, canViewActivity, setSession } from "../../lib/session"
+import { API, http, HttpResponse, server } from "../../test/msw"
 import { goOffline, goOnline, setOnLine } from "../../test/network"
 import { AppShell, visibleNavItems } from "./app-shell"
 import { OFFLINE_MESSAGE } from "./offline-banner"
@@ -19,18 +21,34 @@ const sessionFor = (role: UserRole) => ({
 
 const mount = (role: UserRole) => {
   setSession(sessionFor(role))
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   render(
-    <MemoryRouter initialEntries={["/app/timeline"]}>
-      <Routes>
-        <Route path="/app" element={<AppShell />}>
-          <Route path="timeline" element={<p>timeline</p>} />
-        </Route>
-      </Routes>
-    </MemoryRouter>
+    <QueryClientProvider client={client}>
+      <MemoryRouter initialEntries={["/app/timeline"]}>
+        <Routes>
+          <Route path="/app" element={<AppShell />}>
+            <Route path="timeline" element={<p>timeline</p>} />
+          </Route>
+        </Routes>
+      </MemoryRouter>
+    </QueryClientProvider>
   )
 }
 
 const links = (label: string) => screen.queryAllByRole("link", { name: label })
+
+beforeEach(() => {
+  server.use(
+    http.get(`${API}/tenant`, () =>
+      HttpResponse.json({
+        id: "6f9619ff-8b86-4d01-b42d-00cf4fc964fe",
+        name: "DentalOps Clinic",
+        slug: "dentalops-clinic",
+        publicBookingPath: "/book/dentalops-clinic"
+      })
+    )
+  )
+})
 
 afterEach(() => {
   setSession(null)
@@ -57,6 +75,21 @@ describe("AppShell navigation", () => {
     const inBar = Array.from(bar!.querySelectorAll("a")).map((a) => a.getAttribute("href"))
     expect(inBar).toEqual(visibleNavItems(sessionFor("dentist")).map((item) => item.to))
     expect(inBar).not.toContain("/app/roster")
+  })
+
+  it("keeps Settings exclusive to the owner role", () => {
+    mount("receptionist")
+    expect(links("Settings")).toHaveLength(0)
+  })
+
+  it("uses the cached clinic profile for the topbar identity", async () => {
+    mount("owner")
+    expect(await screen.findByText("DentalOps Clinic")).toBeInTheDocument()
+  })
+
+  it("uses the selection surface only for the active destination", () => {
+    mount("owner")
+    expect(links("Timeline")[0]!.className).toContain("bg-selection")
   })
 
   it("guards every gated destination with the predicate its route uses", () => {

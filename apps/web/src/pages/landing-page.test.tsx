@@ -66,6 +66,14 @@ describe("LandingPage", () => {
     }
   })
 
+  it("keeps the owner demo hint fully legible on its primary surface", () => {
+    mount()
+
+    const hint = screen.getByText("Full control — roster, settings, reports")
+    expect(hint).toHaveClass("text-primary-foreground")
+    expect(hint).not.toHaveClass("opacity-80")
+  })
+
   it("replaces unavailable demo roles with a recovery state while keeping clinic doors available", async () => {
     server.use(
       http.post(`${API}/auth/demo-login`, () =>

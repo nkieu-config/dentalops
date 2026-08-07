@@ -1,12 +1,18 @@
 import type { AuthSession } from "@dentalops/contracts"
+import { clinicProfileSchema, type ClinicProfile } from "@dentalops/contracts"
+import { useQuery } from "@tanstack/react-query"
 import { CalendarDays, ClipboardList, History, Settings, Users } from "lucide-react"
 import type { LucideIcon } from "lucide-react"
 import { NavLink, Outlet, useNavigate } from "react-router"
 import { cn } from "../../lib/cn"
+import { api } from "../../lib/api"
 import { canManageRoster, canViewActivity, isDemo, logout, useSession } from "../../lib/session"
 import { Button } from "../ui/button"
 import { OfflineBanner } from "./offline-banner"
+import { ClinicIdentity } from "./clinic-identity"
+import { SystemStatus } from "./system-status"
 import { ThemeToggle } from "./theme-toggle"
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "../ui/dropdown-menu"
 
 interface NavItem {
   to: string
@@ -20,7 +26,7 @@ const navItems: NavItem[] = [
   { to: "/app/roster", label: "Roster", icon: ClipboardList, visible: canManageRoster },
   { to: "/app/activity", label: "Activity", icon: History, visible: canViewActivity },
   { to: "/app/patients", label: "Patients", icon: Users },
-  { to: "/app/settings", label: "Settings", icon: Settings }
+  { to: "/app/settings", label: "Settings", icon: Settings, visible: (session) => session?.user.role === "owner" }
 ]
 
 export const visibleNavItems = (session: AuthSession | null): NavItem[] =>
@@ -38,8 +44,8 @@ const NavList = ({ items, railOnly }: { items: NavItem[]; railOnly: boolean }) =
             "flex items-center gap-3 rounded-full px-3 py-2 text-sm transition-colors duration-150",
             railOnly && "justify-center",
             isActive
-              ? "bg-secondary font-semibold text-foreground"
-              : "font-medium text-muted-foreground hover:bg-accent hover:text-foreground"
+              ? "bg-selection font-semibold text-foreground"
+              : "font-medium text-muted-foreground hover:bg-surface-subtle hover:text-foreground"
           )
         }
       >
@@ -54,6 +60,7 @@ export const AppShell = () => {
   const session = useSession()
   const navigate = useNavigate()
   const items = visibleNavItems(session)
+  const profile = useQuery<ClinicProfile>({ queryKey: ["tenant"], queryFn: () => api("/tenant", clinicProfileSchema) })
 
   return (
     <div className="flex min-h-dvh flex-col">
@@ -73,20 +80,14 @@ export const AppShell = () => {
         </div>
       ) : null}
       <header className="flex h-topbar shrink-0 items-center gap-3 border-b border-border px-4">
-        <span className="font-semibold">DentalOps</span>
+        <ClinicIdentity clinic={profile.data} />
+        <SystemStatus demo={isDemo()} />
         <div className="flex-1" />
         <ThemeToggle />
-        <span className="hidden text-sm text-muted-foreground sm:inline">{session?.user.name}</span>
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => {
-            logout()
-            void navigate("/")
-          }}
-        >
-          Log out
-        </Button>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild><Button variant="ghost" size="sm">{session?.user.name ?? "Account"}</Button></DropdownMenuTrigger>
+          <DropdownMenuContent align="end"><DropdownMenuItem onSelect={() => { logout(); void navigate("/") }}>Log out</DropdownMenuItem></DropdownMenuContent>
+        </DropdownMenu>
       </header>
       <div className="flex min-h-0 flex-1">
         <aside className="hidden w-14 shrink-0 border-r border-border md:block lg:w-60">

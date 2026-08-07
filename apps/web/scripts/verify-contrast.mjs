@@ -47,6 +47,7 @@ const PAIRS = [
   ...SURFACES.map((surface) => ["--foreground", surface, TEXT_ON_SURFACE]),
   ...SURFACES.map((surface) => ["--muted-foreground", surface, TEXT_ON_SURFACE]),
   ["--primary-foreground", "--primary", TEXT_ON_SURFACE],
+  ["--primary", "--secondary", NON_TEXT],
   ["--secondary-foreground", "--secondary", TEXT_ON_SURFACE],
   ["--destructive-foreground", "--destructive", TEXT_ON_SURFACE],
   ["--warning-foreground", "--warning", TEXT_ON_SURFACE],

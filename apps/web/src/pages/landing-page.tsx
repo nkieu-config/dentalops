@@ -87,7 +87,15 @@ export const LandingPage = () => {
             >
               <span className="flex min-w-0 flex-col gap-0.5">
                 <span className="text-base font-semibold">{label}</span>
-                <span className="text-sm font-normal opacity-80">{hint}</span>
+                <span
+                  className={
+                    role === "owner"
+                      ? "text-sm font-normal text-primary-foreground"
+                      : "text-sm font-normal opacity-80"
+                  }
+                >
+                  {hint}
+                </span>
               </span>
               <ArrowRight className="h-4 w-4 shrink-0 opacity-60" aria-hidden="true" />
             </Button>

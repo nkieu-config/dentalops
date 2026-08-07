@@ -160,6 +160,22 @@ describe("BookingPage", () => {
     vi.useRealTimers()
   })
 
+  it("uses an accessible foreground for the selected branch", async () => {
+    server.use(
+      http.get(`${API}/public/${clinicSlug}`, () =>
+        HttpResponse.json({
+          ...clinic,
+          branches: [...clinic.branches, { id: "af9619ff-8b86-4d01-b42d-00cf4fc964ff", name: "Ladprao" }]
+        })
+      )
+    )
+    mount()
+
+    expect(await screen.findByRole("button", { name: "Sukhumvit" })).toHaveClass(
+      "text-secondary-foreground"
+    )
+  })
+
   it("asks for one Bangkok day and omits dentistId when the patient takes any dentist", async () => {
     server.use(...handlers({ slots: () => [slot(somchai, "03:30", "04:15"), TEN_FORTY_FIVE] }))
     const user = mount()

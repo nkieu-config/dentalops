@@ -32,7 +32,7 @@ export const ServiceStep = ({
               onClick={() => onChooseBranch(branch.id)}
               className={
                 branch.id === branchId
-                  ? "min-h-11 rounded-md border border-primary bg-secondary px-4 text-base font-medium text-primary"
+                  ? "min-h-11 rounded-md border border-primary bg-secondary px-4 text-base font-medium text-secondary-foreground"
                   : "min-h-11 cursor-pointer rounded-md border border-border px-4 text-base hover:bg-accent"
               }
             >

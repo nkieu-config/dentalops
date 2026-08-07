@@ -205,4 +205,13 @@ describe("DevUiPage", () => {
       screen.getByText("Every component in MASTER §6 is on this page — nothing outstanding.")
     ).toBeInTheDocument()
   })
+
+  it("demonstrates the shared careful joy context primitives", () => {
+    renderGallery()
+    expect(screen.getByRole("heading", { name: "Clinic settings" })).toBeInTheDocument()
+    expect(screen.getByText("Needs attention").closest('[role="status"]')).toHaveTextContent(
+      "Needs attention"
+    )
+    expect(screen.getByLabelText("Dr. Anong Srisuk")).toHaveTextContent("DA")
+  })
 })

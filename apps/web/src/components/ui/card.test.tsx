@@ -8,6 +8,7 @@ describe("Card", () => {
     const className = screen.getByTestId("card").className
     expect(className).toContain("border-border")
     expect(className).not.toMatch(/\bshadow-(xs|sm|md|lg)\b/)
+    expect(className).toContain("rounded-card")
   })
 
   it("gives its title a heading role so a screen reader can navigate by it", () => {

@@ -95,14 +95,17 @@ export const TimeGrid = ({
       )}
     >
       <div className="min-w-fit">
-        <div className="sticky top-0 z-30 flex border-b border-border bg-background">
-          <div className="sticky left-0 z-10 w-timegutter shrink-0 bg-background" />
+        <div className="sticky top-0 z-30 flex border-b border-border bg-card">
+          <div className="sticky left-0 z-10 w-timegutter shrink-0 border-r border-border bg-card" />
           {columns.map((column) => (
             <div
               key={column.id}
-              className={cn("flex-1 truncate px-2 py-1 text-sm font-medium", columnWidth)}
+              className={cn("flex items-center gap-2 border-r border-border px-3 py-2 text-sm font-semibold text-foreground min-w-0 flex-1", columnWidth)}
             >
-              {column.name}
+              <span aria-hidden="true" className="flex size-6 shrink-0 items-center justify-center rounded-full bg-secondary text-[0.65rem] font-bold text-secondary-foreground">
+                {column.name.replace(/^(dr|mr|mrs|ms)\.?\s+/i, "").charAt(0).toUpperCase() || "C"}
+              </span>
+              <span className="truncate">{column.name}</span>
             </div>
           ))}
         </div>

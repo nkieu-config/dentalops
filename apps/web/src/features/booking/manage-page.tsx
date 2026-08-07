@@ -260,28 +260,28 @@ export const ManagePage = () => {
             side="bottom"
           >
             <div className="space-y-4 text-base" data-testid="cancel-confirm">
-              <p className="text-base">
-                <span className="tabular-nums">
+              <p className="text-base leading-relaxed text-muted-foreground">
+                <span className="tabular-nums font-semibold text-foreground">
                   {fmtDay(bkkDate(Date.parse(appointment.startsAt)))} ·{" "}
                   {fmtTime(Date.parse(appointment.startsAt))}
                 </span>{" "}
-                will be given to someone else. This cannot be undone.
+                will be given to someone else. Booking history is retained.
               </p>
               <div className="flex flex-col gap-2">
                 <Button
+                  variant="default"
+                  className="min-h-12 w-full text-base font-semibold"
+                  onClick={() => setConfirming(false)}
+                >
+                  Keep my booking
+                </Button>
+                <Button
                   variant="destructive"
-                  className="min-h-12 w-full text-base"
+                  className="min-h-12 w-full text-base font-semibold"
                   disabled={cancel.isPending}
                   onClick={confirmCancel}
                 >
                   {cancel.isPending ? "Cancelling…" : "Yes, cancel booking"}
-                </Button>
-                <Button
-                  variant="secondary"
-                  className="min-h-12 w-full text-base"
-                  onClick={() => setConfirming(false)}
-                >
-                  Keep my booking
                 </Button>
               </div>
             </div>

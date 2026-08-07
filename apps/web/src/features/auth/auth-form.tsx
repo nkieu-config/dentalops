@@ -1,5 +1,5 @@
-import { AlertCircle } from "lucide-react"
-import { forwardRef, type InputHTMLAttributes, type ReactElement, type ReactNode } from "react"
+import { AlertCircle, Eye, EyeOff } from "lucide-react"
+import { forwardRef, useState, type InputHTMLAttributes, type ReactElement, type ReactNode } from "react"
 import { PublicHeader } from "../../components/shell/public-header"
 import { Button } from "../../components/ui/button"
 import { Input } from "../../components/ui/input"
@@ -49,9 +49,34 @@ export const Field = ({ id, label, error, hint, children }: FieldProps): ReactEl
 }
 
 export const FieldInput = forwardRef<HTMLInputElement, InputHTMLAttributes<HTMLInputElement>>(
-  ({ className, ...props }, ref) => (
-    <Input ref={ref} className={cn("h-11 sm:h-9", className)} {...props} />
-  )
+  ({ className, type, ...props }, ref) => {
+    const [showPassword, setShowPassword] = useState(false)
+    const isPassword = type === "password"
+    const inputType = isPassword ? (showPassword ? "text" : "password") : type
+
+    if (!isPassword) {
+      return <Input ref={ref} type={inputType} className={cn("h-11 sm:h-9", className)} {...props} />
+    }
+
+    return (
+      <div className="relative flex items-center">
+        <Input
+          ref={ref}
+          type={inputType}
+          className={cn("h-11 pr-10 sm:h-9", className)}
+          {...props}
+        />
+        <button
+          type="button"
+          onClick={() => setShowPassword((prev) => !prev)}
+          className="absolute right-2.5 flex items-center text-muted-foreground hover:text-foreground transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-xs p-1"
+          aria-label={showPassword ? "Hide password" : "Show password"}
+        >
+          {showPassword ? <EyeOff className="size-4" aria-hidden="true" /> : <Eye className="size-4" aria-hidden="true" />}
+        </button>
+      </div>
+    )
+  }
 )
 FieldInput.displayName = "FieldInput"
 
@@ -59,7 +84,7 @@ export const FormError = ({ message }: { message: string | null }): ReactElement
   message ? (
     <p
       role="alert"
-      className="flex items-start gap-2 rounded-md border border-destructive bg-destructive-surface px-3 py-2 text-sm font-medium text-destructive-on-surface"
+      className="flex items-start gap-2 rounded-control border border-destructive bg-destructive-surface px-3.5 py-2.5 text-sm font-medium text-destructive-on-surface"
     >
       <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
       {message}
@@ -85,7 +110,7 @@ export const SubmitButton = ({
 }: SubmitButtonProps): ReactElement => (
   <Button
     type="submit"
-    className="h-11 w-full sm:h-10"
+    className="h-11 w-full sm:h-10 font-semibold"
     disabled={pending || disabled}
     aria-busy={pending}
     title={title}
@@ -103,17 +128,20 @@ export interface AuthCardProps {
 }
 
 export const AuthCard = ({ title, subtitle, children, footer }: AuthCardProps): ReactElement => (
-  <div className="flex min-h-dvh flex-col">
+  <div className="flex min-h-dvh flex-col bg-background text-foreground">
     <PublicHeader />
     <main className="mx-auto flex w-full max-w-md flex-1 flex-col justify-center gap-6 px-4 py-10">
-      <header className="space-y-2">
-        <h1 className="text-2xl font-semibold tracking-tight text-balance">{title}</h1>
-        {subtitle ? (
-          <p className="text-base leading-relaxed text-muted-foreground">{subtitle}</p>
-        ) : null}
-      </header>
-      {children}
-      {footer ? <footer className="text-base text-muted-foreground">{footer}</footer> : null}
+      <div className="rounded-card border border-border bg-card p-6 shadow-xs sm:p-8 space-y-6">
+        <header className="space-y-1.5">
+          <h1 className="text-card-title text-xl font-bold tracking-tight text-balance">{title}</h1>
+          {subtitle ? (
+            <p className="text-supporting text-muted-foreground leading-relaxed">{subtitle}</p>
+          ) : null}
+        </header>
+        {children}
+        {footer ? <footer className="pt-2 border-t border-border text-sm text-muted-foreground">{footer}</footer> : null}
+      </div>
     </main>
   </div>
 )
+

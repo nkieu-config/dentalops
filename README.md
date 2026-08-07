@@ -237,8 +237,8 @@ Worth saying plainly, because the gaps are choices rather than oversights:
 
   Visual baselines are generated on Ubuntu. Until the first Linux snapshot PR is merged, the `visual` job
   reports that the baseline is unavailable and is not a gate. Afterwards it is a blocking CI job. A
-  maintainer can run **Refresh visual baselines** for an intentional UI change; it opens a PR that updates
-  only the Linux snapshots, which must be reviewed before merging.
+  maintainer can run **Refresh visual baselines** from the branch containing an intentional UI change; it commits
+  only Linux snapshots back to that branch, which must be reviewed before merging.
 
 What a v2 would change first: extract the timeline into a headless package, put Postgres RLS behind
 the Prisma tenant extension as defence in depth, and replace the fixed UTC offset with a real

@@ -5,10 +5,9 @@ on:
 
 permissions:
   contents: write
-  pull-requests: write
 
 concurrency:
-  group: refresh-visual-baselines
+  group: refresh-visual-baselines-${{ github.ref }}
   cancel-in-progress: false
 
 jobs:
@@ -57,7 +56,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ github.event.repository.default_branch }}
+          ref: ${{ github.ref }}
       - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v4
         with:
@@ -70,11 +69,11 @@ jobs:
       - run: pnpm build
       - run: pnpm --filter @dentalops/web exec playwright install --with-deps chromium
       - run: pnpm --filter @dentalops/web e2e:visual:update
-      - uses: peter-evans/create-pull-request@v7
-        with:
-          add-paths: apps/web/e2e/visual.spec.ts-snapshots
-          branch: chore/refresh-visual-baselines
-          delete-branch: true
-          commit-message: "test(web): refresh visual baselines"
-          title: "test(web): refresh visual baselines"
-          body: "Generated Linux visual snapshots for intentional review."
+      - name: Commit Linux snapshots to the selected branch
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add apps/web/e2e/visual.spec.ts-snapshots
+          git diff --cached --quiet && exit 0
+          git commit -m "test(web): refresh visual baselines"
+          git push origin "HEAD:${{ github.ref }}"

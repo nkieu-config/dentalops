@@ -115,9 +115,11 @@ describe("Sea Glass design tokens", () => {
     expect(css).toMatch(/--border:\s*#D8E6E2;/)
   })
 
-  it("defines a green-charcoal dark palette rather than the industrial black theme", () => {
+  it("keeps dark work surfaces charcoal while reserving Sea Glass for interaction", () => {
     const css = stylesheet()
-    expect(css).toMatch(/\.dark\s*\{[\s\S]*--background:\s*#10211F;/)
+    expect(css).toMatch(/\.dark\s*\{[\s\S]*--background:\s*#151A19;/)
+    expect(css).toMatch(/\.dark\s*\{[\s\S]*--card:\s*#1C2422;/)
+    expect(css).toMatch(/\.dark\s*\{[\s\S]*--muted:\s*#222D2B;/)
     expect(css).toMatch(/\.dark\s*\{[\s\S]*--primary:\s*#69C7BA;/)
   })
 

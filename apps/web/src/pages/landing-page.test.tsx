@@ -28,27 +28,28 @@ describe("LandingPage", () => {
     expect(screen.getByText(/Already have a clinic\?/)).toBeInTheDocument()
   })
 
-  it("keeps the three demo buttons first in the accessibility tree", () => {
+  it("makes product entry clear before role exploration", () => {
     mount()
 
-    const buttons = screen.getAllByRole("button")
-    expect(buttons).toHaveLength(DEMO_LABELS.length)
-    DEMO_LABELS.forEach((label, index) => expect(buttons[index]).toHaveTextContent(label))
-
-    const last = buttons.at(-1)
-    expect(last).toBeDefined()
-    for (const link of screen.getAllByRole("link")) {
-      expect(
-        last!.compareDocumentPosition(link) & Node.DOCUMENT_POSITION_FOLLOWING
-      ).toBeTruthy()
-    }
+    expect(screen.getByRole("link", { name: "Explore the demo" })).toHaveAttribute(
+      "href",
+      "#demo-day"
+    )
+    expect(screen.getByRole("link", { name: "Create your clinic" })).toHaveAttribute(
+      "href",
+      "/signup"
+    )
+    expect(screen.getByRole("heading", { name: "A calmer clinic day starts here." })).toBeVisible()
   })
 
-  it("carries no chrome that would take the first tab stop from the demo buttons", () => {
+  it("explains demo access as a clinic-day exploration", () => {
     mount()
 
-    expect(screen.queryByRole("button", { name: /theme/i })).not.toBeInTheDocument()
-    expect(screen.queryByRole("banner")).not.toBeInTheDocument()
+    expect(screen.getByRole("region", { name: "Step into a clinic day" })).toBeVisible()
+    expect(screen.getByText("Team availability")).toBeVisible()
+    expect(screen.getByText("Rooms and resources")).toBeVisible()
+    expect(screen.getByText("Online booking")).toBeVisible()
+    expect(screen.getAllByRole("button")).toHaveLength(DEMO_LABELS.length + 1)
   })
 
   it("keeps the demo buttons primary and the two doors secondary", () => {

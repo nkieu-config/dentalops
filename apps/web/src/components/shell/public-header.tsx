@@ -1,10 +1,12 @@
+import type { ReactNode } from "react"
 import { ThemeToggle } from "./theme-toggle"
 
 interface PublicHeaderProps {
   brandHref?: string
+  actions?: ReactNode
 }
 
-export const PublicHeader = ({ brandHref = "/" }: PublicHeaderProps) => (
+export const PublicHeader = ({ brandHref = "/", actions }: PublicHeaderProps) => (
   <header className="flex h-topbar shrink-0 items-center gap-3 px-4">
     <a
       href={brandHref}
@@ -13,6 +15,9 @@ export const PublicHeader = ({ brandHref = "/" }: PublicHeaderProps) => (
       DentalOps
     </a>
     <div className="flex-1" />
-    <ThemeToggle />
+    <nav aria-label="Public actions" className="flex items-center gap-3">
+      {actions}
+      <ThemeToggle />
+    </nav>
   </header>
 )

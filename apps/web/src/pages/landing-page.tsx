@@ -1,9 +1,11 @@
 import { authSessionSchema } from "@dentalops/contracts"
 import { useMutation } from "@tanstack/react-query"
-import { ArrowRight } from "lucide-react"
+import { ArrowRight, Sparkles } from "lucide-react"
 import { useState } from "react"
 import { Link, useNavigate } from "react-router"
 import { toast } from "sonner"
+import { ClinicDayStory } from "../components/public/clinic-day-story"
+import { PublicHeader } from "../components/shell/public-header"
 import { Button } from "../components/ui/button"
 import { api, ApiError } from "../lib/api"
 import { setSession } from "../lib/session"
@@ -41,22 +43,62 @@ export const LandingPage = () => {
   })
 
   return (
-    <main className="mx-auto flex min-h-dvh w-full max-w-lg flex-col justify-center gap-10 px-6 py-12">
-      <div className="flex flex-col gap-5">
-        <span className="flex items-center gap-2 text-sm font-semibold tracking-wide">
-          <span className="h-2.5 w-2.5 rounded-full bg-decorative" aria-hidden="true" />
-          DentalOps
-        </span>
-        <h1 className="text-3xl font-semibold leading-tight tracking-tight text-balance sm:text-4xl">
-          Every chair, every dentist, one day at a glance.
-        </h1>
-        <p className="text-base leading-relaxed text-muted-foreground">
-          Appointment and roster scheduling for dental clinics — live availability, double-booking
-          caught by the database, and a public booking page per clinic. Pick a role and look around.
-        </p>
-      </div>
+    <div className="min-h-dvh bg-background">
+      <PublicHeader
+        actions={
+          <>
+            <a className="text-sm font-medium hover:text-muted-foreground" href="#demo-day">
+              Explore the demo
+            </a>
+            <Link className="text-sm font-semibold hover:text-muted-foreground" to="/signup">
+              Create your clinic
+            </Link>
+          </>
+        }
+      />
+      <main className="mx-auto flex w-full max-w-5xl flex-col gap-10 px-6 py-12 sm:gap-14 sm:py-16">
+        <section className="grid gap-6 rounded-card border border-border bg-card p-6 shadow-xs sm:grid-cols-[1.2fr_0.8fr] sm:p-8">
+          <div className="flex flex-col items-start gap-5">
+            <span className="flex items-center gap-2 text-sm font-semibold tracking-wide text-decorative">
+              <Sparkles className="h-4 w-4" aria-hidden />
+              DENTALOPS
+            </span>
+            <h1 className="max-w-xl text-4xl font-semibold leading-tight tracking-tight text-balance sm:text-5xl">
+              A calmer clinic day starts here.
+            </h1>
+            <p className="max-w-xl text-base leading-relaxed text-muted-foreground sm:text-lg">
+              Coordinate people, chairs and patient bookings in one schedule your whole clinic can
+              understand at a glance.
+            </p>
+            <a
+              className="inline-flex min-h-11 items-center rounded-control bg-primary px-4 text-sm font-semibold text-primary-foreground shadow-xs hover:bg-primary/90"
+              href="#demo-day"
+            >
+              Explore a clinic day
+            </a>
+          </div>
+          <div className="rounded-lg border border-border bg-secondary p-5 text-secondary-foreground">
+            <p className="text-sm font-semibold tracking-wide">A SHARED RHYTHM</p>
+            <p className="mt-3 text-2xl font-semibold tracking-tight">Patients book. Teams coordinate. Care keeps moving.</p>
+            <p className="mt-4 text-sm leading-relaxed opacity-80">
+              Built around the actual availability of your clinicians, rooms and equipment.
+            </p>
+          </div>
+        </section>
 
-      <div className="flex flex-col gap-3">
+        <ClinicDayStory />
+
+        <section id="demo-day" aria-labelledby="demo-day-title" className="space-y-4">
+          <div className="space-y-1">
+            <p className="text-sm font-semibold tracking-wide text-decorative">EXPLORE THE WORKSPACE</p>
+            <h2 id="demo-day-title" className="text-2xl font-semibold tracking-tight">
+              Step into a clinic day
+            </h2>
+            <p className="text-base text-muted-foreground">
+              Open the same demo clinic from the perspective of each role.
+            </p>
+          </div>
+          <div className="flex flex-col gap-3">
         {unavailableRole ? (
           <section
             aria-live="polite"
@@ -76,7 +118,7 @@ export const LandingPage = () => {
               Try demo again
             </Button>
           </section>
-        ) : (
+          ) : (
           roles.map(({ role, label, hint }) => (
             <Button
               key={role}
@@ -100,30 +142,32 @@ export const LandingPage = () => {
               <ArrowRight className="h-4 w-4 shrink-0 opacity-60" aria-hidden="true" />
             </Button>
           ))
-        )}
-      </div>
+          )}
+          </div>
+        </section>
 
-      <div className="flex flex-col gap-3 border-t border-border pt-6">
-        <p className="text-sm text-muted-foreground">
-          A demo clinic with seeded appointments. Data resets periodically.
-        </p>
-        <p className="text-base">
-          Already have a clinic?{" "}
-          <Link
-            className="font-medium underline underline-offset-4 hover:text-muted-foreground"
-            to="/login"
-          >
-            Sign in
-          </Link>{" "}
-          ·{" "}
-          <Link
-            className="font-medium underline underline-offset-4 hover:text-muted-foreground"
-            to="/signup"
-          >
-            Create a clinic
-          </Link>
-        </p>
-      </div>
-    </main>
+        <footer className="flex flex-col gap-3 border-t border-border pt-6">
+          <p className="text-sm text-muted-foreground">
+            A demo clinic with seeded appointments. Data resets periodically.
+          </p>
+          <p className="text-base">
+            Already have a clinic?{" "}
+            <Link
+              className="font-medium underline underline-offset-4 hover:text-muted-foreground"
+              to="/login"
+            >
+              Sign in
+            </Link>{" "}
+            ·{" "}
+            <Link
+              className="font-medium underline underline-offset-4 hover:text-muted-foreground"
+              to="/signup"
+            >
+              Create a clinic
+            </Link>
+          </p>
+        </footer>
+      </main>
+    </div>
   )
 }

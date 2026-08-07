@@ -56,7 +56,13 @@ I predicted that caching availability would improve p50/p95 latency by 2.5–3×
 
 ## Stack
 
-React 19 + Vite · NestJS + Socket.IO + BullMQ · PostgreSQL 16 + Redis + MongoDB · pnpm workspaces + Turborepo · Vitest + Jest + Playwright · Docker + GitHub Actions
+| Layer | Stack | Why it matters |
+| --- | --- | --- |
+| **Frontend** | React 19, Vite, TanStack Query, Tailwind CSS | Public booking and staff scheduling stay responsive; Socket.IO updates the timeline without a reload. |
+| **Backend** | NestJS 11, Prisma, Socket.IO, BullMQ | Clear domain boundaries, an authoritative booking flow, realtime events, and asynchronous work. |
+| **Scheduling data** | PostgreSQL 16, GiST exclusion constraints | The source of truth: conflicting claims for time and resources cannot persist. |
+| **Supporting data** | Redis 7, MongoDB 7 | Redis supports holds, cache, queues, and idempotency; MongoDB stores append-only audit events. |
+| **Quality & delivery** | Vitest, Jest, Playwright, Docker, GitHub Actions | Evidence runs from shared scheduling rules to browser journeys and production-image contention. |
 
 ## Quick start
 

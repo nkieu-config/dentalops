@@ -91,6 +91,19 @@ describe("SignupPage", () => {
     expect(password).toHaveAttribute("autocomplete", "new-password")
   })
 
+  it("groups clinic identity before owner access and previews the public booking URL", async () => {
+    const user = mount()
+
+    expect(screen.getByRole("heading", { name: "Clinic identity" })).toBeVisible()
+    expect(screen.getByRole("heading", { name: "Owner access" })).toBeVisible()
+
+    await user.type(screen.getByLabelText("Clinic name"), "Bright Smile Dental")
+
+    expect(screen.getByRole("status", { name: "Public booking URL" })).toHaveTextContent(
+      "/book/bright-smile-dental"
+    )
+  })
+
   it("marks nothing invalid before a submit and explains the clinic URL", () => {
     mount()
 

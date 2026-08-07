@@ -5,6 +5,7 @@ import { z } from "zod"
 import { api } from "../../lib/api"
 import { setSession } from "../../lib/session"
 import { AuthCard, Field, FieldInput, FormError, SubmitButton } from "./auth-form"
+import { PasswordField } from "./password-field"
 import { SLUG_PATTERN, toSlug } from "./slug"
 import { useAuthForm } from "./use-auth-form"
 
@@ -88,76 +89,49 @@ export const SignupPage = (): ReactElement => {
       <form ref={form.formRef} onSubmit={form.submit} noValidate className="space-y-4">
         <FormError message={form.formError} />
 
-        <Field id="clinicName" label="Clinic name" error={form.errors.clinicName}>
-          {(aria) => (
-            <FieldInput
-              {...aria}
-              name="clinicName"
-              type="text"
-              autoComplete="organization"
-              value={form.values.clinicName}
-              onChange={(event) => setClinicName(event.target.value)}
-            />
-          )}
-        </Field>
-
-        <Field id="slug" label="Clinic URL" error={form.errors.slug} hint={SLUG_GUIDANCE}>
-          {(aria) => (
-            <div className="flex items-center gap-1">
-              <span aria-hidden="true" className="shrink-0 text-sm text-muted-foreground">
-                {bookingHost()}
-              </span>
+        <section aria-labelledby="clinic-identity-title" className="space-y-4">
+          <div className="space-y-1">
+            <p className="text-sm font-semibold tracking-wide text-decorative">1. START WITH YOUR CLINIC</p>
+            <h2 id="clinic-identity-title" className="text-lg font-semibold">Clinic identity</h2>
+          </div>
+          <Field id="clinicName" label="Clinic name" error={form.errors.clinicName}>
+            {(aria) => (
               <FieldInput
                 {...aria}
-                name="slug"
+                name="clinicName"
                 type="text"
-                autoComplete="off"
-                spellCheck={false}
-                value={form.values.slug}
-                onChange={(event) => setSlug(event.target.value)}
+                autoComplete="organization"
+                value={form.values.clinicName}
+                onChange={(event) => setClinicName(event.target.value)}
               />
-            </div>
-          )}
-        </Field>
+            )}
+          </Field>
+          <Field id="slug" label="Clinic URL" error={form.errors.slug} hint={SLUG_GUIDANCE}>
+            {(aria) => (
+              <div className="flex items-center gap-1">
+                <span aria-hidden="true" className="shrink-0 text-sm text-muted-foreground">{bookingHost()}</span>
+                <FieldInput {...aria} name="slug" type="text" autoComplete="off" spellCheck={false} value={form.values.slug} onChange={(event) => setSlug(event.target.value)} />
+              </div>
+            )}
+          </Field>
+          <output aria-label="Public booking URL" role="status" className="block rounded-md bg-secondary px-3 py-2 text-sm text-secondary-foreground">
+            {bookingHost()}{form.values.slug}
+          </output>
+        </section>
 
-        <Field id="name" label="Your name" error={form.errors.name}>
-          {(aria) => (
-            <FieldInput
-              {...aria}
-              name="name"
-              type="text"
-              autoComplete="name"
-              value={form.values.name}
-              onChange={(event) => form.set("name", event.target.value)}
-            />
-          )}
-        </Field>
-
-        <Field id="email" label="Email" error={form.errors.email}>
-          {(aria) => (
-            <FieldInput
-              {...aria}
-              name="email"
-              type="email"
-              autoComplete="email"
-              value={form.values.email}
-              onChange={(event) => form.set("email", event.target.value)}
-            />
-          )}
-        </Field>
-
-        <Field id="password" label="Password" error={form.errors.password}>
-          {(aria) => (
-            <FieldInput
-              {...aria}
-              name="password"
-              type="password"
-              autoComplete="new-password"
-              value={form.values.password}
-              onChange={(event) => form.set("password", event.target.value)}
-            />
-          )}
-        </Field>
+        <section aria-labelledby="owner-access-title" className="space-y-4 border-t border-border pt-4">
+          <div className="space-y-1">
+            <p className="text-sm font-semibold tracking-wide text-decorative">2. MAKE IT YOURS</p>
+            <h2 id="owner-access-title" className="text-lg font-semibold">Owner access</h2>
+          </div>
+          <Field id="name" label="Your name" error={form.errors.name}>
+            {(aria) => <FieldInput {...aria} name="name" type="text" autoComplete="name" value={form.values.name} onChange={(event) => form.set("name", event.target.value)} />}
+          </Field>
+          <Field id="email" label="Email" error={form.errors.email}>
+            {(aria) => <FieldInput {...aria} name="email" type="email" autoComplete="email" value={form.values.email} onChange={(event) => form.set("email", event.target.value)} />}
+          </Field>
+          <PasswordField label="Password" name="password" autoComplete="new-password" value={form.values.password} error={form.errors.password} onChange={(event) => form.set("password", event.target.value)} />
+        </section>
 
         <SubmitButton pending={form.pending} pendingLabel="Creating your clinic…">
           Create clinic

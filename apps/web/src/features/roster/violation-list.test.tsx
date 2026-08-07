@@ -50,9 +50,9 @@ describe("ViolationList", () => {
   it("renders warnings only with the warning token and an icon", () => {
     mount([warning])
     const group = screen.getByTestId("violations-warnings")
-    expect(group).toHaveTextContent("Warnings (1)")
+    expect(group).toHaveTextContent("Worth checking (1)")
     expect(group.querySelector("h3")!.className).toContain("text-warning")
-    expect(screen.getAllByLabelText("Warnings").length).toBe(1)
+    expect(screen.getAllByLabelText("Worth checking").length).toBe(1)
     expect(group).toHaveTextContent("Dr. Nid")
     expect(group).toHaveTextContent("540 minutes of rest")
     expect(screen.queryByTestId("violations-blocking")).not.toBeInTheDocument()
@@ -62,9 +62,9 @@ describe("ViolationList", () => {
   it("renders blocking violations with the destructive token, an icon and a timeline link", () => {
     mount([blocking], linkFor)
     const group = screen.getByTestId("violations-blocking")
-    expect(group).toHaveTextContent("Blocking (1)")
+    expect(group).toHaveTextContent("Needs attention (1)")
     expect(group.querySelector("h3")!.className).toContain("text-destructive")
-    expect(screen.getAllByLabelText("Blocking").length).toBe(1)
+    expect(screen.getAllByLabelText("Needs attention").length).toBe(1)
     expect(group).toHaveTextContent("Dr. Anong")
     expect(group).toHaveTextContent("2 confirmed appointments fall outside")
 
@@ -76,8 +76,8 @@ describe("ViolationList", () => {
     mount([blocking, warning, { ...warning, staffId: anongId, rule: "weekly_hours_exceeded" }])
     const blockingGroup = screen.getByTestId("violations-blocking")
     const warningGroup = screen.getByTestId("violations-warnings")
-    expect(blockingGroup).toHaveTextContent("Blocking (1)")
-    expect(warningGroup).toHaveTextContent("Warnings (2)")
+    expect(blockingGroup).toHaveTextContent("Needs attention (1)")
+    expect(warningGroup).toHaveTextContent("Worth checking (2)")
     expect(
       blockingGroup.compareDocumentPosition(warningGroup) & Node.DOCUMENT_POSITION_FOLLOWING
     ).toBeTruthy()

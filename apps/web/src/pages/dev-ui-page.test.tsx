@@ -151,7 +151,7 @@ describe("DevUiPage", () => {
     ).toBeInTheDocument()
 
     const conflicting = within(screen.getByTestId("shift-state-conflicting"))
-    expect(conflicting.getByRole("button").className).toContain("ring-destructive")
+    expect(conflicting.getByRole("button").className).toContain("border-destructive")
     expect(conflicting.getByLabelText("Blocking violation")).toBeInTheDocument()
   })
 
@@ -163,10 +163,10 @@ describe("DevUiPage", () => {
     expect(clean.queryByTestId("violations-blocking")).not.toBeInTheDocument()
 
     const warnings = within(screen.getByTestId("violations-state-warnings"))
-    expect(warnings.getByTestId("violations-warnings")).toHaveTextContent("Warnings (2)")
+    expect(warnings.getByTestId("violations-warnings")).toHaveTextContent("Worth checking (2)")
     expect(warnings.getByText("Dr. Anong")).toBeInTheDocument()
     expect(warnings.getByText("Dr. Boon")).toBeInTheDocument()
-    expect(warnings.getAllByLabelText("Warnings")).toHaveLength(2)
+    expect(warnings.getAllByLabelText("Worth checking")).toHaveLength(2)
     expect(warnings.queryByTestId("violations-blocking")).not.toBeInTheDocument()
     expect(warnings.queryByRole("link")).not.toBeInTheDocument()
   })
@@ -176,7 +176,7 @@ describe("DevUiPage", () => {
 
     const blocking = within(screen.getByTestId("violations-state-blocking"))
     const group = blocking.getByTestId("violations-blocking")
-    expect(group).toHaveTextContent("Blocking (1)")
+    expect(group).toHaveTextContent("Needs attention (1)")
     expect(group.querySelector("h3")!.className).toContain("text-destructive")
     expect(blocking.getByRole("link", { name: "View 2 appointments" })).toHaveAttribute(
       "href",
@@ -187,8 +187,8 @@ describe("DevUiPage", () => {
     const mixed = within(screen.getByTestId("violations-state-mixed"))
     const mixedBlocking = mixed.getByTestId("violations-blocking")
     const mixedWarnings = mixed.getByTestId("violations-warnings")
-    expect(mixedBlocking).toHaveTextContent("Blocking (1)")
-    expect(mixedWarnings).toHaveTextContent("Warnings (2)")
+    expect(mixedBlocking).toHaveTextContent("Needs attention (1)")
+    expect(mixedWarnings).toHaveTextContent("Worth checking (2)")
     expect(
       mixedBlocking.compareDocumentPosition(mixedWarnings) & Node.DOCUMENT_POSITION_FOLLOWING
     ).toBeTruthy()

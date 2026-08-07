@@ -34,9 +34,9 @@ export const ShiftBlock = ({
       onPointerDown={onMoveStart}
       aria-label={`Edit ${staffName} shift ${fmtTime(start)} to ${fmtTime(end)}`}
       className={cn(
-        "flex min-h-11 w-full flex-col items-start justify-center rounded-xs border border-border bg-secondary px-1.5 py-1 text-left text-xs leading-tight text-secondary-foreground transition-[background-color,box-shadow] duration-150 hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+        "flex min-h-11 w-full flex-col items-start justify-center rounded-md border border-border bg-surface-subtle px-2 py-1.5 text-left text-xs leading-tight text-foreground transition-[background-color,box-shadow,border-color] duration-150 hover:bg-accent hover:border-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
         onMoveStart && "cursor-grab",
-        conflicting && "ring-2 ring-destructive",
+        conflicting && "border-destructive bg-destructive-surface text-destructive-on-surface hover:bg-destructive-surface hover:border-destructive",
         dragging && "cursor-grabbing border-dashed opacity-60 shadow-lg"
       )}
     >

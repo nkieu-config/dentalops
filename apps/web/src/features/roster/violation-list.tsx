@@ -19,10 +19,11 @@ interface GroupProps extends ViolationListProps {
   heading: string
   icon: LucideIcon
   tone: string
+  surfaceTone: string
   testId: string
 }
 
-const Group = ({ violations, staffName, linkFor, heading, icon: Icon, tone, testId }: GroupProps) =>
+const Group = ({ violations, staffName, linkFor, heading, icon: Icon, tone, surfaceTone, testId }: GroupProps) =>
   violations.length === 0 ? null : (
     <div data-testid={testId}>
       <h3 className={cn("flex items-center gap-1.5 text-sm font-semibold", tone)}>
@@ -37,7 +38,7 @@ const Group = ({ violations, staffName, linkFor, heading, icon: Icon, tone, test
           return (
             <li
               key={`${violation.rule}-${violation.staffId}-${index}`}
-              className="flex gap-2 rounded-md border border-border bg-card p-2.5 text-sm"
+              className={cn("flex gap-2 rounded-md border p-2.5 text-sm", surfaceTone)}
             >
               <Icon className={cn("mt-0.5 h-4 w-4 shrink-0", tone)} aria-label={heading} />
               <div className="min-w-0 space-y-0.5">
@@ -79,18 +80,20 @@ export const ViolationList = ({ violations, staffName, linkFor }: ViolationListP
     <div className="space-y-4">
       <Group
         testId="violations-blocking"
-        heading="Blocking"
+        heading="Needs attention"
         icon={OctagonAlert}
-        tone="text-destructive"
+        tone="text-destructive-on-surface"
+        surfaceTone="bg-destructive-surface border-destructive/20"
         violations={blocking}
         staffName={staffName}
         linkFor={linkFor}
       />
       <Group
         testId="violations-warnings"
-        heading="Warnings"
+        heading="Worth checking"
         icon={AlertTriangle}
-        tone="text-warning"
+        tone="text-warning-on-surface"
+        surfaceTone="bg-warning-surface border-warning/20"
         violations={warnings}
         staffName={staffName}
       />

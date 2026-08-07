@@ -40,7 +40,7 @@ describe("ShiftBlock", () => {
 
   it("marks a conflicting shift with the destructive ring and an icon, not colour alone", () => {
     const { block } = mount({ conflicting: true })
-    expect(block.className).toContain("ring-destructive")
+    expect(block.className).toContain("border-destructive")
     expect(block).toHaveAttribute("data-conflicting", "true")
     expect(screen.getByLabelText("Blocking violation")).toBeInTheDocument()
   })

@@ -104,15 +104,17 @@ export const AppointmentDrawer = ({
             <Row label="Status" value={appointment.status.replace("_", "-")} />
             {recurring ? <SeriesBadge onOpen={() => setSeriesOpen(true)} /> : null}
             {appointment.status === "confirmed" ? (
-              <div className="flex flex-wrap gap-2 pt-2">
-                <Button
-                  size="sm"
-                  disabled={setStatus.isPending || !online}
-                  aria-describedby={online ? undefined : OFFLINE_REASON_ID}
-                  onClick={() => setStatus.mutate({ id: appointment.id, status: "completed" })}
-                >
-                  Complete
-                </Button>
+              <div className="space-y-2 border-t border-border pt-4">
+                <Label>Visit actions</Label>
+                <div className="flex flex-wrap gap-2">
+                  <Button
+                    size="sm"
+                    disabled={setStatus.isPending || !online}
+                    aria-describedby={online ? undefined : OFFLINE_REASON_ID}
+                    onClick={() => setStatus.mutate({ id: appointment.id, status: "completed" })}
+                  >
+                    Complete
+                  </Button>
                 <Button
                   size="sm"
                   variant="secondary"
@@ -131,6 +133,7 @@ export const AppointmentDrawer = ({
                 >
                   Cancel
                 </Button>
+                </div>
               </div>
             ) : null}
             {appointment.status === "confirmed" && !online ? (

@@ -53,7 +53,7 @@ export const AppointmentCard = ({
       onClick={() => onClick(appointment)}
       onPointerDown={onMoveStart}
       className={cn(
-        "absolute z-[5] flex scroll-mb-bottomnav scroll-mt-topbar flex-col items-start overflow-hidden rounded-xs border-l-[3px] px-1.5 py-0.5 text-left text-xs leading-tight text-card-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+        "absolute z-[5] flex scroll-mb-bottomnav scroll-mt-topbar flex-col items-start overflow-hidden rounded-md border-l-[3px] px-2 py-1 text-left text-xs leading-tight text-card-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
         completed && "opacity-70",
         cancelled && "border-l-border bg-muted text-muted-foreground",
         conflict && "ring-2 ring-destructive",

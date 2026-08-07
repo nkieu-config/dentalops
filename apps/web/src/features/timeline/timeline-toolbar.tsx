@@ -14,7 +14,7 @@ interface ToolbarProps {
 }
 
 export const TimelineToolbar = ({ date, branchId, branches, onChange, children }: ToolbarProps) => (
-  <div className="flex flex-wrap items-center gap-2 border-b border-border px-4 py-2">
+  <div className="flex flex-wrap items-center gap-3 border-b border-border bg-card px-4 py-2.5 sm:gap-4 md:px-6 md:py-3">
     <NativeSelect
       aria-label="Branch"
       className="w-auto"

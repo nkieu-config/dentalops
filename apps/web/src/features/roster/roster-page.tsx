@@ -273,7 +273,7 @@ export const RosterPage = () => {
 
   return (
     <div className="flex h-[calc(100dvh-var(--spacing-topbar))] min-w-0 flex-col">
-      <div className="flex shrink-0 flex-wrap items-center gap-2 border-b border-border p-2">
+      <div className="flex shrink-0 flex-wrap items-center gap-3 border-b border-border bg-card px-4 py-2.5 sm:gap-4 md:px-6 md:py-3">
         <Button
           variant="ghost"
           size="icon"
@@ -367,7 +367,7 @@ export const RosterPage = () => {
                 </Button>
               </div>
             ) : null}
-            <div className="sticky top-0 z-10 flex border-b border-border bg-muted">
+            <div className="sticky top-0 z-10 flex border-b border-border bg-card">
               <div className="w-40 shrink-0 px-2 py-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Staff</div>
               {visibleDates.map((date) => (
                 <div
@@ -415,7 +415,7 @@ export const RosterPage = () => {
           <aside
             aria-label="Validation"
             data-testid="violations-panel"
-            className="w-80 shrink-0 overflow-y-auto border-l border-border p-4"
+            className="w-80 shrink-0 overflow-y-auto border-l border-border bg-surface-subtle p-6"
           >
             <h2 className="mb-3 text-base font-semibold">Validation</h2>
             {panel}

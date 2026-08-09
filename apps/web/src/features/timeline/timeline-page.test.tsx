@@ -484,6 +484,36 @@ describe("TimelinePage", () => {
     expect(await screen.findByTestId(`overlay-${dentistId}`)).toBeInTheDocument()
   })
 
+  it("blocks a keyboard reschedule for roles the api won't let move appointments", async () => {
+    const id = "a1000000-0000-4000-8000-000000000042"
+    const bodies: unknown[] = []
+    server.use(
+      ...directory([{ id: dentistId, name: "Dr. Anong" }]),
+      http.get(`${API}/appointments`, () =>
+        HttpResponse.json([
+          appointment(id, dentistId, "2026-08-03T02:00:00.000Z", "2026-08-03T03:00:00.000Z")
+        ])
+      ),
+      http.patch(`${API}/appointments/${id}`, async ({ request }) => {
+        bodies.push(await request.json())
+        return HttpResponse.json(
+          appointment(id, dentistId, "2026-08-03T02:15:00.000Z", "2026-08-03T03:15:00.000Z")
+        )
+      })
+    )
+    mount("dentist")
+    const card = await screen.findByTestId(`appt-${id}`)
+    card.focus()
+
+    fireEvent.keyDown(card, { key: "ArrowDown", shiftKey: true })
+    await new Promise((resolve) => setTimeout(resolve, 50))
+    expect(bodies).toEqual([])
+
+    fireEvent.keyDown(card, { key: "ArrowRight", shiftKey: true })
+    await new Promise((resolve) => setTimeout(resolve, 50))
+    expect(bodies).toEqual([])
+  })
+
   it("withdraws every write affordance while the browser is offline", async () => {
     const id = "a1000000-0000-4000-8000-000000000041"
     const bodies: unknown[] = []

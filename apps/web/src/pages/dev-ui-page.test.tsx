@@ -69,6 +69,11 @@ describe("DevUiPage", () => {
     const none = within(screen.getByTestId("slots-none"))
     expect(none.getByText("No free slots this day")).toBeInTheDocument()
     expect(none.queryAllByTestId("slot")).toHaveLength(0)
+
+    const error = within(screen.getByTestId("slots-error"))
+    expect(error.getByText("Could not load free slots")).toBeInTheDocument()
+    expect(error.getByText("Retry shortly")).toBeInTheDocument()
+    expect(error.queryAllByTestId("slot")).toHaveLength(0)
   })
 
   it("renders the countdown at its normal, urgent and expired urgencies", () => {

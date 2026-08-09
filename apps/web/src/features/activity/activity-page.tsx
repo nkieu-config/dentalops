@@ -93,12 +93,6 @@ const ActivityRow = ({ entry }: { entry: AuditEntry }) => {
       <p className="flex-1 text-sm">
         <span className="font-medium text-foreground">{entry.actor.name}</span>{" "}
         <span className="text-muted-foreground">{describeAction(entry)}</span>
-        {entry.entity.id ? (
-          <span className="text-muted-foreground">
-            {" "}
-            — {nounFor(entry.entity.type)} {entry.entity.id.slice(0, 8)}
-          </span>
-        ) : null}
       </p>
       <time
         dateTime={entry.at.toISOString()}
@@ -106,6 +100,14 @@ const ActivityRow = ({ entry }: { entry: AuditEntry }) => {
       >
         {fmtTime(at)}
       </time>
+      {entry.entity.id ? (
+        <span
+          className="w-full font-mono text-xs text-muted-foreground"
+          title={entry.entity.id}
+        >
+          {nounFor(entry.entity.type)} {entry.entity.id.slice(0, 8)}
+        </span>
+      ) : null}
     </li>
   )
 }

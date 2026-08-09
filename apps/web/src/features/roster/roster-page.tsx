@@ -402,7 +402,7 @@ export const RosterPage = () => {
               </div>
             ) : null}
             <div className="sticky top-0 z-10 flex border-b border-border bg-card">
-              <div className="w-40 shrink-0 px-2 py-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Staff</div>
+              <div className="w-40 shrink-0 px-2 py-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Dentists</div>
               {visibleDates.map((date) => (
                 <div
                   key={date}

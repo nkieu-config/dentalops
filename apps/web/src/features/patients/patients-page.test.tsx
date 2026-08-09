@@ -180,6 +180,30 @@ describe("PatientsPage", () => {
     expect(screen.queryByRole("button", { name: "Clear the search" })).not.toBeInTheDocument()
   })
 
+  it("announces the result count in a live region as the search settles", async () => {
+    server.use(
+      listing({
+        "|": {
+          items: [
+            patient(first, "Kanya Wongchai", "0812345678"),
+            patient(second, "Somchai Detchat", "0823456789")
+          ],
+          nextCursor: null
+        },
+        "kanya|": { items: [patient(first, "Kanya Wongchai", "0812345678")], nextCursor: null }
+      })
+    )
+    const user = mount()
+
+    await screen.findAllByRole("listitem")
+    const liveRegion = () => document.querySelector('[aria-live="polite"]')
+    await waitFor(() => expect(liveRegion()).toHaveTextContent("2 patients found"))
+
+    await user.type(await screen.findByLabelText("Search patients"), "kanya")
+
+    await waitFor(() => expect(liveRegion()).toHaveTextContent("1 patient found for “kanya”"))
+  })
+
   it("says so when the list cannot be loaded, and a retry actually recovers it", async () => {
     server.use(http.get(`${API}/patients`, () => HttpResponse.error()))
     const user = mount()

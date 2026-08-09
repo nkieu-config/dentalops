@@ -22,7 +22,7 @@ export const ServiceStep = ({
   <div className="space-y-6">
     {branches.length > 1 ? (
       <div className="space-y-2">
-        <h2 className="text-lg font-semibold">Which branch?</h2>
+        <h2 className="text-section-title font-bold">Which branch?</h2>
         <div className="flex flex-wrap gap-2">
           {branches.map((branch) => (
             <button
@@ -32,8 +32,8 @@ export const ServiceStep = ({
               onClick={() => onChooseBranch(branch.id)}
               className={
                 branch.id === branchId
-                  ? "min-h-11 rounded-md border border-primary bg-secondary px-4 text-base font-medium text-secondary-foreground"
-                  : "min-h-11 cursor-pointer rounded-md border border-border px-4 text-base hover:bg-accent"
+                  ? "min-h-11 rounded-card border border-primary bg-secondary px-4 text-card-title font-medium text-secondary-foreground"
+                  : "min-h-11 cursor-pointer rounded-card border border-border px-4 text-card-title hover:bg-accent"
               }
             >
               {branch.name}
@@ -44,7 +44,7 @@ export const ServiceStep = ({
     ) : null}
 
     <div className="space-y-2">
-      <h2 className="text-lg font-semibold">What do you need?</h2>
+      <h2 className="text-section-title font-bold">What do you need?</h2>
       {loading ? (
         <div className="space-y-2">
           {Array.from({ length: 4 }, (_, i) => (
@@ -59,11 +59,11 @@ export const ServiceStep = ({
               type="button"
               data-testid="service-option"
               onClick={() => onChooseService(service.id)}
-              className="flex min-h-16 w-full cursor-pointer items-center justify-between gap-3 rounded-md border border-border bg-card px-4 py-3 text-left transition-[background-color,border-color] duration-150 hover:border-input hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background active:scale-[0.99]"
+              className="flex min-h-16 w-full cursor-pointer items-center justify-between gap-3 rounded-card border border-border bg-card px-4 py-3 text-left transition-[background-color,border-color] duration-150 hover:border-input hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background active:scale-[0.99]"
             >
               <span>
-                <span className="block text-base font-medium">{service.name}</span>
-                <span className="block text-base tabular-nums text-muted-foreground">
+                <span className="block text-card-title font-medium">{service.name}</span>
+                <span className="block text-supporting tabular-nums text-muted-foreground">
                   {service.durationMin} min
                 </span>
               </span>

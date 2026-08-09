@@ -102,7 +102,7 @@ export const TimeGrid = ({
               key={column.id}
               className={cn("flex items-center gap-2 border-r border-border px-3 py-2 text-sm font-semibold text-foreground min-w-0 flex-1", columnWidth)}
             >
-              <span aria-hidden="true" className="flex size-6 shrink-0 items-center justify-center rounded-full bg-secondary text-[0.65rem] font-bold text-secondary-foreground">
+              <span aria-hidden="true" className="flex size-6 shrink-0 items-center justify-center rounded-full bg-secondary text-meta font-bold text-secondary-foreground">
                 {column.name.replace(/^(dr|mr|mrs|ms)\.?\s+/i, "").charAt(0).toUpperCase() || "C"}
               </span>
               <span className="truncate">{column.name}</span>
@@ -126,7 +126,7 @@ export const TimeGrid = ({
               ))}
               {isToday ? (
                 <span
-                  className="absolute right-1 z-10 -translate-y-1/2 rounded-sm bg-destructive px-1 text-[0.65rem] font-medium text-destructive-foreground tabular-nums"
+                  className="absolute right-1 z-10 -translate-y-1/2 rounded-sm bg-destructive px-1 text-meta font-medium text-destructive-foreground tabular-nums"
                   style={{ top: msToY(now, dayStart) }}
                 >
                   {fmtTime(now)}

@@ -18,6 +18,8 @@ const badgeVariants = cva(
   }
 )
 
+export type BadgeTone = NonNullable<VariantProps<typeof badgeVariants>["tone"]>
+
 interface BadgeProps
   extends HTMLAttributes<HTMLSpanElement>,
     VariantProps<typeof badgeVariants> {}

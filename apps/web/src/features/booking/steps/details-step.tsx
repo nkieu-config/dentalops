@@ -1,5 +1,7 @@
-import { FormEvent } from "react"
+import { AlertCircle } from "lucide-react"
+import { FormEvent, useState } from "react"
 import { Button } from "../../../components/ui/button"
+import { Card } from "../../../components/ui/card"
 import { Input } from "../../../components/ui/input"
 import { bkkDate, fmtDay, fmtTime } from "../../timeline/lib/geometry"
 import { Row } from "../booking-summary"
@@ -23,9 +25,16 @@ interface DetailsStepProps {
 }
 
 const PHONE_PATTERN = /^0\d{8,9}$/
+const PHONE_ERROR_ID = "booking-phone-error"
 
 const isBookable = (details: WizardDetails): boolean =>
   details.name.trim().length > 0 && PHONE_PATTERN.test(details.phone.trim())
+
+const phoneError = (phone: string): string | undefined => {
+  const trimmed = phone.trim()
+  if (trimmed.length === 0) return undefined
+  return PHONE_PATTERN.test(trimmed) ? undefined : "Enter a valid mobile number, e.g. 0812345678"
+}
 
 const field = "min-h-11 w-full text-base"
 
@@ -38,23 +47,29 @@ export const DetailsStep = ({
   onSubmit,
   onExpire
 }: DetailsStepProps) => {
+  const [phoneTouched, setPhoneTouched] = useState(false)
+
   const submit = (event: FormEvent) => {
     event.preventDefault()
+    setPhoneTouched(true)
     if (isBookable(details) && !submitting) onSubmit()
   }
 
   const startsAt = Date.parse(hold.startsAt)
+  const phoneErrorMessage = phoneTouched ? phoneError(details.phone) : undefined
 
   return (
     <form className="flex flex-1 flex-col gap-4" onSubmit={submit}>
       <CountdownBanner expiresAt={hold.expiresAt} startsAt={hold.startsAt} onExpire={onExpire} />
-      <dl className="w-full rounded-md border border-border bg-card px-4 py-3 text-left">
-        <Row label="When" value={`${fmtDay(bkkDate(startsAt))} · ${fmtTime(startsAt)}`} numeric />
-        <Row label="Treatment" value={recap.serviceName} />
-        <Row label="Dentist" value={recap.dentistName} />
-        <Row label="Where" value={recap.branchName} />
-      </dl>
-      <h2 className="text-lg font-semibold">Your details</h2>
+      <Card className="w-full px-4 py-3 text-left">
+        <dl>
+          <Row label="When" value={`${fmtDay(bkkDate(startsAt))} · ${fmtTime(startsAt)}`} numeric />
+          <Row label="Treatment" value={recap.serviceName} />
+          <Row label="Dentist" value={recap.dentistName} />
+          <Row label="Where" value={recap.branchName} />
+        </dl>
+      </Card>
+      <h2 className="text-section-title font-bold">Your details</h2>
       <div className="space-y-1">
         <label className="block text-base font-medium" htmlFor="booking-name">
           Full name
@@ -79,7 +94,19 @@ export const DetailsStep = ({
           placeholder="0812345678"
           value={details.phone}
           onChange={(event) => onChange({ phone: event.target.value })}
+          onBlur={() => setPhoneTouched(true)}
+          aria-invalid={phoneErrorMessage !== undefined}
+          aria-describedby={phoneErrorMessage ? PHONE_ERROR_ID : undefined}
         />
+        {phoneErrorMessage ? (
+          <p
+            id={PHONE_ERROR_ID}
+            className="flex items-start gap-1.5 text-sm font-medium text-destructive"
+          >
+            <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
+            {phoneErrorMessage}
+          </p>
+        ) : null}
       </div>
       <div className="space-y-1">
         <label className="block text-base font-medium" htmlFor="booking-email">

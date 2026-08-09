@@ -55,14 +55,14 @@ export const ShiftDialog = ({
     {value ? (
       <div className="space-y-4">
         <div className="space-y-1">
-          <Label htmlFor="shift-staff">Staff</Label>
+          <Label htmlFor="shift-staff">Dentist</Label>
           <NativeSelect
             id="shift-staff"
             value={value.staffId}
             disabled={value.shiftId !== undefined}
             onChange={(e) => onChange({ ...value, staffId: e.target.value })}
           >
-            <option value="">Choose a staff member</option>
+            <option value="">Choose a dentist</option>
             {staff.map((member) => (
               <option key={member.id} value={member.id}>
                 {member.name}

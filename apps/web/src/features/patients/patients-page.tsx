@@ -70,6 +70,14 @@ export const PatientsPage = () => {
 
   const patients = query.data?.pages.flatMap((page) => page.items) ?? []
 
+  const resultAnnouncement = query.isPending
+    ? ""
+    : query.isError
+      ? "Could not load patients right now"
+      : `${patients.length} patient${patients.length === 1 ? "" : "s"} found${
+          search ? ` for “${search}”` : ""
+        }`
+
   const clearSearch = () => {
     setDraft("")
     setParams({}, { replace: true })
@@ -164,6 +172,9 @@ export const PatientsPage = () => {
           ) : null}
         </div>
       </div>
+      <p role="status" aria-live="polite" className="sr-only">
+        {resultAnnouncement}
+      </p>
       {body()}
     </div>
   )

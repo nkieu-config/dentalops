@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
-import { render, screen, waitFor } from "@testing-library/react"
+import { render, screen, waitFor, within } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { afterEach, describe, expect, it } from "vitest"
 import { API, http, HttpResponse, server } from "../../test/msw"
@@ -189,6 +189,24 @@ describe("SettingsPage", () => {
     await user.click(screen.getByRole("button", { name: "Save service" }))
 
     await waitFor(() => expect(body).toEqual({ name: "Whitening", durationMin: 30, bufferMin: 0, colorIndex: 0 }))
+  })
+
+  it("marks the selected service color swatch as checked and updates on click", async () => {
+    owner()
+    server.use(...handlers())
+    const { user } = mount()
+
+    await user.click(await screen.findByRole("button", { name: "Add service" }))
+    const group = screen.getByRole("radiogroup", { name: "Service color" })
+    const [first, second] = within(group).getAllByRole("radio")
+
+    expect(first).toHaveAttribute("aria-checked", "true")
+    expect(second).toHaveAttribute("aria-checked", "false")
+
+    await user.click(second!)
+
+    expect(first).toHaveAttribute("aria-checked", "false")
+    expect(second).toHaveAttribute("aria-checked", "true")
   })
 
   it("creates an equipment resource from its settings sheet", async () => {

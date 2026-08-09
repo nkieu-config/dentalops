@@ -162,8 +162,8 @@ export const SignupPage = (): ReactElement => {
 
         <Field id="slug" label="Clinic URL" error={form.errors.slug} hint={SLUG_GUIDANCE}>
           {(aria) => (
-            <div className="flex items-center gap-1">
-              <span aria-hidden="true" className="shrink-0 text-sm text-muted-foreground">
+            <div className="flex flex-col gap-1 sm:flex-row sm:items-center">
+              <span aria-hidden="true" className="shrink-0 truncate text-sm text-muted-foreground">
                 {bookingHost()}
               </span>
               <FieldInput

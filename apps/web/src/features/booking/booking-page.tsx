@@ -221,7 +221,7 @@ export const BookingPage = () => {
               <ChevronLeft className="h-5 w-5" aria-hidden />
             </button>
           ) : null}
-          <h1 className="min-w-0 flex-1 truncate text-lg font-semibold">
+          <h1 className="min-w-0 flex-1 truncate text-section-title font-bold">
             {clinic.isPending ? <Skeleton className="h-6 w-40" /> : clinic.data?.name}
           </h1>
         </div>

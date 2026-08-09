@@ -57,14 +57,25 @@ const elevenThirty = card(
   "2026-08-03T04:30:00.000Z",
   "2026-08-03T05:30:00.000Z"
 )
+const quarterHour = card(
+  "a1000000-0000-4000-8000-000000000006",
+  secondDentist,
+  "2026-08-03T06:00:00.000Z",
+  "2026-08-03T06:15:00.000Z"
+)
 
 const columns: [string, Appointment[]][] = [
   [firstDentist, [ten, nine, eleven]],
-  [secondDentist, [elevenThirty, nineFortyFive]]
+  [secondDentist, [elevenThirty, nineFortyFive, quarterHour]]
 ]
 
 interface HarnessProps {
-  reschedule: (input: { id: string; version: number; startsAt?: string }) => void
+  reschedule: (input: {
+    id: string
+    version: number
+    startsAt?: string
+    durationMin?: number
+  }) => void
   busy?: string
 }
 
@@ -160,6 +171,38 @@ describe("useGridKeyboard", () => {
       id: ten.id,
       version: 4,
       startsAt: "2026-08-03T02:45:00.000Z"
+    })
+  })
+
+  it("resizes the focused card's duration by a quarter hour with shift+left/right", () => {
+    const { at, reschedule } = mount()
+    at(ten).focus()
+
+    expect(fireEvent.keyDown(at(ten), { key: "ArrowRight", shiftKey: true })).toBe(false)
+    expect(reschedule).toHaveBeenCalledWith({
+      id: ten.id,
+      version: 4,
+      durationMin: 75
+    })
+    expect(document.activeElement).toBe(at(ten))
+
+    fireEvent.keyDown(at(ten), { key: "ArrowLeft", shiftKey: true })
+    expect(reschedule).toHaveBeenLastCalledWith({
+      id: ten.id,
+      version: 4,
+      durationMin: 45
+    })
+  })
+
+  it("does not shrink a resize below the minimum grid increment", () => {
+    const { at, reschedule } = mount()
+    at(quarterHour).focus()
+
+    fireEvent.keyDown(at(quarterHour), { key: "ArrowLeft", shiftKey: true })
+    expect(reschedule).toHaveBeenCalledWith({
+      id: quarterHour.id,
+      version: 4,
+      durationMin: 15
     })
   })
 

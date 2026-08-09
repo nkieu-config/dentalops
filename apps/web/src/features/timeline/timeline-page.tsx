@@ -142,7 +142,7 @@ export const TimelinePage = () => {
     }
   })
 
-  const keyboard = useGridKeyboard({ reschedule, isBusy: (id) => !online || isBusy(id) })
+  const keyboard = useGridKeyboard({ reschedule, isBusy: (id) => !canDrag || !online || isBusy(id) })
 
   const drag = useDragMove({
     dentistIds: dragColumnIds,

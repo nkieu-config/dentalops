@@ -25,17 +25,17 @@ const toIsoDate = (date: Date): string => {
 
 const dayPickerClassNames = {
   months: "relative",
-  month_caption: "flex items-center justify-center h-9 text-sm font-semibold mb-1",
-  nav: "absolute inset-x-0 top-0 flex h-9 items-center justify-between px-1",
-  button_previous: "flex h-8 w-8 cursor-pointer items-center justify-center rounded-md hover:bg-accent",
-  button_next: "flex h-8 w-8 cursor-pointer items-center justify-center rounded-md hover:bg-accent",
+  month_caption: "flex items-center justify-center h-11 text-sm font-semibold mb-1",
+  nav: "absolute inset-x-0 top-0 flex h-11 items-center justify-between px-1",
+  button_previous: "flex h-11 w-11 cursor-pointer items-center justify-center rounded-md hover:bg-accent",
+  button_next: "flex h-11 w-11 cursor-pointer items-center justify-center rounded-md hover:bg-accent",
   month_grid: "border-collapse",
   weekdays: "flex",
-  weekday: "h-9 w-9 text-xs font-semibold uppercase tracking-wide text-muted-foreground",
+  weekday: "h-11 w-11 text-xs font-semibold uppercase tracking-wide text-muted-foreground",
   week: "flex",
   day: "p-0 text-center",
   day_button:
-    "h-9 w-9 cursor-pointer rounded-full text-sm font-medium hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+    "h-11 w-11 cursor-pointer rounded-full text-sm font-medium hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
   selected: "[&>button]:bg-primary [&>button]:text-primary-foreground [&>button]:hover:bg-primary",
   today: "[&>button]:font-bold [&>button]:text-primary",
   outside: "[&>button]:text-muted-foreground/40",

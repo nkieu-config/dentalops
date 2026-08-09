@@ -6,6 +6,7 @@ import {
 import { useQuery } from "@tanstack/react-query"
 import { ArrowLeft, CalendarOff, Mail, Phone, TriangleAlert } from "lucide-react"
 import { Link, useParams, useSearchParams } from "react-router"
+import { Badge, type BadgeTone } from "../../components/ui/badge"
 import { Button, buttonVariants } from "../../components/ui/button"
 import { EmptyState } from "../../components/ui/empty-state"
 import { InitialsAvatar } from "../../components/ui/initials-avatar"
@@ -20,6 +21,13 @@ const STATUS_WORDS: Record<AppointmentStatus, string> = {
   no_show: "No-show"
 }
 
+const STATUS_TONES: Record<AppointmentStatus, BadgeTone> = {
+  confirmed: "success",
+  completed: "success",
+  cancelled: "destructive",
+  no_show: "warning"
+}
+
 const HistoryRow = ({ appointment }: { appointment: PatientAppointment }) => {
   const at = Date.parse(appointment.startsAt)
   const day = bkkDate(at)
@@ -27,7 +35,7 @@ const HistoryRow = ({ appointment }: { appointment: PatientAppointment }) => {
     <li className="border-b border-border last:border-b-0">
       <Link
         to={`/app/timeline?d=${day}&b=${appointment.branchId}`}
-        className="flex min-h-11 flex-wrap items-baseline gap-x-3 gap-y-1 px-4 py-3 hover:bg-accent"
+        className="flex min-h-11 flex-wrap items-baseline gap-x-3 gap-y-1 px-4 py-3 hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
       >
         <span className="flex-1 font-medium">{appointment.service.name}</span>
         <span className="text-sm text-muted-foreground">{appointment.dentist.name}</span>
@@ -37,7 +45,7 @@ const HistoryRow = ({ appointment }: { appointment: PatientAppointment }) => {
         >
           {fmtDay(day)} · {fmtTime(at)}
         </time>
-        <span className="text-sm text-muted-foreground">{STATUS_WORDS[appointment.status]}</span>
+        <Badge tone={STATUS_TONES[appointment.status]}>{STATUS_WORDS[appointment.status]}</Badge>
       </Link>
     </li>
   )
@@ -60,7 +68,7 @@ export const PatientDetail = () => {
     <div className="mx-auto max-w-3xl p-4">
       <Link
         to={backTo}
-        className="inline-flex min-h-11 items-center gap-2 text-sm text-muted-foreground hover:text-foreground"
+        className="inline-flex min-h-11 items-center gap-2 text-sm text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
       >
         <ArrowLeft className="h-4 w-4" aria-hidden="true" />
         Back to patients

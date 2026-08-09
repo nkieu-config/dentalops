@@ -156,7 +156,8 @@ const slotStates: { testId: string; label: string; state: SlotPickerState }[] = 
     label: "Slots available",
     state: { status: "ready", slots: gallerySlots }
   },
-  { testId: "slots-none", label: "None available", state: { status: "ready", slots: [] } }
+  { testId: "slots-none", label: "None available", state: { status: "ready", slots: [] } },
+  { testId: "slots-error", label: "Error", state: { status: "error" } }
 ]
 
 const holdStartsAt = gallerySlots[1]!.startsAt

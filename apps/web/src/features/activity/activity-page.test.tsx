@@ -104,6 +104,7 @@ describe("ActivityPage", () => {
     // or long entries overlap the timestamp instead of wrapping — see patient-detail.tsx history.
     const sentence = rows[0]!.querySelector("p")
     expect(sentence?.className).not.toContain("min-w-0")
+    expect(sentence).not.toHaveTextContent(appointmentId.slice(0, 8))
   })
 
   it("offers Load older only while a cursor remains, and pages with it", async () => {

@@ -45,9 +45,11 @@ export const ShiftBlock = ({
           {fmtTime(start)}–{fmtTime(end)}
         </span>
         <span className="ml-auto flex items-center gap-0.5">
-          {shift.seriesId ? <Repeat className="h-3 w-3" aria-label="Recurring" /> : null}
+          {shift.seriesId ? (
+            <Repeat className="h-3 w-3" role="img" aria-label="Recurring" />
+          ) : null}
           {conflicting ? (
-            <OctagonAlert className="h-3 w-3 text-destructive" aria-label="Blocking violation" />
+            <OctagonAlert className="h-3 w-3 text-destructive" role="img" aria-label="Blocking violation" />
           ) : null}
         </span>
       </span>

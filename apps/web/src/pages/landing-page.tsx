@@ -7,8 +7,7 @@ import {
   Clock,
   ShieldCheck,
   Smartphone,
-  Users,
-  Sparkles
+  Users
 } from "lucide-react"
 import { useState } from "react"
 import { Link, useNavigate } from "react-router"
@@ -100,14 +99,14 @@ export const LandingPage = () => {
     <div className="min-h-dvh bg-background text-foreground flex flex-col selection:bg-selection">
       {/* Public Navigation Bar */}
       <div className="sticky top-0 z-40 border-b border-border bg-background/80 backdrop-blur-md">
-        <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4 sm:px-6">
+        <div className="mx-auto flex min-h-16 max-w-6xl flex-wrap items-center justify-between gap-y-2 px-4 py-2 sm:px-6">
           <Link to="/" className="flex items-center gap-2.5 font-bold text-lg tracking-tight">
             <span className="flex size-9 items-center justify-center rounded-control bg-decorative text-primary-foreground font-bold shadow-xs">
               D
             </span>
             <span>DentalOps</span>
           </Link>
-          <nav className="flex items-center gap-3 sm:gap-4">
+          <nav className="flex flex-wrap items-center gap-x-3 gap-y-1 sm:gap-x-4">
             <a
               href="#explore-demo"
               className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors hidden sm:inline-block"
@@ -133,10 +132,6 @@ export const LandingPage = () => {
           <div className="mx-auto max-w-6xl px-4 sm:px-6">
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 items-center">
               <div className="lg:col-span-7 flex flex-col gap-6">
-                <div className="inline-flex items-center gap-2 rounded-full border border-border bg-surface-subtle px-3.5 py-1 text-xs font-semibold text-muted-foreground w-fit">
-                  <Sparkles className="size-3.5 text-primary" />
-                  <span>Careful Joy Rebrand</span>
-                </div>
                 <h1 className="text-display font-bold tracking-tight text-balance text-3xl sm:text-4xl lg:text-5xl">
                   Every chair, every dentist, one day at a glance.
                 </h1>
@@ -167,7 +162,7 @@ export const LandingPage = () => {
                       aria-live="polite"
                       className="rounded-control border border-warning bg-warning-surface p-4 text-warning-on-surface"
                     >
-                      <h2 className="text-base font-semibold">Interactive demo is temporarily unavailable</h2>
+                      <h3 className="text-base font-semibold">Interactive demo is temporarily unavailable</h3>
                       <p className="mt-2 text-sm leading-relaxed">
                         The hosted demo is unavailable right now. Try again shortly, or run the project locally
                         with <code className="font-semibold">pnpm dev</code>.

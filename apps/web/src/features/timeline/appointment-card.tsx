@@ -49,6 +49,7 @@ export const AppointmentCard = ({
       data-appt={preview ? undefined : appointment.id}
       data-dentist={preview ? undefined : appointment.dentistId}
       data-starts={preview ? undefined : appointment.startsAt}
+      data-ends={preview ? undefined : appointment.endsAt}
       data-version={preview ? undefined : appointment.version}
       onClick={() => onClick(appointment)}
       onPointerDown={onMoveStart}
@@ -80,12 +81,16 @@ export const AppointmentCard = ({
         </span>
         <span className="ml-auto flex items-center gap-0.5">
           {conflict ? (
-            <AlertTriangle className="h-3 w-3 text-destructive" aria-label="Conflict" />
+            <AlertTriangle className="h-3 w-3 text-destructive" role="img" aria-label="Conflict" />
           ) : null}
-          {appointment.seriesId ? <Repeat className="h-3 w-3" aria-label="Recurring" /> : null}
-          {completed ? <Check className="h-3 w-3" aria-label="Completed" /> : null}
-          {noShow ? <AlertTriangle className="h-3 w-3 text-warning" aria-label="No-show" /> : null}
-          {cancelled ? <Ban className="h-3 w-3" aria-label="Cancelled" /> : null}
+          {appointment.seriesId ? (
+            <Repeat className="h-3 w-3" role="img" aria-label="Recurring" />
+          ) : null}
+          {completed ? <Check className="h-3 w-3" role="img" aria-label="Completed" /> : null}
+          {noShow ? (
+            <AlertTriangle className="h-3 w-3 text-warning" role="img" aria-label="No-show" />
+          ) : null}
+          {cancelled ? <Ban className="h-3 w-3" role="img" aria-label="Cancelled" /> : null}
         </span>
       </span>
       <span

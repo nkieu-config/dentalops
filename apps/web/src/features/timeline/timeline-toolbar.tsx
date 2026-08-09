@@ -49,6 +49,7 @@ export const TimelineToolbar = ({ date, branchId, branches, onChange, children }
     <Button variant="secondary" size="sm" onClick={() => onChange({ date: bkkToday() })}>
       Today
     </Button>
+    <div className="flex-1" />
     {children}
   </div>
 )

@@ -485,9 +485,11 @@ const BranchSheet = ({ value, onClose }: { value: BranchSettings | null; onClose
             onChange={(openingHours) => form.set("openingHours", openingHours)}
             error={form.errors.openingHours}
           />
-          <Button type="submit" className="w-full" disabled={form.pending} aria-busy={form.pending}>
-            {form.pending ? "Saving…" : "Save branch"}
-          </Button>
+          <div className="sticky bottom-0 z-10 mt-auto bg-card pt-4 pb-4">
+            <Button type="submit" className="w-full" disabled={form.pending} aria-busy={form.pending}>
+              {form.pending ? "Saving…" : "Save branch"}
+            </Button>
+          </div>
         </form>
       </Sheet>
       {discardGuard.dialog}
@@ -634,11 +636,13 @@ const ServiceSheet = ({ value, onClose }: { value: ServiceSummary | null; onClos
         
         <fieldset className="space-y-3">
           <legend className="text-sm font-medium">Timeline colour</legend>
-          <div className="flex flex-wrap gap-3">
+          <div className="flex flex-wrap gap-3" role="radiogroup" aria-label="Service color">
             {[0, 1, 2, 3, 4, 5].map((index) => (
               <button
                 key={index}
                 type="button"
+                role="radio"
+                aria-checked={form.values.colorIndex === index}
                 className={`relative h-10 w-10 cursor-pointer rounded-full border-2 transition-all hover:scale-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ${form.values.colorIndex === index ? "border-foreground ring-2 ring-foreground/20 ring-offset-2" : "border-transparent"} bg-appointment-${index} border-appointment-${index}-border`}
                 aria-label={`Select colour ${index + 1}`}
                 onClick={() => form.set("colorIndex", index)}
@@ -836,6 +840,9 @@ const ResourceSheet = ({
             {(aria) => <NativeSelect {...aria} name="equipmentTypeId" value={form.values.equipmentTypeId ?? ""} onChange={(event) => form.set("equipmentTypeId", event.target.value)}><option value="">Choose a type</option>{equipmentTypes.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</NativeSelect>}
           </Field>
         ) : null}
+        {branches.length === 0 ? (
+          <p className="text-sm text-muted-foreground">Add a branch before you can create resources.</p>
+        ) : null}
         <div className="sticky bottom-0 z-10 mt-auto bg-card pt-4 pb-4">
           <Button type="submit" className="w-full" disabled={form.pending || branches.length === 0} aria-busy={form.pending}>{form.pending ? "Saving…" : "Save resource"}</Button>
         </div>
@@ -938,7 +945,7 @@ const StaffSection = () => {
       </Section>
       {staffSheet ? <StaffSheet value={staffSheet} onClose={() => setStaffSheet(null)} /> : null}
       {staffDialogOpen ? <StaffDialog onClose={() => setStaffDialogOpen(false)} /> : null}
-      <AlertDialog open={!!deactivating} onOpenChange={(open) => { if (!open) setDeactivating(null) }} title="Deactivate staff member?" description={`Are you sure you want to deactivate "${deactivating?.name}"? Their account is retained but they can no longer sign in or be scheduled.`} confirmLabel="Deactivate" onConfirm={deactivate} />
+      <AlertDialog open={!!deactivating} onOpenChange={(open) => { if (!open) setDeactivating(null) }} title="Deactivate staff member?" description={`Are you sure you want to deactivate "${deactivating?.name}"? Existing bookings assigned to them stay as-is, but they can no longer sign in or be scheduled for new appointments.`} confirmLabel="Deactivate" onConfirm={deactivate} />
     </>
   )
 }

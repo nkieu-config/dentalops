@@ -459,6 +459,32 @@ describe("BookingPage", () => {
     expect(confirm).toBeEnabled()
   })
 
+  it("shows an inline error and marks the phone field invalid when the number doesn't parse, then clears it once corrected", async () => {
+    server.use(...handlers())
+    const user = mount()
+    await walkToSlots(user)
+    await user.click(screen.getByRole("button", { name: "10:30" }))
+    await screen.findByTestId("hold-countdown")
+
+    const phone = screen.getByLabelText("Mobile number")
+    await user.type(phone, "12345")
+    await user.tab()
+
+    const error = await screen.findByText("Enter a valid mobile number, e.g. 0812345678")
+    expect(error).toBeInTheDocument()
+    expect(phone).toHaveAttribute("aria-invalid", "true")
+    expect(phone).toHaveAttribute("aria-describedby", error.id)
+
+    await user.clear(phone)
+    await user.type(phone, "0812345678")
+
+    await waitFor(() =>
+      expect(screen.queryByText("Enter a valid mobile number, e.g. 0812345678")).not.toBeInTheDocument()
+    )
+    expect(phone).toHaveAttribute("aria-invalid", "false")
+    expect(phone).not.toHaveAttribute("aria-describedby")
+  })
+
   it("shows one chip per time even when several dentists are free, and omits nothing else", async () => {
     server.use(
       ...handlers({

@@ -63,13 +63,13 @@ export const FieldInput = forwardRef<HTMLInputElement, InputHTMLAttributes<HTMLI
         <Input
           ref={ref}
           type={inputType}
-          className={cn("h-11 pr-10 sm:h-9", className)}
+          className={cn("h-11 pr-11 sm:h-9 sm:pr-9", className)}
           {...props}
         />
         <button
           type="button"
           onClick={() => setShowPassword((prev) => !prev)}
-          className="absolute right-2.5 flex items-center text-muted-foreground hover:text-foreground transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-xs p-1"
+          className="absolute inset-y-0 right-0 flex w-11 items-center justify-center text-muted-foreground hover:text-foreground transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-xs sm:w-9"
           aria-label={showPassword ? "Hide password" : "Show password"}
         >
           {showPassword ? <EyeOff className="size-4" aria-hidden="true" /> : <Eye className="size-4" aria-hidden="true" />}

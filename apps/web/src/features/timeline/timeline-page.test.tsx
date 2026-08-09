@@ -138,6 +138,20 @@ describe("TimelinePage", () => {
     expect(blocks[0]).toHaveStyle({ top: "0px", height: "576px" })
   })
 
+  it("keeps the grid usable and offers a retry when only appointments fail to load", async () => {
+    server.use(
+      ...directory([{ id: dentistId, name: "Dr. Anong" }]),
+      http.get(`${API}/appointments`, () =>
+        HttpResponse.json({ statusCode: 500, errorCode: "INTERNAL", message: "boom", requestId: "r" }, { status: 500 })
+      )
+    )
+    mount()
+
+    expect(await screen.findByText("Dr. Anong")).toBeInTheDocument()
+    expect(await screen.findByText("Appointments could not be loaded")).toBeInTheDocument()
+    expect(screen.getByRole("button", { name: "Retry" })).toBeInTheDocument()
+  })
+
   it("lays lanes out per dentist so one column never narrows another", async () => {
     server.use(
       ...directory([

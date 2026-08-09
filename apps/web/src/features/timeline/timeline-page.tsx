@@ -1,5 +1,5 @@
 import type { Appointment, StaffMember } from "@dentalops/contracts"
-import { CalendarX, UserPlus } from "lucide-react"
+import { CalendarX, TriangleAlert, UserPlus } from "lucide-react"
 import { useEffect, useMemo, useRef, useState } from "react"
 import { useSearchParams } from "react-router"
 import { OFFLINE_MESSAGE } from "../../components/shell/offline-banner"
@@ -7,6 +7,7 @@ import { Button } from "../../components/ui/button"
 import { EmptyState } from "../../components/ui/empty-state"
 import { NativeSelect } from "../../components/ui/native-select"
 import { Skeleton } from "../../components/ui/skeleton"
+import { StatusCallout } from "../../components/ui/status-callout"
 import { useRealtime } from "../../lib/realtime"
 import { useCanBook, useCanManageStaff } from "../../lib/session"
 import { useMediaQuery } from "../../lib/use-media-query"
@@ -253,6 +254,20 @@ export const TimelinePage = () => {
           />
         ) : null}
       </TimelineToolbar>
+      {appointments.isError ? (
+        <div className="px-4 pt-2">
+          <StatusCallout tone="warning" icon={TriangleAlert} title="Appointments could not be loaded">
+            The schedule below may be incomplete.{" "}
+            <button
+              type="button"
+              className="font-semibold underline underline-offset-2"
+              onClick={() => void appointments.refetch()}
+            >
+              Retry
+            </button>
+          </StatusCallout>
+        </div>
+      ) : null}
       {mode === "sm" ? (
         <AgendaView
           appointments={appointments.data ?? []}

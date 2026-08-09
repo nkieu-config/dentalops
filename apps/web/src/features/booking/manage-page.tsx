@@ -210,13 +210,16 @@ export const ManagePage = () => {
                     startsAt={held.startsAt}
                     onExpire={() => dropHold("That hold expired — pick another time")}
                   />
-                  <p className="text-base">
-                    Move to{" "}
-                    <span className="tabular-nums">
+                  <p className="text-base" data-testid="reschedule-comparison">
+                    <span className="tabular-nums text-muted-foreground line-through decoration-1">
+                      {fmtDay(bkkDate(Date.parse(appointment.startsAt)))} ·{" "}
+                      {fmtTime(Date.parse(appointment.startsAt))}
+                    </span>
+                    {" → "}
+                    <span className="tabular-nums font-semibold text-foreground">
                       {fmtDay(bkkDate(Date.parse(held.startsAt)))} ·{" "}
                       {fmtTime(Date.parse(held.startsAt))}
                     </span>
-                    ?
                   </p>
                   <div className="flex flex-col gap-2">
                     <Button

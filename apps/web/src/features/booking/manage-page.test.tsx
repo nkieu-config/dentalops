@@ -202,6 +202,10 @@ describe("ManagePage", () => {
     expect(holds).toEqual([{ serviceId, branchId, dentistId, startsAt: NOON }])
     expect(reschedules).toEqual([])
 
+    const comparison = screen.getByTestId("reschedule-comparison")
+    expect(comparison).toHaveTextContent("Mon, 3 Aug 2026 · 10:30")
+    expect(comparison).toHaveTextContent("Mon, 3 Aug 2026 · 12:00")
+
     await user.click(screen.getByRole("button", { name: "Confirm new time" }))
 
     await waitFor(() => expect(reschedules).toEqual([{ holdId }]))

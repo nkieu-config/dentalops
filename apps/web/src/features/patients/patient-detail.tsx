@@ -29,7 +29,7 @@ const HistoryRow = ({ appointment }: { appointment: PatientAppointment }) => {
         to={`/app/timeline?d=${day}&b=${appointment.branchId}`}
         className="flex min-h-11 flex-wrap items-baseline gap-x-3 gap-y-1 px-4 py-3 hover:bg-accent"
       >
-        <span className="min-w-0 flex-1 font-medium">{appointment.service.name}</span>
+        <span className="flex-1 font-medium">{appointment.service.name}</span>
         <span className="text-sm text-muted-foreground">{appointment.dentist.name}</span>
         <time
           dateTime={appointment.startsAt}

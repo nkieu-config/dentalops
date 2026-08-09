@@ -193,7 +193,10 @@ const ClinicProfileSection = () => {
           <div className="rounded-md border border-border bg-surface-subtle p-3">
             <p className="mb-2 text-sm font-medium text-foreground">Public booking link</p>
             <div className="flex flex-wrap items-center gap-2">
-              <code className="flex-1 overflow-x-auto whitespace-nowrap rounded bg-background px-2 py-1.5 text-sm text-muted-foreground">
+              <code
+                tabIndex={0}
+                className="flex-1 overflow-x-auto whitespace-nowrap rounded bg-background px-2 py-1.5 text-sm text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              >
                 {publicUrl}
               </code>
               <Button

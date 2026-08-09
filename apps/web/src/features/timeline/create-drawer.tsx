@@ -51,10 +51,19 @@ export interface CreateDraft {
 
 interface CreateDrawerProps {
   draft: CreateDraft | null
+  dentists: StaffMember[]
+  dayStart: number
   onClose: () => void
 }
 
-export const CreateDrawer = ({ draft, onClose }: CreateDrawerProps) => {
+const parseTimeOfDay = (dayStart: number, value: string): number | null => {
+  const match = /^(\d{2}):(\d{2})$/.exec(value)
+  if (!match) return null
+  const [, hh, mm] = match
+  return dayStart + Number(hh) * 60 * MINUTE + Number(mm) * MINUTE
+}
+
+export const CreateDrawer = ({ draft, dentists, dayStart, onClose }: CreateDrawerProps) => {
   const queryClient = useQueryClient()
   const services = useServices()
   const [serviceId, setServiceId] = useState("")
@@ -65,8 +74,19 @@ export const CreateDrawer = ({ draft, onClose }: CreateDrawerProps) => {
   const [count, setCount] = useState(DEFAULT_COUNT)
   const [weekdays, setWeekdays] = useState<number[] | null>(null)
   const [conflicts, setConflicts] = useState<SeriesConflict[]>([])
+  // CreateDrawer is only mounted while draft is non-null (see timeline-page.tsx), so these
+  // seed once per open and are never stale from a previous session.
+  const [dentistId, setDentistId] = useState(draft?.dentist.id ?? "")
+  const [timeValue, setTimeValue] = useState(draft ? fmtTime(draft.startsAt) : "")
 
-  const byWeekday = weekdays ?? (draft ? [bkkWeekday(draft.startsAt)] : [])
+  const resolvedDentist = dentists.find((d) => d.id === dentistId) ?? draft?.dentist ?? null
+  const resolvedStartsAt = draft ? (parseTimeOfDay(dayStart, timeValue) ?? draft.startsAt) : 0
+  const resolvedDraft: CreateDraft | null =
+    draft && resolvedDentist
+      ? { dentist: resolvedDentist, branchId: draft.branchId, startsAt: resolvedStartsAt }
+      : null
+
+  const byWeekday = weekdays ?? (resolvedDraft ? [bkkWeekday(resolvedDraft.startsAt)] : [])
 
   const patients = useQuery({
     queryKey: ["patients", search],
@@ -133,10 +153,10 @@ export const CreateDrawer = ({ draft, onClose }: CreateDrawerProps) => {
 
   const submit = (e: FormEvent) => {
     e.preventDefault()
-    if (!draft || !serviceId || !patientId || pending) return
+    if (!resolvedDraft || !serviceId || !patientId || pending) return
     setConflicts([])
-    if (repeats) createSeries.mutate(draft)
-    else create.mutate(draft)
+    if (repeats) createSeries.mutate(resolvedDraft)
+    else create.mutate(resolvedDraft)
   }
 
   const toggleWeekday = (value: number) => {
@@ -156,13 +176,31 @@ export const CreateDrawer = ({ draft, onClose }: CreateDrawerProps) => {
     >
       {draft ? (
         <form className="space-y-4" onSubmit={submit}>
-          <div className="space-y-1">
-            <Label>Dentist</Label>
-            <p className="text-sm">{draft.dentist.name}</p>
-          </div>
-          <div className="space-y-1">
-            <Label>Starts</Label>
-            <p className="text-sm tabular-nums">{fmtTime(draft.startsAt)}</p>
+          <div className="flex gap-3">
+            <div className="flex-1 space-y-1">
+              <Label htmlFor="create-dentist">Dentist</Label>
+              <NativeSelect
+                id="create-dentist"
+                value={dentistId}
+                onChange={(e) => setDentistId(e.target.value)}
+              >
+                {dentists.map((dentist) => (
+                  <option key={dentist.id} value={dentist.id}>
+                    {dentist.name}
+                  </option>
+                ))}
+              </NativeSelect>
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="create-starts">Starts</Label>
+              <Input
+                id="create-starts"
+                type="time"
+                className="min-h-11 tabular-nums"
+                value={timeValue}
+                onChange={(e) => setTimeValue(e.target.value)}
+              />
+            </div>
           </div>
           <div className="space-y-1">
             <Label htmlFor="create-service">Service</Label>
@@ -276,7 +314,13 @@ export const CreateDrawer = ({ draft, onClose }: CreateDrawerProps) => {
           <Button
             type="submit"
             className="w-full"
-            disabled={!serviceId || !patientId || pending || (repeats && byWeekday.length === 0)}
+            disabled={
+              !resolvedDentist ||
+              !serviceId ||
+              !patientId ||
+              pending ||
+              (repeats && byWeekday.length === 0)
+            }
           >
             {repeats ? "Book series" : "Book appointment"}
           </Button>

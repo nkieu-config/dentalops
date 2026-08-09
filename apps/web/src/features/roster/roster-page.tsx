@@ -1,6 +1,6 @@
 import { shiftSchema, type DraftShift, type Shift, type Violation } from "@dentalops/contracts"
 import { useMutation, useQueryClient } from "@tanstack/react-query"
-import { CalendarX, ChevronLeft, ChevronRight, Plus } from "lucide-react"
+import { CalendarX, ChevronLeft, ChevronRight, Plus, TriangleAlert } from "lucide-react"
 import { useEffect, useMemo, useRef, useState } from "react"
 import { Navigate, useSearchParams } from "react-router"
 import { toast } from "sonner"
@@ -11,6 +11,7 @@ import { EmptyState } from "../../components/ui/empty-state"
 import { NativeSelect } from "../../components/ui/native-select"
 import { Sheet } from "../../components/ui/sheet"
 import { Skeleton } from "../../components/ui/skeleton"
+import { StatusCallout } from "../../components/ui/status-callout"
 import { api, ApiError } from "../../lib/api"
 import { useCanManageRoster } from "../../lib/session"
 import { useMediaQuery } from "../../lib/use-media-query"
@@ -224,13 +225,17 @@ export const RosterPage = () => {
   useEffect(() => {
     if (dropped === null || validation.isSettling) return
     setDropped(null)
+    if (validation.isError) {
+      toast.error("Could not check this move for conflicts — try again")
+      return
+    }
     const blocker = validation.blocking[0]
     if (blocker) {
       toast.error(`Cannot move that shift — ${blocker.detail}`)
       return
     }
     move.mutate(dropped)
-  }, [dropped, validation.isSettling, validation.blocking, move])
+  }, [dropped, validation.isSettling, validation.isError, validation.blocking, move])
 
   const shiftWeek = (weeks: number) => {
     const merged = new URLSearchParams(params)
@@ -252,7 +257,12 @@ export const RosterPage = () => {
     setParams(merged)
   }
 
-  const panel = (
+  const panel = validation.isError ? (
+    <StatusCallout tone="warning" icon={TriangleAlert} title="Could not check coverage">
+      Scheduling conflicts and gaps could not be checked. Shift saves are paused until this
+      succeeds again.
+    </StatusCallout>
+  ) : (
     <ViolationList
       violations={validation.violations}
       staffName={staffName}
@@ -260,15 +270,21 @@ export const RosterPage = () => {
     />
   )
 
-  const summary =
-    validation.blocking.length > 0
+  const summary = validation.isError
+    ? "could not check"
+    : validation.blocking.length > 0
       ? `${validation.blocking.length} blocking`
       : validation.violations.length > 0
         ? `${validation.violations.length} warnings`
         : "no violations"
 
-  const coverageTone =
-    validation.blocking.length > 0 ? "destructive" : validation.violations.length > 0 ? "warning" : "success"
+  const coverageTone = validation.isError
+    ? "warning"
+    : validation.blocking.length > 0
+      ? "destructive"
+      : validation.violations.length > 0
+        ? "warning"
+        : "success"
 
   if (branches.isPending || dentists.isPending) {
     return (
@@ -451,7 +467,8 @@ export const RosterPage = () => {
         value={form}
         staff={staff}
         violations={validation.violations}
-        blocked={validation.blocking.length > 0}
+        blocked={validation.blocking.length > 0 || validation.isError}
+        error={validation.isError}
         settling={validation.isSettling}
         saving={save.isPending || remove.isPending}
         offline={!online}

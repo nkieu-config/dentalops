@@ -126,8 +126,8 @@ export const TimeGrid = ({
               ))}
               {isToday ? (
                 <span
-                  className="absolute right-1 z-10 -translate-y-1/2 rounded-sm px-1 text-[0.65rem] font-medium text-white tabular-nums"
-                  style={{ top: msToY(now, dayStart), background: "var(--now-line)" }}
+                  className="absolute right-1 z-10 -translate-y-1/2 rounded-sm bg-destructive px-1 text-[0.65rem] font-medium text-destructive-foreground tabular-nums"
+                  style={{ top: msToY(now, dayStart) }}
                 >
                   {fmtTime(now)}
                 </span>

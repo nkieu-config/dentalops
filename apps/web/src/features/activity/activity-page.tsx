@@ -90,7 +90,7 @@ const ActivityRow = ({ entry }: { entry: AuditEntry }) => {
   return (
     <li className="flex flex-wrap items-center gap-x-3 gap-y-1 border-b border-border px-4 py-3 last:border-b-0">
       <InitialsAvatar name={entry.actor.name} />
-      <p className="min-w-0 flex-1 text-sm">
+      <p className="flex-1 text-sm">
         <span className="font-medium text-foreground">{entry.actor.name}</span>{" "}
         <span className="text-muted-foreground">{describeAction(entry)}</span>
         {entry.entity.id ? (
@@ -144,6 +144,7 @@ export const ActivityPage = () => {
         icon={TriangleAlert}
         title="Could not load the activity log"
         hint="Retry shortly"
+        action={<Button onClick={() => void query.refetch()}>Retry</Button>}
       />
     )
   }

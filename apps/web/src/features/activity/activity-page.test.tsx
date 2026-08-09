@@ -99,6 +99,11 @@ describe("ActivityPage", () => {
     expect(document.body.textContent).not.toMatch(/POST |PATCH |DELETE |[{}[\]]/)
     const timeEls = document.querySelectorAll("time")
     expect(timeEls[0]).toHaveAttribute("datetime", booked.at)
+
+    // A row's flex-wrap parent needs its text sibling to keep its natural min-content width,
+    // or long entries overlap the timestamp instead of wrapping — see patient-detail.tsx history.
+    const sentence = rows[0]!.querySelector("p")
+    expect(sentence?.className).not.toContain("min-w-0")
   })
 
   it("offers Load older only while a cursor remains, and pages with it", async () => {
@@ -138,5 +143,20 @@ describe("ActivityPage", () => {
     expect(await screen.findByText("Nothing has happened yet")).toBeInTheDocument()
     expect(screen.queryByRole("list")).not.toBeInTheDocument()
     expect(screen.queryByRole("button", { name: "Load older" })).not.toBeInTheDocument()
+  })
+
+  it("says so when the log cannot be loaded, and a retry actually recovers it", async () => {
+    server.use(http.get(`${API}/audit-logs`, () => HttpResponse.error()))
+    const user = mount()
+
+    expect(await screen.findByText("Could not load the activity log")).toBeInTheDocument()
+
+    server.use(
+      http.get(`${API}/audit-logs`, () => HttpResponse.json({ entries: [booked], nextCursor: null }))
+    )
+    await user.click(screen.getByRole("button", { name: "Retry" }))
+
+    expect(await screen.findAllByRole("listitem")).toHaveLength(1)
+    expect(screen.queryByText("Could not load the activity log")).not.toBeInTheDocument()
   })
 })

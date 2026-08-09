@@ -214,4 +214,16 @@ describe("DevUiPage", () => {
     )
     expect(screen.getByLabelText("Dr. Anong Srisuk")).toHaveTextContent("DA")
   })
+
+  it("demonstrates the AlertDialog primitive behind every deactivate confirmation", async () => {
+    renderGallery()
+    const user = userEvent.setup()
+
+    expect(screen.queryByText("Deactivate branch?")).not.toBeInTheDocument()
+    await user.click(screen.getByRole("button", { name: "Deactivate branch" }))
+
+    expect(screen.getByText("Deactivate branch?")).toBeInTheDocument()
+    const buttons = screen.getAllByRole("button").map((button) => button.textContent)
+    expect(buttons.indexOf("Keep branch")).toBeLessThan(buttons.indexOf("Deactivate"))
+  })
 })

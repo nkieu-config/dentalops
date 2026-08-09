@@ -28,6 +28,7 @@ import { EmptyState } from "../../components/ui/empty-state"
 import { InitialsAvatar } from "../../components/ui/initials-avatar"
 import { Input } from "../../components/ui/input"
 import { AlertDialog } from "../../components/ui/alert-dialog"
+import { useDiscardGuard } from "../../lib/use-discard-guard"
 import { NativeSelect } from "../../components/ui/native-select"
 import { Sheet } from "../../components/ui/sheet"
 import { api } from "../../lib/api"
@@ -365,30 +366,6 @@ const OpeningHoursEditor = ({
       {error ? <p className="text-sm font-medium text-destructive">{error}</p> : null}
     </fieldset>
   )
-}
-
-const useDiscardGuard = (dirty: boolean, onClose: () => void) => {
-  const [confirming, setConfirming] = useState(false)
-  const requestClose = (open: boolean) => {
-    if (open) return
-    if (dirty) {
-      setConfirming(true)
-      return
-    }
-    onClose()
-  }
-  const dialog = (
-    <AlertDialog
-      open={confirming}
-      onOpenChange={(open) => { if (!open) setConfirming(false) }}
-      title="Discard changes?"
-      description="You have unsaved changes. Are you sure you want to discard them?"
-      confirmLabel="Discard"
-      cancelLabel="Keep editing"
-      onConfirm={() => { setConfirming(false); onClose() }}
-    />
-  )
-  return { requestClose, dialog }
 }
 
 const BranchesSection = () => {

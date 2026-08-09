@@ -1,5 +1,5 @@
 import type { Appointment, StaffMember } from "@dentalops/contracts"
-import { CalendarX, TriangleAlert, UserPlus } from "lucide-react"
+import { CalendarX, Plus, TriangleAlert, UserPlus } from "lucide-react"
 import { useEffect, useMemo, useRef, useState } from "react"
 import { useSearchParams } from "react-router"
 import { OFFLINE_MESSAGE } from "../../components/shell/offline-banner"
@@ -32,6 +32,8 @@ import { useRescheduleAppointment } from "./use-reschedule"
 const CONFLICT_HIGHLIGHT_MS = 2500
 const ARRIVAL_HIGHLIGHT_MS = 1500
 const OFFLINE_REASON_ID = "add-staff-offline-reason"
+const HOUR_MS = 3_600_000
+const NEW_APPOINTMENT_HOUR = 9
 
 type TimelineMode = "sm" | "md" | "lg"
 
@@ -253,6 +255,24 @@ export const TimelinePage = () => {
             }
           />
         ) : null}
+        <Button
+          size="sm"
+          className="min-h-11"
+          disabled={!canCreate || branchId === undefined}
+          title={!online ? OFFLINE_MESSAGE : undefined}
+          onClick={() =>
+            branchId !== undefined && allDentists[0]
+              ? setDraft({
+                  dentist: allDentists[0],
+                  branchId,
+                  startsAt: dayStart + NEW_APPOINTMENT_HOUR * HOUR_MS
+                })
+              : undefined
+          }
+        >
+          <Plus className="h-4 w-4" aria-hidden="true" />
+          New appointment
+        </Button>
       </TimelineToolbar>
       {appointments.isError ? (
         <div className="px-4 pt-2">
@@ -357,7 +377,14 @@ export const TimelinePage = () => {
         onClose={() => setSelected(null)}
         onReschedule={reschedule}
       />
-      {draft ? <CreateDrawer draft={draft} onClose={() => setDraft(null)} /> : null}
+      {draft ? (
+        <CreateDrawer
+          draft={draft}
+          dentists={allDentists}
+          dayStart={dayStart}
+          onClose={() => setDraft(null)}
+        />
+      ) : null}
     </div>
   )
 }

@@ -169,6 +169,29 @@ describe("StaffDialog", () => {
     expect(pending).toBeDisabled()
   })
 
+  it("warns before discarding a partly filled invite instead of losing it silently", async () => {
+    const { user, onClose } = mount()
+    await user.type(screen.getByLabelText("Name"), "Dr. Anong")
+    await user.type(screen.getByLabelText("Password"), "correct-horse")
+
+    await user.click(screen.getByRole("button", { name: "Close" }))
+
+    expect(await screen.findByText("Discard changes?")).toBeInTheDocument()
+    expect(onClose).not.toHaveBeenCalled()
+
+    await user.click(screen.getByRole("button", { name: "Discard" }))
+    expect(onClose).toHaveBeenCalled()
+  })
+
+  it("closes without a prompt when nothing has been typed yet", async () => {
+    const { user, onClose } = mount()
+
+    await user.click(screen.getByRole("button", { name: "Close" }))
+
+    expect(screen.queryByText("Discard changes?")).not.toBeInTheDocument()
+    expect(onClose).toHaveBeenCalled()
+  })
+
   it("refuses to submit while the browser is offline", async () => {
     server.use(...handlers())
     const { user } = mount()

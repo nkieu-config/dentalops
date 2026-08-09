@@ -1,10 +1,12 @@
 import type { StaffMember, Violation } from "@dentalops/contracts"
+import { TriangleAlert } from "lucide-react"
 import { OFFLINE_MESSAGE } from "../../components/shell/offline-banner"
 import { Button } from "../../components/ui/button"
 import { Input } from "../../components/ui/input"
 import { Label } from "../../components/ui/label"
 import { NativeSelect } from "../../components/ui/native-select"
 import { Sheet } from "../../components/ui/sheet"
+import { StatusCallout } from "../../components/ui/status-callout"
 import { shiftFormInterval, type ShiftForm } from "./hooks"
 import { ViolationList, type ViolationLink } from "./violation-list"
 
@@ -15,6 +17,7 @@ interface ShiftDialogProps {
   staff: StaffMember[]
   violations: Violation[]
   blocked: boolean
+  error: boolean
   settling: boolean
   saving: boolean
   offline: boolean
@@ -31,6 +34,7 @@ export const ShiftDialog = ({
   staff,
   violations,
   blocked,
+  error,
   settling,
   saving,
   offline,
@@ -99,7 +103,14 @@ export const ShiftDialog = ({
           </div>
         </div>
         <section aria-label="Draft validation" className="rounded-md border border-border p-3">
-          <ViolationList violations={violations} staffName={staffName} linkFor={linkFor} />
+          {error ? (
+            <StatusCallout tone="warning" icon={TriangleAlert} title="Could not check this draft">
+              Scheduling conflicts could not be checked, so saving is paused until this succeeds
+              again.
+            </StatusCallout>
+          ) : (
+            <ViolationList violations={violations} staffName={staffName} linkFor={linkFor} />
+          )}
         </section>
         {offline ? (
           <p id={OFFLINE_REASON_ID} className="text-xs font-medium text-destructive">

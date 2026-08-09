@@ -113,7 +113,7 @@ const handlers = (options: HandlerOptions = {}) => [
 const mount = () => {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
-  render(
+  const view = render(
     <QueryClientProvider client={client}>
       <MemoryRouter initialEntries={[`/book/${clinicSlug}`]}>
         <Routes>
@@ -122,7 +122,7 @@ const mount = () => {
       </MemoryRouter>
     </QueryClientProvider>
   )
-  return user
+  return Object.assign(user, { unmount: view.unmount })
 }
 
 type User = ReturnType<typeof userEvent.setup>
@@ -296,6 +296,35 @@ describe("BookingPage", () => {
 
     await waitFor(() => expect(recorded.released).toEqual([holdId]))
     expect(await screen.findByRole("button", { name: "10:30" })).toBeInTheDocument()
+  })
+
+  it("releases an open hold instead of leaking it when the page is torn down without an explicit back or cancel", async () => {
+    server.use(...handlers())
+    const user = mount()
+    await walkToSlots(user)
+    await user.click(screen.getByRole("button", { name: "10:30" }))
+    await screen.findByTestId("hold-countdown")
+
+    user.unmount()
+
+    await waitFor(() => expect(recorded.released).toEqual([holdId]))
+  })
+
+  it("warns before an unsaved hold is lost to a browser navigation or tab close", async () => {
+    server.use(...handlers())
+    const user = mount()
+    await walkToSlots(user)
+
+    const beforeHold = new Event("beforeunload", { cancelable: true })
+    window.dispatchEvent(beforeHold)
+    expect(beforeHold.defaultPrevented).toBe(false)
+
+    await user.click(screen.getByRole("button", { name: "10:30" }))
+    await screen.findByTestId("hold-countdown")
+
+    const withHold = new Event("beforeunload", { cancelable: true })
+    window.dispatchEvent(withHold)
+    expect(withHold.defaultPrevented).toBe(true)
   })
 
   it("recovers from a 409 on confirm without losing what the patient typed", async () => {

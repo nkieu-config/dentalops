@@ -43,7 +43,7 @@ describe("LandingPage", () => {
     expect(screen.queryByRole("banner")).not.toBeInTheDocument()
   })
 
-  it("keeps the demo buttons primary and the two doors secondary", () => {
+  it("keeps the demo buttons primary alongside real create-a-clinic CTAs, with sign-in secondary", () => {
     mount()
 
     const owner = screen.getByRole("button", { name: /Try as Owner/ })
@@ -51,12 +51,17 @@ describe("LandingPage", () => {
     for (const label of DEMO_LABELS) {
       expect(screen.getByRole("button", { name: new RegExp(label) }).tagName).toBe("BUTTON")
     }
-    for (const name of ["Sign in", "Create a clinic"]) {
-      const links = screen.getAllByRole("link", { name })
-      for (const link of links) {
-        expect(link.className).not.toContain("bg-primary")
-        expect(link.className).not.toContain("bg-secondary")
-      }
+
+    const navCreate = screen.getAllByRole("link", { name: "Create a clinic" })[0]
+    expect(navCreate?.className).toContain("bg-primary")
+
+    const heroCreate = screen.getByRole("link", { name: /Create your clinic/ })
+    expect(heroCreate).toHaveAttribute("href", "/signup")
+    expect(heroCreate.className).toContain("bg-primary")
+
+    for (const link of screen.getAllByRole("link", { name: "Sign in" })) {
+      expect(link.className).not.toContain("bg-primary")
+      expect(link.className).not.toContain("bg-secondary")
     }
   })
 

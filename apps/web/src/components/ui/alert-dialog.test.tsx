@@ -1,5 +1,8 @@
-import { render, screen } from "@testing-library/react"
+import { render, screen, waitFor } from "@testing-library/react"
+import userEvent from "@testing-library/user-event"
+import { Toaster } from "sonner"
 import { describe, expect, it, vi } from "vitest"
+import { ApiError } from "../../lib/api"
 import { AlertDialog } from "./alert-dialog"
 
 describe("AlertDialog", () => {
@@ -18,5 +21,54 @@ describe("AlertDialog", () => {
 
     const buttons = screen.getAllByRole("button").map((button) => button.textContent)
     expect(buttons.indexOf("Keep appointment")).toBeLessThan(buttons.indexOf("Cancel appointment"))
+  })
+
+  it("keeps the dialog open and surfaces the error when the confirmed action fails", async () => {
+    const onOpenChange = vi.fn()
+    const onConfirm = vi.fn(async () => {
+      throw new ApiError(409, "IN_USE", "This branch still has upcoming bookings")
+    })
+    const user = userEvent.setup()
+    render(
+      <>
+        <AlertDialog
+          open
+          onOpenChange={onOpenChange}
+          title="Deactivate branch?"
+          description="Existing booking history stays intact."
+          confirmLabel="Deactivate"
+          onConfirm={onConfirm}
+        />
+        <Toaster />
+      </>
+    )
+
+    await user.click(screen.getByRole("button", { name: "Deactivate" }))
+
+    expect(await screen.findByText("This branch still has upcoming bookings")).toBeInTheDocument()
+    expect(onConfirm).toHaveBeenCalledTimes(1)
+    expect(onOpenChange).not.toHaveBeenCalledWith(false)
+    expect(await screen.findByRole("button", { name: "Deactivate" })).toBeInTheDocument()
+  })
+
+  it("closes only after the confirmed action succeeds", async () => {
+    const onOpenChange = vi.fn()
+    const onConfirm = vi.fn(async () => {})
+    const user = userEvent.setup()
+    render(
+      <AlertDialog
+        open
+        onOpenChange={onOpenChange}
+        title="Deactivate branch?"
+        description="Existing booking history stays intact."
+        confirmLabel="Deactivate"
+        onConfirm={onConfirm}
+      />
+    )
+
+    await user.click(screen.getByRole("button", { name: "Deactivate" }))
+
+    await waitFor(() => expect(onOpenChange).toHaveBeenCalledWith(false))
+    expect(onConfirm).toHaveBeenCalledTimes(1)
   })
 })

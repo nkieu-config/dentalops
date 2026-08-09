@@ -189,6 +189,29 @@ describe("RosterPage", () => {
     expect(screen.getByTestId("coverage-health")).toHaveTextContent("no violations")
   })
 
+  it("does not claim the roster is clean when validation itself fails to load", async () => {
+    useHandlers(freshState())
+    server.use(
+      http.post(`${API}/roster/validate`, () =>
+        HttpResponse.json(
+          { statusCode: 500, errorCode: "INTERNAL", message: "boom", requestId: "r" },
+          { status: 500 }
+        )
+      )
+    )
+    mount("lg")
+
+    await screen.findByTestId("roster-grid")
+    await waitFor(() =>
+      expect(screen.getByTestId("coverage-health")).toHaveTextContent("could not check")
+    )
+    expect(await screen.findByText("Could not check coverage")).toBeInTheDocument()
+
+    const dialog = await openMondayShift()
+    expect(within(dialog).getByText("Could not check this draft")).toBeInTheDocument()
+    expect(within(dialog).getByRole("button", { name: "Save" })).toBeDisabled()
+  })
+
   it("jumps back to the current week when Today is pressed", async () => {
     useHandlers(freshState())
     mount("lg")

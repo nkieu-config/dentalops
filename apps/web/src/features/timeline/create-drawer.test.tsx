@@ -14,10 +14,13 @@ const whiteningId = "5f9619ff-8b86-4d01-b42d-00cf4fc964fe"
 const patientId = "6f9619ff-8b86-4d01-b42d-00cf4fc964ff"
 const seriesId = "c1000000-0000-4000-8000-000000000001"
 
+const dentist = { id: dentistId, name: "Dr. Anong", role: "dentist" as const, isActive: true }
+const dayStart = bkkDayStart("2026-08-03")
+
 const draft: CreateDraft = {
-  dentist: { id: dentistId, name: "Dr. Anong", role: "dentist", isActive: true },
+  dentist,
   branchId,
-  startsAt: bkkDayStart("2026-08-03") + 9 * 3_600_000
+  startsAt: dayStart + 9 * 3_600_000
 }
 
 const directoryHandlers = () => [
@@ -56,7 +59,7 @@ const mount = () => {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   return render(
     <QueryClientProvider client={client}>
-      <CreateDrawer draft={draft} onClose={() => {}} />
+      <CreateDrawer draft={draft} dentists={[dentist]} dayStart={dayStart} onClose={() => {}} />
       <Toaster />
     </QueryClientProvider>
   )
@@ -95,8 +98,8 @@ describe("CreateDrawer", () => {
       })
     )
     mount()
-    expect(screen.getByText("Dr. Anong")).toBeInTheDocument()
-    expect(screen.getByText("09:00")).toBeInTheDocument()
+    expect(screen.getByLabelText("Dentist")).toHaveValue(dentistId)
+    expect(screen.getByLabelText("Starts")).toHaveValue("09:00")
 
     await fillForm()
     await userEvent.click(screen.getByRole("button", { name: "Book appointment" }))

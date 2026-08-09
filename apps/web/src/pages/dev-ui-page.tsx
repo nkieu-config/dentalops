@@ -10,6 +10,7 @@ import { AlertTriangle, CalendarX, ServerCrash } from "lucide-react"
 import { useMemo, useState } from "react"
 import { OfflineBannerView } from "../components/shell/offline-banner"
 import { SlotPickerView, type SlotPickerState } from "../components/slot-picker"
+import { AlertDialog } from "../components/ui/alert-dialog"
 import { Badge } from "../components/ui/badge"
 import { Button } from "../components/ui/button"
 import { Card, CardBody, CardDescription, CardHeader, CardTitle } from "../components/ui/card"
@@ -416,6 +417,26 @@ const violationStates: { testId: string; label: string; violations: Violation[] 
   }
 ]
 
+const AlertDialogDemo = () => {
+  const [confirming, setConfirming] = useState(false)
+  return (
+    <>
+      <Button variant="destructive" onClick={() => setConfirming(true)}>
+        Deactivate branch
+      </Button>
+      <AlertDialog
+        open={confirming}
+        onOpenChange={setConfirming}
+        title="Deactivate branch?"
+        description="Existing booking history stays intact, but no new bookings can be made here."
+        confirmLabel="Deactivate"
+        cancelLabel="Keep branch"
+        onConfirm={() => setConfirming(false)}
+      />
+    </>
+  )
+}
+
 export const DevUiPage = () => (
   <div className="mx-auto max-w-4xl space-y-10 p-8">
     <h1 className="text-2xl font-semibold">/dev/ui</h1>
@@ -452,6 +473,7 @@ export const DevUiPage = () => (
         <Button variant="destructive">Destructive</Button>
         <Button size="sm">Small</Button>
         <Button disabled>Disabled</Button>
+        <AlertDialogDemo />
       </div>
       <div className="grid gap-3 sm:grid-cols-2">
         <StatusCallout tone="warning" icon={AlertTriangle} title="Needs attention">Two appointments need a chair before this roster can be saved.</StatusCallout>

@@ -13,7 +13,7 @@ import {
 import { useState } from "react"
 import { Link, useNavigate } from "react-router"
 import { toast } from "sonner"
-import { Button } from "../components/ui/button"
+import { Button, buttonVariants } from "../components/ui/button"
 import { api, ApiError } from "../lib/api"
 import { setSession } from "../lib/session"
 
@@ -120,10 +120,7 @@ export const LandingPage = () => {
             >
               Sign in
             </Link>
-            <Link
-              to="/signup"
-              className="inline-flex items-center justify-center rounded-control border border-border bg-card px-4 py-2 text-sm font-semibold text-foreground shadow-xs hover:bg-surface-subtle transition-colors"
-            >
+            <Link to="/signup" className={buttonVariants({ size: "sm" })}>
               Create a clinic
             </Link>
           </nav>
@@ -145,8 +142,18 @@ export const LandingPage = () => {
                 </h1>
                 <p className="text-body text-muted-foreground text-base sm:text-lg leading-relaxed max-w-2xl">
                   Appointment and roster scheduling for dental clinics — live availability, double-booking
-                  caught by the database, and a public booking page per clinic. Pick a role and look around.
+                  caught by the database, and a public booking page per clinic.
                 </p>
+
+                <div className="flex flex-wrap items-center gap-3">
+                  <Link to="/signup" className={buttonVariants({ className: "px-6" })}>
+                    Create your clinic
+                    <ArrowRight className="h-4 w-4" aria-hidden="true" />
+                  </Link>
+                  <a href="#explore-demo" className={buttonVariants({ variant: "ghost" })}>
+                    Explore the demo first
+                  </a>
+                </div>
 
                 {/* Role Exploration Module */}
                 <div id="explore-demo" className="mt-4 flex flex-col gap-3 rounded-card border border-border bg-card p-6 shadow-xs">

@@ -180,10 +180,16 @@ describe("PatientsPage", () => {
     expect(screen.queryByRole("button", { name: "Clear the search" })).not.toBeInTheDocument()
   })
 
-  it("says so when the list cannot be loaded", async () => {
+  it("says so when the list cannot be loaded, and a retry actually recovers it", async () => {
     server.use(http.get(`${API}/patients`, () => HttpResponse.error()))
-    mount()
+    const user = mount()
 
     expect(await screen.findByText("Could not load the patients")).toBeInTheDocument()
+
+    server.use(listing({ "|": { items: [patient(first, "Malee Suk", "0812345678")], nextCursor: null } }))
+    await user.click(screen.getByRole("button", { name: "Retry" }))
+
+    expect(await screen.findByText("Malee Suk")).toBeInTheDocument()
+    expect(screen.queryByText("Could not load the patients")).not.toBeInTheDocument()
   })
 })

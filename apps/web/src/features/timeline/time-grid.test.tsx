@@ -1,6 +1,7 @@
 import type { Appointment, Shift, StaffMember } from "@dentalops/contracts"
 import { render, screen } from "@testing-library/react"
-import { describe, expect, it } from "vitest"
+import { afterEach, describe, expect, it, vi } from "vitest"
+import { bkkToday } from "./lib/geometry"
 import { TimeGrid } from "./time-grid"
 
 const dentist: StaffMember = {
@@ -26,6 +27,29 @@ const shift = (startsAt: string, endsAt: string): Shift =>
   }) as Shift
 
 describe("TimeGrid", () => {
+  afterEach(() => {
+    vi.useRealTimers()
+  })
+
+  it("labels the current time with a token pair, not a hardcoded white-on-color that fails in dark mode", () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date("2026-08-03T02:17:00.000Z"))
+    render(
+      <TimeGrid
+        date={bkkToday()}
+        columns={[dentistColumn]}
+        columnOf={byDentist}
+        shifts={[]}
+        appointments={[]}
+        renderAppointment={() => null}
+      />
+    )
+    const label = screen.getByText("09:17")
+    expect(label).toHaveClass("bg-destructive", "text-destructive-foreground")
+    expect(label.className).not.toContain("text-white")
+    expect(label.getAttribute("style") ?? "").not.toContain("var(--now-line)")
+  })
+
   it("shades everything outside the shift as off-shift", () => {
     render(
       <TimeGrid

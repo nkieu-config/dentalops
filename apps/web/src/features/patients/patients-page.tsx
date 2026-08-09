@@ -92,6 +92,7 @@ export const PatientsPage = () => {
           icon={TriangleAlert}
           title="Could not load the patients"
           hint="Retry shortly"
+          action={<Button onClick={() => void query.refetch()}>Retry</Button>}
         />
       )
     }

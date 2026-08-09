@@ -1,6 +1,6 @@
 import type { UserRole } from "@dentalops/contracts"
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
-import { act, fireEvent, render, screen, waitFor } from "@testing-library/react"
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { MemoryRouter } from "react-router"
 import { Toaster, toast } from "sonner"
@@ -221,8 +221,40 @@ describe("TimelinePage", () => {
     fireEvent.pointerUp(overlay)
     const dialog = await screen.findByRole("dialog")
     expect(dialog).toHaveTextContent("New appointment")
-    expect(dialog).toHaveTextContent("Dr. Anong")
-    expect(dialog).toHaveTextContent("09:00")
+    expect(within(dialog).getByLabelText("Dentist")).toHaveValue(dentistId)
+    expect(within(dialog).getByLabelText("Starts")).toHaveValue("09:00")
+  })
+
+  it("opens a prefilled booking drawer from the toolbar button, with no pointer gesture at all", async () => {
+    server.use(
+      ...directory([{ id: dentistId, name: "Dr. Anong" }]),
+      http.get(`${API}/appointments`, () => HttpResponse.json([])),
+      http.get(`${API}/services`, () => HttpResponse.json([])),
+      http.get(`${API}/patients`, () => HttpResponse.json({ items: [], nextCursor: null }))
+    )
+    mount()
+    await screen.findByText("Dr. Anong")
+
+    await userEvent.click(screen.getByRole("button", { name: "New appointment" }))
+
+    const dialog = await screen.findByRole("dialog")
+    expect(dialog).toHaveTextContent("New appointment")
+    expect(within(dialog).getByLabelText("Dentist")).toHaveValue(dentistId)
+    expect(within(dialog).getByLabelText("Starts")).toHaveValue("09:00")
+  })
+
+  it("disables the toolbar's New appointment button for roles the api won't let create appointments", async () => {
+    server.use(
+      ...directory([{ id: dentistId, name: "Dr. Anong" }]),
+      http.get(`${API}/appointments`, () => HttpResponse.json([]))
+    )
+    const asDentist = mount("dentist")
+    expect(await screen.findByText("Dr. Anong")).toBeInTheDocument()
+    expect(screen.getByRole("button", { name: "New appointment" })).toBeDisabled()
+    asDentist.unmount()
+
+    mount("receptionist")
+    expect(await screen.findByRole("button", { name: "New appointment" })).toBeEnabled()
   })
 
   it("stacks cards above the drag overlay so a card press never starts a drag", async () => {

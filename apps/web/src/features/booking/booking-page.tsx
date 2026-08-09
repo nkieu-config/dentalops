@@ -1,7 +1,7 @@
 import type { AvailabilitySlot } from "@dentalops/contracts"
 import { useQueryClient } from "@tanstack/react-query"
 import { ChevronLeft, ShieldOff } from "lucide-react"
-import { useEffect, useMemo, useReducer } from "react"
+import { useEffect, useMemo, useReducer, useRef } from "react"
 import { useParams } from "react-router"
 import { toast } from "sonner"
 import type { SlotPickerState } from "../../components/slot-picker"
@@ -61,6 +61,29 @@ export const BookingPage = () => {
     const first = clinic.data?.branches[0]
     if (first && state.branchId === null) dispatch({ type: "choose-branch", branchId: first.id })
   }, [clinic.data, state.branchId])
+
+  const stateRef = useRef(state)
+  stateRef.current = state
+  const releaseHoldRef = useRef(releaseHold.mutate)
+  releaseHoldRef.current = releaseHold.mutate
+
+  useEffect(() => {
+    const warnBeforeLeaving = (event: BeforeUnloadEvent) => {
+      const current = stateRef.current
+      if (current.hold && current.step !== "confirmed") {
+        event.preventDefault()
+        event.returnValue = ""
+      }
+    }
+    window.addEventListener("beforeunload", warnBeforeLeaving)
+    return () => {
+      window.removeEventListener("beforeunload", warnBeforeLeaving)
+      const current = stateRef.current
+      if (current.hold && current.step !== "confirmed") {
+        releaseHoldRef.current(current.hold.holdId)
+      }
+    }
+  }, [])
 
   const slotsByStart = useMemo(() => {
     const byStart = new Map<string, AvailabilitySlot>()

@@ -6,7 +6,7 @@ import {
 import { useQuery } from "@tanstack/react-query"
 import { ArrowLeft, CalendarOff, Mail, Phone, TriangleAlert } from "lucide-react"
 import { Link, useParams, useSearchParams } from "react-router"
-import { buttonVariants } from "../../components/ui/button"
+import { Button, buttonVariants } from "../../components/ui/button"
 import { EmptyState } from "../../components/ui/empty-state"
 import { InitialsAvatar } from "../../components/ui/initials-avatar"
 import { Skeleton } from "../../components/ui/skeleton"
@@ -79,6 +79,7 @@ export const PatientDetail = () => {
           icon={TriangleAlert}
           title="Could not load this patient"
           hint="They may have been removed, or the clinic you are signed into does not have them."
+          action={<Button onClick={() => void query.refetch()}>Retry</Button>}
         />
       ) : null}
 

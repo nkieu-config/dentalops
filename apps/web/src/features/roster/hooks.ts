@@ -121,6 +121,7 @@ export interface RosterValidationState {
   violations: Violation[]
   blocking: Violation[]
   isSettling: boolean
+  isError: boolean
 }
 
 export const useRosterValidation = (request: ValidateRequest | null): RosterValidationState => {
@@ -135,6 +136,7 @@ export const useRosterValidation = (request: ValidateRequest | null): RosterVali
   return {
     violations,
     blocking: violations.filter((violation) => violation.severity === "block"),
-    isSettling: settled !== request || query.isFetching
+    isSettling: settled !== request || query.isFetching,
+    isError: query.isError
   }
 }

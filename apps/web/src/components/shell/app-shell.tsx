@@ -32,7 +32,7 @@ const navItems: NavItem[] = [
 export const visibleNavItems = (session: AuthSession | null): NavItem[] =>
   navItems.filter((item) => item.visible?.(session) ?? true)
 
-const NavList = ({ items, railOnly }: { items: NavItem[]; railOnly: boolean }) => (
+const NavList = ({ items }: { items: NavItem[] }) => (
   <nav className="flex flex-col gap-1 p-2">
     {items.map(({ to, label, icon: Icon }) => (
       <NavLink
@@ -42,7 +42,6 @@ const NavList = ({ items, railOnly }: { items: NavItem[]; railOnly: boolean }) =
         className={({ isActive }) =>
           cn(
             "flex items-center gap-3 rounded-full px-3 py-2 text-sm transition-colors duration-150",
-            railOnly && "justify-center",
             isActive
               ? "bg-selection font-semibold text-foreground"
               : "font-medium text-muted-foreground hover:bg-surface-subtle hover:text-foreground"
@@ -50,7 +49,7 @@ const NavList = ({ items, railOnly }: { items: NavItem[]; railOnly: boolean }) =
         }
       >
         <Icon className="h-4 w-4 shrink-0" aria-hidden="true" />
-        {railOnly ? <span className="sr-only">{label}</span> : <span>{label}</span>}
+        <span>{label}</span>
       </NavLink>
     ))}
   </nav>
@@ -71,14 +70,6 @@ export const AppShell = () => {
         Skip to the schedule
       </a>
       <OfflineBanner />
-      {isDemo() ? (
-        <div
-          data-testid="demo-banner"
-          className="bg-warning px-4 py-1 text-center text-xs font-medium text-warning-foreground"
-        >
-          Demo mode — the clinic data rebuilds itself every 6 hours
-        </div>
-      ) : null}
       <header className="flex h-topbar shrink-0 items-center gap-3 border-b border-border px-4">
         <ClinicIdentity clinic={profile.data} />
         <SystemStatus demo={isDemo()} />
@@ -90,13 +81,8 @@ export const AppShell = () => {
         </DropdownMenu>
       </header>
       <div className="flex min-h-0 flex-1">
-        <aside className="hidden w-14 shrink-0 border-r border-border md:block lg:w-60">
-          <div className="lg:hidden">
-            <NavList items={items} railOnly />
-          </div>
-          <div className="hidden lg:block">
-            <NavList items={items} railOnly={false} />
-          </div>
+        <aside className="hidden w-48 shrink-0 border-r border-border md:block lg:w-60">
+          <NavList items={items} />
         </aside>
         <main id="main" className="min-w-0 flex-1 pb-bottomnav md:pb-0">
           <Outlet />

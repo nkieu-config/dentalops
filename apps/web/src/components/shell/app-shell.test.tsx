@@ -19,8 +19,8 @@ const sessionFor = (role: UserRole) => ({
   }
 })
 
-const mount = (role: UserRole) => {
-  setSession(sessionFor(role))
+const mount = (role: UserRole, opts?: { demo?: boolean }) => {
+  setSession(sessionFor(role), { demo: opts?.demo ?? false })
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   render(
     <QueryClientProvider client={client}>
@@ -115,6 +115,29 @@ describe("AppShell navigation", () => {
       expect(item.className).toContain("min-w-0")
       expect(item.querySelector("span")?.className).toContain("truncate")
     }
+  })
+
+  it("keeps the sidebar labels visible in text, not screen-reader only, so tablet width still reads as navigation", () => {
+    mount("owner")
+    const sidebarLink = links("Timeline")[0]!
+    const label = sidebarLink.querySelector("span")
+    expect(label).not.toBeNull()
+    expect(label!.className).not.toContain("sr-only")
+  })
+})
+
+describe("AppShell system status", () => {
+  it("shows demo state exactly once, as neutral information rather than a warning banner", () => {
+    mount("owner", { demo: true })
+    const banners = screen.getAllByTestId("demo-banner")
+    expect(banners).toHaveLength(1)
+    expect(banners[0]!.className).not.toContain("bg-warning")
+    expect(banners[0]).toHaveTextContent("Demo resets periodically")
+  })
+
+  it("stays out of the way outside demo mode", () => {
+    mount("owner")
+    expect(screen.queryByTestId("demo-banner")).not.toBeInTheDocument()
   })
 })
 

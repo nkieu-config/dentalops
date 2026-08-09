@@ -10,6 +10,7 @@ describe("AlertDialog", () => {
         onOpenChange={vi.fn()}
         title="Cancel appointment?"
         description="Booking history will be retained."
+        cancelLabel="Keep appointment"
         confirmLabel="Cancel appointment"
         onConfirm={vi.fn()}
       />

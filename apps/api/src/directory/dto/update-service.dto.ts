@@ -1,6 +1,6 @@
 import { ApiPropertyOptional } from "@nestjs/swagger"
 import { Transform, Type } from "class-transformer"
-import { IsInt, IsOptional, IsString, Max, MaxLength, Min, MinLength } from "class-validator"
+import { IsBoolean, IsInt, IsOptional, IsString, Max, MaxLength, Min, MinLength } from "class-validator"
 
 export class UpdateServiceDto {
   @ApiPropertyOptional()
@@ -34,4 +34,9 @@ export class UpdateServiceDto {
   @Min(0)
   @Max(5)
   colorIndex?: number
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsBoolean()
+  isActive?: boolean
 }

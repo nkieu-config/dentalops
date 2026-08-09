@@ -34,7 +34,7 @@ export const TimelineToolbar = ({ date, branchId, branches, onChange, children }
         aria-label="Previous day"
         onClick={() => onChange({ date: bkkShiftDate(date, -1) })}
       >
-        <ChevronLeft className="h-4 w-4" />
+        <ChevronLeft className="h-4 w-4" aria-hidden="true" />
       </Button>
       <span className="min-w-40 text-center text-sm font-medium tabular-nums">{fmtDay(date)}</span>
       <Button
@@ -43,7 +43,7 @@ export const TimelineToolbar = ({ date, branchId, branches, onChange, children }
         aria-label="Next day"
         onClick={() => onChange({ date: bkkShiftDate(date, 1) })}
       >
-        <ChevronRight className="h-4 w-4" />
+        <ChevronRight className="h-4 w-4" aria-hidden="true" />
       </Button>
     </div>
     <Button variant="secondary" size="sm" onClick={() => onChange({ date: bkkToday() })}>

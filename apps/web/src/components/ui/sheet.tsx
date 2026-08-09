@@ -30,7 +30,7 @@ export const Sheet = ({ open, onOpenChange, title, side = "right", children }: S
             aria-label="Close"
             className="rounded-md p-1 hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           >
-            <X className="h-4 w-4" />
+            <X className="h-4 w-4" aria-hidden="true" />
           </Dialog.Close>
         </div>
         {children}

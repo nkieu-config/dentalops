@@ -16,7 +16,7 @@ export const ColumnPicker = ({ columns, hidden, onToggle }: ColumnPickerProps) =
   return (
     <>
       <Button variant="secondary" size="sm" onClick={() => setOpen(true)}>
-        <Columns3 className="h-4 w-4" />
+        <Columns3 className="h-4 w-4" aria-hidden="true" />
         Columns
       </Button>
       <Sheet open={open} onOpenChange={setOpen} title="Columns" side="bottom">

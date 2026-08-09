@@ -49,7 +49,7 @@ const NavList = ({ items, railOnly }: { items: NavItem[]; railOnly: boolean }) =
           )
         }
       >
-        <Icon className="h-4 w-4 shrink-0" />
+        <Icon className="h-4 w-4 shrink-0" aria-hidden="true" />
         {railOnly ? <span className="sr-only">{label}</span> : <span>{label}</span>}
       </NavLink>
     ))}
@@ -117,7 +117,7 @@ export const AppShell = () => {
               )
             }
           >
-            <Icon className="h-5 w-5 shrink-0" />
+            <Icon className="h-5 w-5 shrink-0" aria-hidden="true" />
             <span className="max-w-full truncate">{label}</span>
           </NavLink>
         ))}

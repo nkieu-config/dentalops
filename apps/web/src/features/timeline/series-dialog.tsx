@@ -44,7 +44,7 @@ export const SeriesConflictList = ({ conflicts }: { conflicts: SeriesConflict[] 
           const at = Date.parse(conflict.startsAt)
           return (
             <li key={conflict.startsAt} className="flex items-start gap-2 text-sm">
-              <OctagonAlert className="mt-0.5 h-4 w-4 shrink-0" aria-label="Conflict" />
+              <OctagonAlert className="mt-0.5 h-4 w-4 shrink-0" role="img" aria-label="Conflict" />
               <span>
                 <span className="font-medium tabular-nums">
                   {fmtDay(bkkDate(at))} {fmtTime(at)}

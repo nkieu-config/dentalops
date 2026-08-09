@@ -1,6 +1,6 @@
 import { ApiPropertyOptional } from "@nestjs/swagger"
 import { Transform } from "class-transformer"
-import { IsObject, IsOptional, IsString, MaxLength, MinLength, Validate } from "class-validator"
+import { IsBoolean, IsObject, IsOptional, IsString, MaxLength, MinLength, Validate } from "class-validator"
 import { OpeningHoursConstraint } from "./opening-hours.validator"
 
 export class UpdateBranchDto {
@@ -24,4 +24,9 @@ export class UpdateBranchDto {
   @IsObject()
   @Validate(OpeningHoursConstraint)
   openingHours?: Record<string, unknown>
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsBoolean()
+  isActive?: boolean
 }

@@ -68,7 +68,8 @@ export class DirectoryWriteService {
         ...(dto.timezone === undefined ? {} : { timezone: dto.timezone }),
         ...(dto.openingHours === undefined
           ? {}
-          : { openingHours: dto.openingHours as Prisma.InputJsonValue })
+          : { openingHours: dto.openingHours as Prisma.InputJsonValue }),
+        ...(dto.isActive === undefined ? {} : { isActive: dto.isActive })
       },
       select: branchSelect
     })

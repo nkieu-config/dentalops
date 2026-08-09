@@ -20,6 +20,7 @@ export interface AuthForm<Values extends FormValues> {
   pending: boolean
   formError: string | null
   formRef: RefObject<HTMLFormElement | null>
+  dirty: boolean
 }
 
 const UNEXPECTED_FAILURE = "Something went wrong. Please try again."
@@ -99,5 +100,7 @@ export const useAuthForm = <T, Values extends FormValues>({
     [fieldForErrorCode, focusField, onSubmit, schema, values]
   )
 
-  return { values, errors, set, submit, pending, formError, formRef }
+  const dirty = JSON.stringify(values) !== JSON.stringify(initial)
+
+  return { values, errors, set, submit, pending, formError, formRef, dirty }
 }

@@ -134,7 +134,7 @@ describe("SettingsPage", () => {
     await user.click(screen.getByRole("button", { name: "Save clinic" }))
 
     await waitFor(() => expect(patch).toEqual({ name: "Bright Smile Clinic", slug: "bright-smile-clinic" }))
-    expect(await screen.findByText("/book/bright-smile-clinic")).toBeVisible()
+    expect(await screen.findByText(/\/book\/bright-smile-clinic/)).toBeVisible()
   })
 
   it("lets an owner rename themselves without submitting a forbidden role change", async () => {
@@ -149,8 +149,9 @@ describe("SettingsPage", () => {
     )
     const { user } = mount()
 
+    await screen.findByText("Owner")
     await user.click((await screen.findAllByRole("button", { name: "Edit" })).at(-1)!)
-    await user.clear(screen.getByLabelText("Name"))
+    await user.clear(await screen.findByLabelText("Name"))
     await user.type(screen.getByLabelText("Name"), "Clinic Owner")
     await user.click(screen.getByRole("button", { name: "Save staff member" }))
 

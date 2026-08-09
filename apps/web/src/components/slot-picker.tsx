@@ -100,7 +100,7 @@ export const SlotPickerView = ({ date, state, onPick, onDateChange }: SlotPicker
           aria-label="Previous day of slots"
           onClick={() => onDateChange(bkkShiftDate(date, -1))}
         >
-          <ChevronLeft className="h-4 w-4" />
+          <ChevronLeft className="h-4 w-4" aria-hidden="true" />
         </Button>
         <span className="text-base font-medium tabular-nums">{fmtDay(date)}</span>
         <Button
@@ -109,7 +109,7 @@ export const SlotPickerView = ({ date, state, onPick, onDateChange }: SlotPicker
           aria-label="Next day of slots"
           onClick={() => onDateChange(bkkShiftDate(date, 1))}
         >
-          <ChevronRight className="h-4 w-4" />
+          <ChevronRight className="h-4 w-4" aria-hidden="true" />
         </Button>
       </div>
       {state.status === "loading" ? (

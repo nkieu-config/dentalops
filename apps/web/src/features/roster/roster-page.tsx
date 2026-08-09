@@ -281,7 +281,7 @@ export const RosterPage = () => {
           aria-label="Previous week"
           onClick={() => shiftWeek(-1)}
         >
-          <ChevronLeft className="h-4 w-4" />
+          <ChevronLeft className="h-4 w-4" aria-hidden="true" />
         </Button>
         <span className="text-sm font-medium tabular-nums">Week of {fmtDay(weekStart)}</span>
         <Button
@@ -291,7 +291,7 @@ export const RosterPage = () => {
           aria-label="Next week"
           onClick={() => shiftWeek(1)}
         >
-          <ChevronRight className="h-4 w-4" />
+          <ChevronRight className="h-4 w-4" aria-hidden="true" />
         </Button>
         <NativeSelect
           aria-label="Branch"
@@ -323,7 +323,7 @@ export const RosterPage = () => {
             })
           }
         >
-          <Plus className="h-4 w-4" />
+          <Plus className="h-4 w-4" aria-hidden="true" />
           Add shift
         </Button>
       </div>
@@ -349,7 +349,7 @@ export const RosterPage = () => {
                   disabled={dayOffset === 0}
                   onClick={() => setDayOffset((current) => Math.max(current - 1, 0))}
                 >
-                  <ChevronLeft className="h-4 w-4" />
+                  <ChevronLeft className="h-4 w-4" aria-hidden="true" />
                 </Button>
                 <Button
                   variant="ghost"
@@ -363,7 +363,7 @@ export const RosterPage = () => {
                     )
                   }
                 >
-                  <ChevronRight className="h-4 w-4" />
+                  <ChevronRight className="h-4 w-4" aria-hidden="true" />
                 </Button>
               </div>
             ) : null}

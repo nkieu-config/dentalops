@@ -116,16 +116,16 @@ export const AgendaView = ({
                       </span>
                       <span className="ml-auto flex items-center gap-1">
                         {conflict ? (
-                          <AlertTriangle className="h-4 w-4 text-destructive" aria-label="Conflict" />
+                          <AlertTriangle className="h-4 w-4 text-destructive" role="img" aria-label="Conflict" />
                         ) : null}
                         {appointment.seriesId ? (
-                          <Repeat className="h-4 w-4" aria-label="Recurring" />
+                          <Repeat className="h-4 w-4" role="img" aria-label="Recurring" />
                         ) : null}
-                        {completed ? <Check className="h-4 w-4" aria-label="Completed" /> : null}
+                        {completed ? <Check className="h-4 w-4" role="img" aria-label="Completed" /> : null}
                         {noShow ? (
-                          <AlertTriangle className="h-4 w-4 text-warning" aria-label="No-show" />
+                          <AlertTriangle className="h-4 w-4 text-warning" role="img" aria-label="No-show" />
                         ) : null}
-                        {cancelled ? <Ban className="h-4 w-4" aria-label="Cancelled" /> : null}
+                        {cancelled ? <Ban className="h-4 w-4" role="img" aria-label="Cancelled" /> : null}
                       </span>
                     </span>
                     <span className={cn("font-medium", cancelled && "line-through")}>

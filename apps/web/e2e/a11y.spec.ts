@@ -253,12 +253,7 @@ test.describe("what axe cannot see", () => {
 
     await page.getByTestId("bottom-nav").getByRole("link", { name: "Activity" }).click()
     await expect(page).toHaveURL(/\/app\/activity/)
-    await expect(
-      page
-        .getByRole("list", { name: "Activity" })
-        .or(page.getByText("Nothing has happened yet"))
-        .first()
-    ).toBeVisible()
+    await expect(page.getByRole("heading", { name: "Clinic activity" })).toBeVisible()
     await expectClean(page)
   })
 

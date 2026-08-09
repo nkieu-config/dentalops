@@ -1,5 +1,5 @@
 import { expect, test, type Page } from "@playwright/test"
-import { demoLogin, getJson, nextMonday } from "./helpers"
+import { demoLogin, firstPatient, getJson, nextMonday } from "./helpers"
 import {
   APP_SCREENS,
   PUBLIC_SCREENS,
@@ -69,19 +69,23 @@ for (const theme of THEMES) {
         const branchId = branches[0]?.id
         expect(branchId, "the demo tenant has no branches").toBeDefined()
         const monday = nextMonday(visualNow())
+        const patient = await firstPatient(request, token)
 
         const deepLink: Record<string, string> = {
           timeline: `/app/timeline?d=${monday}&b=${branchId}`,
-          roster: `/app/roster?w=${monday}&b=${branchId}`
+          roster: `/app/roster?w=${monday}&b=${branchId}`,
+          "patient-detail": `/app/patients/${patient.id}`
         }
 
         for (const screen of APP_SCREENS) {
-          await page.goto(deepLink[screen.name] ?? (screen.path as string))
+          const target = deepLink[screen.name] ?? (screen.path as string)
+          await page.goto(target)
+          const targetPath = target.split("?")[0]
           await expect(
             page,
             `${screen.name} bounced to another route — the session dropped, and shooting now would ` +
               `record the wrong screen under the right filename`
-          ).toHaveURL(new RegExp(`${screen.path}(\\?|$)`))
+          ).toHaveURL(new RegExp(`${targetPath}(\\?|$)`))
           await shoot(page, `${screen.name}-${viewport.name}-${theme}`)
         }
       })

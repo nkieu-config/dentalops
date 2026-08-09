@@ -86,6 +86,34 @@ describe("SlotPicker", () => {
     expect(screen.queryAllByTestId("slot")).toHaveLength(0)
   })
 
+  it("groups a late-day slot under Evening, not Afternoon", async () => {
+    server.use(
+      http.get(`${API}/availability`, () =>
+        HttpResponse.json({
+          slots: [slot("2026-08-03T10:30:00.000Z", "2026-08-03T11:30:00.000Z")]
+        })
+      )
+    )
+    mount()
+
+    expect(await screen.findByTestId("group-evening")).toBeInTheDocument()
+    expect(within(screen.getByTestId("group-evening")).getByRole("button")).toHaveTextContent(
+      "17:30"
+    )
+    expect(screen.queryByTestId("group-afternoon")).not.toBeInTheDocument()
+  })
+
+  it("opens a tokenised calendar to jump straight to a date", async () => {
+    server.use(http.get(`${API}/availability`, () => HttpResponse.json({ slots: [] })))
+    const { onDateChange } = mount("2026-08-15")
+    await screen.findByText("No free slots this day")
+
+    await userEvent.click(screen.getByRole("button", { name: "Choose a date" }))
+    await userEvent.click(await screen.findByRole("button", { name: /August 20th/ }))
+
+    expect(onDateChange).toHaveBeenLastCalledWith("2026-08-20")
+  })
+
   it("steps the day across a month boundary in both directions", async () => {
     server.use(http.get(`${API}/availability`, () => HttpResponse.json({ slots: [] })))
     const { onDateChange } = mount("2026-08-31")

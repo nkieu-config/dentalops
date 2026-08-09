@@ -1,11 +1,20 @@
 import { FormEvent } from "react"
 import { Button } from "../../../components/ui/button"
 import { Input } from "../../../components/ui/input"
+import { bkkDate, fmtDay, fmtTime } from "../../timeline/lib/geometry"
+import { Row } from "../booking-summary"
 import { CountdownBanner } from "../countdown-banner"
 import type { WizardDetails, WizardHold } from "../wizard-reducer"
 
+export interface AppointmentRecap {
+  serviceName: string
+  dentistName: string
+  branchName: string
+}
+
 interface DetailsStepProps {
   hold: WizardHold
+  recap: AppointmentRecap
   details: WizardDetails
   submitting: boolean
   onChange: (patch: Partial<WizardDetails>) => void
@@ -22,6 +31,7 @@ const field = "min-h-11 w-full text-base"
 
 export const DetailsStep = ({
   hold,
+  recap,
   details,
   submitting,
   onChange,
@@ -33,9 +43,17 @@ export const DetailsStep = ({
     if (isBookable(details) && !submitting) onSubmit()
   }
 
+  const startsAt = Date.parse(hold.startsAt)
+
   return (
     <form className="flex flex-1 flex-col gap-4" onSubmit={submit}>
       <CountdownBanner expiresAt={hold.expiresAt} startsAt={hold.startsAt} onExpire={onExpire} />
+      <dl className="w-full rounded-md border border-border bg-card px-4 py-3 text-left">
+        <Row label="When" value={`${fmtDay(bkkDate(startsAt))} · ${fmtTime(startsAt)}`} numeric />
+        <Row label="Treatment" value={recap.serviceName} />
+        <Row label="Dentist" value={recap.dentistName} />
+        <Row label="Where" value={recap.branchName} />
+      </dl>
       <h2 className="text-lg font-semibold">Your details</h2>
       <div className="space-y-1">
         <label className="block text-base font-medium" htmlFor="booking-name">

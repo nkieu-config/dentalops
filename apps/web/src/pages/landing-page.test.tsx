@@ -68,6 +68,15 @@ describe("LandingPage", () => {
     expect(hint).not.toHaveClass("opacity-80")
   })
 
+  it("tells the clinic-day story as three moments, not just a feature list", () => {
+    mount()
+
+    expect(screen.getByRole("heading", { name: "One clinic day, three moments" })).toBeInTheDocument()
+    expect(screen.getByText("A patient books online")).toBeInTheDocument()
+    expect(screen.getByText("Reception keeps the day moving")).toBeInTheDocument()
+    expect(screen.getByText("The whole team shares one schedule")).toBeInTheDocument()
+  })
+
   it("replaces unavailable demo roles with a recovery state while keeping clinic doors available", async () => {
     server.use(
       http.post(`${API}/auth/demo-login`, () =>

@@ -11,6 +11,7 @@ import {
 } from "../features/timeline/lib/geometry"
 import { api } from "../lib/api"
 import { Button } from "./ui/button"
+import { DatePicker } from "./ui/date-picker"
 import { EmptyState } from "./ui/empty-state"
 import { Skeleton } from "./ui/skeleton"
 
@@ -41,7 +42,9 @@ interface SlotGroup {
   slots: AvailabilitySlot[]
 }
 
-const isMorning = (startsAt: string) => Number(fmtTime(Date.parse(startsAt)).slice(0, 2)) < 12
+const hourOf = (startsAt: string) => Number(fmtTime(Date.parse(startsAt)).slice(0, 2))
+const isMorning = (startsAt: string) => hourOf(startsAt) < 12
+const isEvening = (startsAt: string) => hourOf(startsAt) >= 17
 
 export const SlotPicker = ({
   serviceId,
@@ -87,7 +90,12 @@ export const SlotPickerView = ({ date, state, onPick, onDateChange }: SlotPicker
       .sort((a, b) => Date.parse(a.startsAt) - Date.parse(b.startsAt))
     return [
       { key: "morning", label: "Morning", slots: slots.filter((s) => isMorning(s.startsAt)) },
-      { key: "afternoon", label: "Afternoon", slots: slots.filter((s) => !isMorning(s.startsAt)) }
+      {
+        key: "afternoon",
+        label: "Afternoon",
+        slots: slots.filter((s) => !isMorning(s.startsAt) && !isEvening(s.startsAt))
+      },
+      { key: "evening", label: "Evening", slots: slots.filter((s) => isEvening(s.startsAt)) }
     ].filter((group) => group.slots.length > 0)
   }, [state])
 
@@ -102,7 +110,7 @@ export const SlotPickerView = ({ date, state, onPick, onDateChange }: SlotPicker
         >
           <ChevronLeft className="h-4 w-4" aria-hidden="true" />
         </Button>
-        <span className="text-base font-medium tabular-nums">{fmtDay(date)}</span>
+        <DatePicker date={date} onChange={onDateChange} label="Choose a date" triggerLabel={fmtDay(date)} />
         <Button
           variant="ghost"
           size="icon"

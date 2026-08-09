@@ -1,7 +1,9 @@
 import { authSessionSchema } from "@dentalops/contracts"
-import { useCallback, useRef, type ReactElement } from "react"
+import { ArrowRight, CalendarClock, Stethoscope, Users } from "lucide-react"
+import { useCallback, useRef, useState, type ReactElement } from "react"
 import { Link, useNavigate } from "react-router"
 import { z } from "zod"
+import { Button } from "../../components/ui/button"
 import { api } from "../../lib/api"
 import { setSession } from "../../lib/session"
 import { AuthCard, Field, FieldInput, FormError, SubmitButton } from "./auth-form"
@@ -43,24 +45,81 @@ const rememberClinic = (slug: string): void => {
 const bookingHost = (): string =>
   typeof window === "undefined" ? "" : `${window.location.host}/book/`
 
+interface ReadyState {
+  clinicName: string
+  slug: string
+}
+
+const SETUP_CHECKLIST = [
+  {
+    icon: CalendarClock,
+    title: "Set your branch hours",
+    description: "Opening hours control when patients can book online."
+  },
+  {
+    icon: Stethoscope,
+    title: "Add your first service",
+    description: "Treatments need a duration before they can appear on the schedule."
+  },
+  {
+    icon: Users,
+    title: "Invite your team",
+    description: "Dentists and receptionists sign in once you've added them as staff."
+  }
+]
+
 export const SignupPage = (): ReactElement => {
   const navigate = useNavigate()
   const slugEdited = useRef(false)
+  const [ready, setReady] = useState<ReadyState | null>(null)
 
-  const onSubmit = useCallback(
-    async (values: SignupValues) => {
-      const session = await api("/auth/signup", authSessionSchema, {
-        method: "POST",
-        body: values
-      })
-      setSession(session)
-      rememberClinic(values.slug)
-      await navigate("/app/timeline")
-    },
-    [navigate]
-  )
+  const onSubmit = useCallback(async (values: SignupValues) => {
+    const session = await api("/auth/signup", authSessionSchema, {
+      method: "POST",
+      body: values
+    })
+    setSession(session)
+    rememberClinic(values.slug)
+    setReady({ clinicName: values.clinicName, slug: values.slug })
+  }, [])
 
   const form = useAuthForm({ schema: signupSchema, initial, onSubmit, fieldForErrorCode })
+
+  if (ready) {
+    return (
+      <AuthCard title="You're ready" subtitle={`${ready.clinicName} is live. A few things make it feel complete.`}>
+        <div className="space-y-5">
+          <div className="rounded-control border border-border bg-surface-subtle p-3">
+            <p className="text-sm font-medium text-foreground">Public booking link</p>
+            <code className="mt-1 block break-all text-sm text-muted-foreground">
+              {bookingHost()}
+              {ready.slug}
+            </code>
+          </div>
+          <ul className="space-y-3">
+            {SETUP_CHECKLIST.map(({ icon: Icon, title, description }) => (
+              <li key={title} className="flex items-start gap-3">
+                <span className="flex size-8 shrink-0 items-center justify-center rounded-control bg-accent text-primary">
+                  <Icon className="size-4" aria-hidden="true" />
+                </span>
+                <span>
+                  <span className="block text-sm font-medium text-foreground">{title}</span>
+                  <span className="block text-sm text-muted-foreground">{description}</span>
+                </span>
+              </li>
+            ))}
+          </ul>
+          <Button
+            className="h-11 w-full sm:h-10 font-semibold"
+            onClick={() => void navigate("/app/timeline")}
+          >
+            Go to your clinic
+            <ArrowRight className="size-4" aria-hidden="true" />
+          </Button>
+        </div>
+      </AuthCard>
+    )
+  }
 
   const setClinicName = (value: string) => {
     form.set("clinicName", value)

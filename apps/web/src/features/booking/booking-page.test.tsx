@@ -200,12 +200,25 @@ describe("BookingPage", () => {
     const user = mount()
     await user.click(await screen.findByRole("button", { name: /Cleaning/ }))
 
-    const options = await screen.findAllByRole("listitem")
+    const dentistList = await screen.findByRole("list", { name: "Dentists" })
+    const options = within(dentistList).getAllByRole("listitem")
     expect(options.map((option) => option.textContent?.trim())).toEqual([
       "Any available dentistSoonest booking",
       "ADr. Anong",
       "SDr. Somchai"
     ])
+  })
+
+  it("names each step instead of leaving the progress bar unlabelled", async () => {
+    server.use(...handlers())
+    const user = mount()
+    await user.click(await screen.findByRole("button", { name: /Cleaning/ }))
+
+    const steps = await screen.findByRole("list", { name: /Booking steps/ })
+    expect(within(steps).getByText("Dentist")).toHaveAttribute("aria-current", "step")
+    expect(within(steps).getByText("Service").getAttribute("aria-current")).toBeNull()
+    expect(within(steps).getByText("Time")).toBeInTheDocument()
+    expect(within(steps).getByText("Details")).toBeInTheDocument()
   })
 
   it("passes the chosen dentist to the availability query and holds with that dentist", async () => {
@@ -257,6 +270,19 @@ describe("BookingPage", () => {
     await user.click(within(recovery).getByRole("button", { name: "Pick another time" }))
     expect(await screen.findByRole("button", { name: "10:45" })).toBeInTheDocument()
     expect(screen.queryByTestId("hold-recovery")).not.toBeInTheDocument()
+  })
+
+  it("recaps the held appointment, resolving 'any available' to the dentist actually assigned", async () => {
+    server.use(...handlers())
+    const user = mount()
+    await walkToSlots(user)
+    await user.click(screen.getByRole("button", { name: "10:30" }))
+    await screen.findByTestId("hold-countdown")
+
+    expect(screen.getByText("Cleaning")).toBeInTheDocument()
+    expect(screen.getByText("Dr. Anong")).toBeInTheDocument()
+    expect(screen.getByText("Sukhumvit")).toBeInTheDocument()
+    expect(screen.getByText("10:30")).toBeInTheDocument()
   })
 
   it("releases the hold when the patient goes back from the details step", async () => {

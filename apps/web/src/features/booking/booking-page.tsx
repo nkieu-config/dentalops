@@ -26,13 +26,17 @@ import {
   STEP_ORDER,
   initialWizardState,
   wizardReducer,
-  type RecoveryReason
+  type RecoveryReason,
+  type WizardStep
 } from "./wizard-reducer"
 
-const stepDot = (index: number, current: number) =>
-  index <= current
-    ? "h-1.5 flex-1 rounded-full bg-primary transition-colors duration-150"
-    : "h-1.5 flex-1 rounded-full bg-border transition-colors duration-150"
+const STEP_LABELS: Record<WizardStep, string> = {
+  service: "Service",
+  dentist: "Dentist",
+  slot: "Time",
+  details: "Details",
+  confirmed: "Confirmed"
+}
 
 export const BookingPage = () => {
   const { clinicSlug = "" } = useParams()
@@ -76,6 +80,15 @@ export const BookingPage = () => {
       )
     }
   }, [availability.isPending, availability.isError, slotsByStart])
+
+  const recap = useMemo(() => {
+    if (!state.hold) return null
+    return {
+      serviceName: clinic.data?.services.find((s) => s.id === state.serviceId)?.name ?? "Selected service",
+      dentistName: clinic.data?.dentists.find((d) => d.id === state.hold?.dentistId)?.name ?? "Assigned dentist",
+      branchName: clinic.data?.branches.find((b) => b.id === state.branchId)?.name ?? "Clinic"
+    }
+  }, [clinic.data, state.serviceId, state.branchId, state.hold])
 
   const nearestFree = useMemo(() => {
     if (!state.recovery) return null
@@ -173,7 +186,7 @@ export const BookingPage = () => {
 
   return (
     <main className="mx-auto flex min-h-dvh max-w-md flex-col gap-4 p-4 text-base">
-      <header className="space-y-3">
+      <header className="-mx-4 -mt-4 space-y-3 border-b border-border bg-card px-4 pb-3 pt-4">
         <div className="flex min-h-11 items-center gap-2">
           {stepIndex > 0 ? (
             <button
@@ -185,21 +198,43 @@ export const BookingPage = () => {
               <ChevronLeft className="h-5 w-5" aria-hidden />
             </button>
           ) : null}
-          <h1 className="text-lg font-semibold">
+          <h1 className="min-w-0 flex-1 truncate text-lg font-semibold">
             {clinic.isPending ? <Skeleton className="h-6 w-40" /> : clinic.data?.name}
           </h1>
         </div>
         {state.step === "confirmed" ? null : (
-          <div className="flex items-center gap-3">
-            <div className="flex flex-1 items-center gap-1.5" aria-hidden>
-              {STEP_ORDER.map((step, index) => (
-                <span key={step} className={stepDot(index, stepIndex)} />
-              ))}
-            </div>
-            <p className="text-base tabular-nums text-muted-foreground">
-              Step {stepIndex + 1}/{STEP_ORDER.length}
-            </p>
-          </div>
+          <ol
+            aria-label={`Booking steps, step ${stepIndex + 1} of ${STEP_ORDER.length}`}
+            className="flex items-stretch gap-2"
+          >
+            {STEP_ORDER.map((step, index) => {
+              const status = index < stepIndex ? "done" : index === stepIndex ? "current" : "upcoming"
+              return (
+                <li key={step} className="flex flex-1 flex-col items-center gap-1.5">
+                  <span
+                    aria-hidden
+                    className={
+                      status === "upcoming"
+                        ? "h-1.5 w-full rounded-full bg-border transition-colors duration-150"
+                        : "h-1.5 w-full rounded-full bg-primary transition-colors duration-150"
+                    }
+                  />
+                  <span
+                    aria-current={status === "current" ? "step" : undefined}
+                    className={
+                      status === "upcoming"
+                        ? "text-muted-foreground"
+                        : status === "current"
+                          ? "font-semibold text-foreground"
+                          : "text-foreground"
+                    }
+                  >
+                    {STEP_LABELS[step]}
+                  </span>
+                </li>
+              )
+            })}
+          </ol>
         )}
       </header>
 
@@ -234,9 +269,10 @@ export const BookingPage = () => {
         />
       ) : null}
 
-      {state.step === "details" && state.hold ? (
+      {state.step === "details" && state.hold && recap ? (
         <DetailsStep
           hold={state.hold}
+          recap={recap}
           details={state.details}
           submitting={confirmBooking.isPending}
           onChange={(details) => dispatch({ type: "edit-details", details })}

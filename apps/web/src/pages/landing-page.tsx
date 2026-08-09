@@ -1,6 +1,15 @@
 import { authSessionSchema } from "@dentalops/contracts"
 import { useMutation } from "@tanstack/react-query"
-import { ArrowRight, CalendarDays, Clock, ShieldCheck, Users, Sparkles } from "lucide-react"
+import {
+  ArrowRight,
+  CalendarDays,
+  ClipboardList,
+  Clock,
+  ShieldCheck,
+  Smartphone,
+  Users,
+  Sparkles
+} from "lucide-react"
 import { useState } from "react"
 import { Link, useNavigate } from "react-router"
 import { toast } from "sonner"
@@ -19,6 +28,30 @@ const roles = [
 ] as const
 
 type DemoRole = (typeof roles)[number]["role"]
+
+const dayStory = [
+  {
+    time: "Morning",
+    icon: Smartphone,
+    title: "A patient books online",
+    description:
+      "Real availability, grouped by time of day, held for a few minutes while they fill in their details — no phone call needed."
+  },
+  {
+    time: "Midday",
+    icon: ClipboardList,
+    title: "Reception keeps the day moving",
+    description:
+      "Holds, cancellations and walk-ins land on the same live schedule, so nobody double-books a chair by accident."
+  },
+  {
+    time: "Afternoon",
+    icon: CalendarDays,
+    title: "The whole team shares one schedule",
+    description:
+      "Dentists, receptionists and the owner watch the same timeline update in real time, from any chair."
+  }
+]
 
 const capabilities = [
   {
@@ -259,6 +292,35 @@ export const LandingPage = () => {
                 <div key={title} className="rounded-card border border-border bg-card p-6 shadow-xs flex flex-col gap-3">
                   <div className="size-10 rounded-control bg-accent flex items-center justify-center text-primary">
                     <Icon className="size-5" />
+                  </div>
+                  <h3 className="text-card-title font-bold">{title}</h3>
+                  <p className="text-supporting text-muted-foreground leading-relaxed">{description}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        {/* Clinic-day Story Section */}
+        <section className="border-t border-border py-16">
+          <div className="mx-auto max-w-6xl px-4 sm:px-6">
+            <div className="text-center max-w-2xl mx-auto mb-12">
+              <h2 className="text-section-title font-bold">One clinic day, three moments</h2>
+              <p className="text-supporting text-muted-foreground mt-2">
+                The same schedule, seen from a patient, the front desk and the team.
+              </p>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              {dayStory.map(({ time, icon: Icon, title, description }) => (
+                <div key={title} className="rounded-card border border-border bg-card p-6 shadow-xs flex flex-col gap-3">
+                  <div className="flex items-center gap-2">
+                    <span className="flex size-10 shrink-0 items-center justify-center rounded-control bg-accent text-primary">
+                      <Icon className="size-5" aria-hidden="true" />
+                    </span>
+                    <span className="text-meta font-bold uppercase tracking-wider text-muted-foreground">
+                      {time}
+                    </span>
                   </div>
                   <h3 className="text-card-title font-bold">{title}</h3>
                   <p className="text-supporting text-muted-foreground leading-relaxed">{description}</p>

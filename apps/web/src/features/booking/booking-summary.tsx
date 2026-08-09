@@ -11,7 +11,7 @@ interface RowProps {
   numeric?: boolean
 }
 
-const Row = ({ label, value, numeric = false }: RowProps) => (
+export const Row = ({ label, value, numeric = false }: RowProps) => (
   <div className="flex justify-between gap-4 border-b border-border py-2.5 last:border-b-0 last:pb-0 first:pt-0">
     <dt className="text-base text-muted-foreground">{label}</dt>
     <dd className={`text-right text-base font-medium${numeric ? " tabular-nums" : ""}`}>{value}</dd>

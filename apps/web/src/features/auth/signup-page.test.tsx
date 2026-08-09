@@ -219,19 +219,37 @@ describe("SignupPage", () => {
 
     const pending = await screen.findByRole("button", { name: "Creating your clinic…" })
     expect(pending).toBeDisabled()
-    await screen.findByRole("heading", { name: "Timeline" })
+    await screen.findByRole("heading", { name: "You're ready" })
   })
 
-  it("stores a real session, not a demo one, and lands on the timeline", async () => {
+  it("stores a real session, not a demo one, and holds on the ready screen before entering the workspace", async () => {
     server.use(...handlers())
     const user = mount()
     await fill(user)
 
     await user.click(screen.getByRole("button", { name: "Create clinic" }))
 
-    expect(await screen.findByRole("heading", { name: "Timeline" })).toBeInTheDocument()
+    expect(await screen.findByRole("heading", { name: "You're ready" })).toBeInTheDocument()
+    expect(screen.queryByRole("heading", { name: "Timeline" })).not.toBeInTheDocument()
     expect(getSession()).toEqual(session)
     expect(isDemo()).toBe(false)
+
+    await user.click(screen.getByRole("button", { name: "Go to your clinic" }))
+    expect(await screen.findByRole("heading", { name: "Timeline" })).toBeInTheDocument()
+  })
+
+  it("shows the setup checklist and public booking link on the ready screen", async () => {
+    server.use(...handlers())
+    const user = mount()
+    await fill(user)
+
+    await user.click(screen.getByRole("button", { name: "Create clinic" }))
+
+    await screen.findByRole("heading", { name: "You're ready" })
+    expect(screen.getByText("Set your branch hours")).toBeInTheDocument()
+    expect(screen.getByText("Add your first service")).toBeInTheDocument()
+    expect(screen.getByText("Invite your team")).toBeInTheDocument()
+    expect(screen.getByText(/book\/bright-smile-dental/)).toBeInTheDocument()
   })
 
   it("remembers the clinic URL so the login screen can prefill it", async () => {
@@ -241,7 +259,7 @@ describe("SignupPage", () => {
 
     await user.click(screen.getByRole("button", { name: "Create clinic" }))
 
-    await screen.findByRole("heading", { name: "Timeline" })
+    await screen.findByRole("heading", { name: "You're ready" })
     expect(localStorage.getItem(LAST_CLINIC_KEY)).toBe("bright-smile-dental")
     expect(LAST_CLINIC_KEY).toBe("dentalops.lastClinic")
   })
@@ -256,7 +274,7 @@ describe("SignupPage", () => {
 
     await user.click(screen.getByRole("button", { name: "Create clinic" }))
 
-    expect(await screen.findByRole("heading", { name: "Timeline" })).toBeInTheDocument()
+    expect(await screen.findByRole("heading", { name: "You're ready" })).toBeInTheDocument()
     expect(getSession()).toEqual(session)
     setItem.mockRestore()
   })

@@ -19,7 +19,7 @@ const initial = (name: string): string =>
 export const DentistStep = ({ dentists, onChoose }: DentistStepProps) => (
   <div className="space-y-2">
     <h2 className="text-lg font-semibold">Choose a dentist</h2>
-    <ul className="space-y-2">
+    <ul className="space-y-2" aria-label="Dentists">
       <li>
         <button
           type="button"

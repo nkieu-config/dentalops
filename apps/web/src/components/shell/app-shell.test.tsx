@@ -1,7 +1,7 @@
 import type { UserRole } from "@dentalops/contracts"
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 import { render, screen } from "@testing-library/react"
-import { MemoryRouter, Route, Routes } from "react-router"
+import { createMemoryRouter, RouterProvider } from "react-router"
 import { afterEach, beforeEach, describe, expect, it } from "vitest"
 import { canManageRoster, canViewActivity, setSession } from "../../lib/session"
 import { API, http, HttpResponse, server } from "../../test/msw"
@@ -22,15 +22,19 @@ const sessionFor = (role: UserRole) => ({
 const mount = (role: UserRole, opts?: { demo?: boolean }) => {
   setSession(sessionFor(role), { demo: opts?.demo ?? false })
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+  const router = createMemoryRouter(
+    [
+      {
+        path: "/app",
+        element: <AppShell />,
+        children: [{ path: "timeline", element: <p>timeline</p> }]
+      }
+    ],
+    { initialEntries: ["/app/timeline"] }
+  )
   render(
     <QueryClientProvider client={client}>
-      <MemoryRouter initialEntries={["/app/timeline"]}>
-        <Routes>
-          <Route path="/app" element={<AppShell />}>
-            <Route path="timeline" element={<p>timeline</p>} />
-          </Route>
-        </Routes>
-      </MemoryRouter>
+      <RouterProvider router={router} />
     </QueryClientProvider>
   )
 }

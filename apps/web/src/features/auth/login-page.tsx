@@ -88,7 +88,7 @@ export const LoginPage = (): ReactElement => {
               {...aria}
               name="clinicSlug"
               type="text"
-              autoComplete="organization"
+              autoComplete="off"
               autoCapitalize="none"
               spellCheck={false}
               value={form.values.clinicSlug}

@@ -6,7 +6,7 @@ import { z } from "zod"
 import { Button } from "../../components/ui/button"
 import { api } from "../../lib/api"
 import { setSession } from "../../lib/session"
-import { AuthCard, Field, FieldInput, FormError, SubmitButton } from "./auth-form"
+import { AuthCard, Field, FieldInput, FormError, PasswordStrengthHint, SubmitButton } from "./auth-form"
 import { SLUG_PATTERN, toSlug } from "./slug"
 import { useAuthForm } from "./use-auth-form"
 
@@ -207,14 +207,17 @@ export const SignupPage = (): ReactElement => {
 
         <Field id="password" label="Password" error={form.errors.password}>
           {(aria) => (
-            <FieldInput
-              {...aria}
-              name="password"
-              type="password"
-              autoComplete="new-password"
-              value={form.values.password}
-              onChange={(event) => form.set("password", event.target.value)}
-            />
+            <div className="space-y-1">
+              <FieldInput
+                {...aria}
+                name="password"
+                type="password"
+                autoComplete="new-password"
+                value={form.values.password}
+                onChange={(event) => form.set("password", event.target.value)}
+              />
+              <PasswordStrengthHint password={form.values.password} />
+            </div>
           )}
         </Field>
 

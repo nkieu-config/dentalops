@@ -6,7 +6,7 @@ import type {
   StaffMember,
   Violation
 } from "@dentalops/contracts"
-import { AlertTriangle, CalendarX, ServerCrash } from "lucide-react"
+import { AlertTriangle, CalendarX, CheckCircle2, Info, Plus, ServerCrash, XCircle } from "lucide-react"
 import { useMemo, useState } from "react"
 import { OfflineBannerView } from "../components/shell/offline-banner"
 import { SlotPickerView, type SlotPickerState } from "../components/slot-picker"
@@ -474,10 +474,16 @@ export const DevUiPage = () => (
         <Button variant="destructive">Destructive</Button>
         <Button size="sm">Small</Button>
         <Button disabled>Disabled</Button>
+        <Button size="icon" aria-label="Add item">
+          <Plus className="h-4 w-4" aria-hidden="true" />
+        </Button>
         <AlertDialogDemo />
       </div>
       <div className="grid gap-3 sm:grid-cols-2">
+        <StatusCallout tone="neutral" icon={Info} title="Heads up">Something worth noticing, nothing urgent.</StatusCallout>
+        <StatusCallout tone="success" icon={CheckCircle2} title="All set">The roster is fully covered for this week.</StatusCallout>
         <StatusCallout tone="warning" icon={AlertTriangle} title="Needs attention">Two appointments need a chair before this roster can be saved.</StatusCallout>
+        <StatusCallout tone="destructive" icon={XCircle} title="Something failed">The last save could not go through.</StatusCallout>
         <div className="flex items-center gap-3 rounded-card border border-border p-3"><InitialsAvatar name="Dr. Anong Srisuk" /><span className="text-sm font-semibold">Dr. Anong Srisuk</span></div>
       </div>
       <div className="max-w-xs space-y-2">

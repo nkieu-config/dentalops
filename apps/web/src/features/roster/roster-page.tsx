@@ -102,6 +102,7 @@ export const RosterPage = () => {
           )
         )
       }
+      setDropped(null)
       return { previous }
     },
     onError: (error, _draft, context) => {
@@ -224,13 +225,14 @@ export const RosterPage = () => {
 
   useEffect(() => {
     if (dropped === null || validation.isSettling) return
-    setDropped(null)
     if (validation.isError) {
+      setDropped(null)
       toast.error("Could not check this move for conflicts — try again")
       return
     }
     const blocker = validation.blocking[0]
     if (blocker) {
+      setDropped(null)
       toast.error(`Cannot move that shift — ${blocker.detail}`)
       return
     }
@@ -300,7 +302,7 @@ export const RosterPage = () => {
 
   return (
     <div className="flex h-[calc(100dvh-var(--spacing-topbar))] min-w-0 flex-col">
-      <div className="flex shrink-0 flex-wrap items-center gap-3 border-b border-border bg-card px-4 py-2.5 sm:gap-4 md:px-6 md:py-3">
+      <div className="flex shrink-0 flex-wrap items-center gap-4 border-b border-border bg-card px-4 py-2.5 md:px-6 md:py-3">
         <Button
           variant="ghost"
           size="icon"

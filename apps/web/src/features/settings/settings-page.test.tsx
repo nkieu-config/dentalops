@@ -48,7 +48,9 @@ const receptionist = () =>
     user: { id: ids.owner, tenantId: ids.tenant, name: "Reception", role: "receptionist" }
   })
 
-const handlers = () => [
+const defaultStaff = [{ id: ids.owner, name: "Owner", role: "owner", isActive: true }]
+
+const handlers = (staff: Array<{ id: string; name: string; role: string; isActive: boolean }> = defaultStaff) => [
   http.get(`${API}/tenant`, () =>
     HttpResponse.json({
       id: ids.tenant,
@@ -80,9 +82,7 @@ const handlers = () => [
     ])
   ),
   http.get(`${API}/equipment-types`, () => HttpResponse.json([{ id: ids.equipmentType, name: "X-ray" }])),
-  http.get(`${API}/staff`, () =>
-    HttpResponse.json([{ id: ids.owner, name: "Owner", role: "owner", isActive: true }])
-  )
+  http.get(`${API}/staff`, () => HttpResponse.json(staff))
 ]
 
 afterEach(() => setSession(null))
@@ -228,5 +228,76 @@ describe("SettingsPage", () => {
     await user.click(screen.getByRole("button", { name: "Save resource" }))
 
     await waitFor(() => expect(body).toEqual({ name: "New X-ray", branchId: ids.branch, type: "equipment", equipmentTypeId: ids.equipmentType }))
+  })
+
+  it("dims the whole row for inactive branches and services, not just the title", async () => {
+    owner()
+    server.use(
+      http.get(`${API}/branches`, () =>
+        HttpResponse.json([
+          { id: ids.branch, name: "Main", timezone: "Asia/Bangkok", openingHours, isActive: false }
+        ])
+      ),
+      http.get(`${API}/services`, () =>
+        HttpResponse.json([
+          { id: ids.service, name: "Cleaning", durationMin: 45, bufferMin: 0, colorIndex: 0, isActive: false }
+        ])
+      ),
+      ...handlers()
+    )
+    mount()
+
+    const branchesHeading = await screen.findByRole("heading", { name: "Branches" })
+    const branchesSection = branchesHeading.closest("section")!
+    const branchName = await within(branchesSection).findByText("Main")
+    expect(branchName.closest(".opacity-75")).not.toBeNull()
+
+    const servicesHeading = await screen.findByRole("heading", { name: "Services" })
+    const servicesSection = servicesHeading.closest("section")!
+    const serviceName = await within(servicesSection).findByText("Cleaning")
+    expect(serviceName.closest(".opacity-75")).not.toBeNull()
+  })
+
+  it("blocks deactivating the last remaining owner and explains why", async () => {
+    owner()
+    server.use(...handlers())
+    mount()
+
+    const staffHeading = await screen.findByRole("heading", { name: "Staff" })
+    const staffSection = staffHeading.closest("section")!
+    await within(staffSection).findByText("Owner")
+
+    expect(within(staffSection).queryByRole("button", { name: "Deactivate" })).not.toBeInTheDocument()
+    expect(within(staffSection).getByText("The last owner can't be deactivated.")).toBeVisible()
+  })
+
+  it("allows deactivating an owner when another owner remains", async () => {
+    owner()
+    const secondOwnerId = "99999999-9999-4999-8999-999999999999"
+    server.use(
+      ...handlers([
+        { id: ids.owner, name: "Owner", role: "owner", isActive: true },
+        { id: secondOwnerId, name: "Co-Owner", role: "owner", isActive: true }
+      ]),
+      http.patch(`${API}/staff/${secondOwnerId}`, () =>
+        HttpResponse.json({ id: secondOwnerId, name: "Co-Owner", role: "owner", isActive: false })
+      )
+    )
+    const { user } = mount()
+
+    const staffHeading = await screen.findByRole("heading", { name: "Staff" })
+    const staffSection = staffHeading.closest("section")!
+    await within(staffSection).findByText("Co-Owner")
+
+    expect(within(staffSection).queryByText("The last owner can't be deactivated.")).not.toBeInTheDocument()
+
+    const deactivateButtons = within(staffSection).getAllByRole("button", { name: "Deactivate" })
+    expect(deactivateButtons.length).toBe(2)
+
+    await user.click(deactivateButtons[deactivateButtons.length - 1]!)
+    const dialog = await screen.findByRole("alertdialog")
+    await user.click(within(dialog).getByRole("button", { name: "Deactivate" }))
+
+    await waitFor(() => expect(within(staffSection).getByRole("heading", { name: "Inactive team" })).toBeVisible())
   })
 })

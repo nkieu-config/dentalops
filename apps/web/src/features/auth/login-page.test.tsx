@@ -105,7 +105,7 @@ describe("LoginPage inputs", () => {
 
     const slug = screen.getByLabelText("Clinic URL")
     expect(slug).toHaveAttribute("name", "clinicSlug")
-    expect(slug).toHaveAttribute("autocomplete", "organization")
+    expect(slug).toHaveAttribute("autocomplete", "off")
 
     const email = screen.getByLabelText("Email")
     expect(email).toHaveAttribute("name", "email")

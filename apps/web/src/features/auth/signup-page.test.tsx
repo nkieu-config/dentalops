@@ -139,6 +139,23 @@ describe("SignupPage", () => {
     expect(screen.getByLabelText("Email")).toHaveAttribute("aria-invalid", "false")
   })
 
+  it("shows a live password strength hint that updates as the user types", async () => {
+    const user = mount()
+    const password = screen.getByLabelText("Password")
+
+    expect(screen.queryByText(/Password strength/)).not.toBeInTheDocument()
+
+    await user.type(password, "short")
+    expect(screen.getByText("Password strength: Weak")).toBeInTheDocument()
+
+    await user.type(password, "123")
+    expect(screen.getByText("Password strength: Good")).toBeInTheDocument()
+
+    await user.clear(password)
+    await user.type(password, "Correct-Horse-Battery9")
+    expect(screen.getByText("Password strength: Strong")).toBeInTheDocument()
+  })
+
   it("moves focus to the first field that failed validation", async () => {
     const user = mount()
 

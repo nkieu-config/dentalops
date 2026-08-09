@@ -17,7 +17,14 @@ interface SlotStepProps {
 
 const RECOVERY_TITLE: Record<WizardRecovery["reason"], string> = {
   expired: "Your hold expired",
-  taken: "That time was just booked"
+  taken: "That time was just booked",
+  held: "Someone else is booking that time"
+}
+
+const RECOVERY_BODY: Record<WizardRecovery["reason"], string> = {
+  expired: "was taken.",
+  taken: "was taken.",
+  held: "is being held by someone else right now."
 }
 
 export const SlotStep = ({
@@ -39,7 +46,7 @@ export const SlotStep = ({
         <TimerOff className="h-8 w-8 text-warning" aria-hidden />
         <h2 className="text-lg font-semibold">{RECOVERY_TITLE[recovery.reason]}</h2>
         <p className="text-base tabular-nums text-muted-foreground">
-          {fmtTime(Date.parse(recovery.startsAt))} was taken.
+          {fmtTime(Date.parse(recovery.startsAt))} {RECOVERY_BODY[recovery.reason]}
         </p>
         {nearestFree ? (
           <p className="text-base tabular-nums">

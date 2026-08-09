@@ -68,6 +68,7 @@ globalThis.ResizeObserver ??= NoopResizeObserver
 globalThis.PointerEvent ??= JsdomPointerEvent as unknown as typeof PointerEvent
 window.PointerEvent ??= globalThis.PointerEvent
 Element.prototype.scrollTo ??= () => {}
+window.scrollTo = () => {}
 Element.prototype.setPointerCapture ??= () => {}
 Element.prototype.releasePointerCapture ??= () => {}
 window.matchMedia ??= ((query: string) =>

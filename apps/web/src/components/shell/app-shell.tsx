@@ -3,7 +3,7 @@ import { clinicProfileSchema, type ClinicProfile } from "@dentalops/contracts"
 import { useQuery } from "@tanstack/react-query"
 import { CalendarDays, ClipboardList, History, Settings, Users } from "lucide-react"
 import type { LucideIcon } from "lucide-react"
-import { NavLink, Outlet, useNavigate } from "react-router"
+import { NavLink, Outlet, ScrollRestoration, useNavigate } from "react-router"
 import { cn } from "../../lib/cn"
 import { api } from "../../lib/api"
 import { canManageRoster, canViewActivity, isDemo, logout, useSession } from "../../lib/session"
@@ -88,6 +88,7 @@ export const AppShell = () => {
           <Outlet />
         </main>
       </div>
+      <ScrollRestoration />
       <nav
         data-testid="bottom-nav"
         className="fixed inset-x-0 bottom-0 z-30 flex h-bottomnav border-t border-border bg-background md:hidden"

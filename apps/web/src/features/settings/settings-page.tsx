@@ -429,10 +429,12 @@ const BranchesSection = () => {
             <div className="space-y-2 pt-2">
               <h3 className="px-1 text-sm font-semibold tracking-wide text-muted-foreground">Inactive locations</h3>
               {inactive.map((branch) => (
-                <RecordRow key={branch.id} active={branch.isActive} actions={<><Button variant="secondary" onClick={() => setBranchSheet(branch)}>Edit</Button><Button variant="secondary" onClick={() => reactivate(branch.id)}>Reactivate</Button></>}>
-                  <p className="font-medium text-muted-foreground">{branch.name}</p>
-                  <p className="text-sm text-muted-foreground">{branch.timezone}</p>
-                </RecordRow>
+                <div key={branch.id} className="opacity-75">
+                  <RecordRow active={branch.isActive} actions={<><Button variant="secondary" onClick={() => setBranchSheet(branch)}>Edit</Button><Button variant="secondary" onClick={() => reactivate(branch.id)}>Reactivate</Button></>}>
+                    <p className="font-medium">{branch.name}</p>
+                    <p className="text-sm text-muted-foreground">{branch.timezone}</p>
+                  </RecordRow>
+                </div>
               ))}
             </div>
           ) : null}
@@ -563,15 +565,17 @@ const ServicesSection = () => {
             <div className="space-y-2 pt-2">
               <h3 className="px-1 text-sm font-semibold tracking-wide text-muted-foreground">Inactive services</h3>
               {inactive.map((service) => (
-                <RecordRow key={service.id} active={service.isActive} actions={<><Button variant="secondary" onClick={() => setServiceSheet(service)}>Edit</Button><Button variant="secondary" onClick={() => reactivate(service.id)}>Reactivate</Button></>}>
-                  <div className="flex items-center gap-3">
-                    <div className={`h-4 w-4 rounded-full bg-appointment-${service.colorIndex} border border-appointment-${service.colorIndex}-border opacity-50`} />
-                    <div>
-                      <p className="font-medium text-muted-foreground">{service.name}</p>
-                      <p className="text-sm tabular-nums text-muted-foreground">{service.durationMin} min + {service.bufferMin} min buffer</p>
+                <div key={service.id} className="opacity-75">
+                  <RecordRow active={service.isActive} actions={<><Button variant="secondary" onClick={() => setServiceSheet(service)}>Edit</Button><Button variant="secondary" onClick={() => reactivate(service.id)}>Reactivate</Button></>}>
+                    <div className="flex items-center gap-3">
+                      <div className={`h-4 w-4 rounded-full bg-appointment-${service.colorIndex} border border-appointment-${service.colorIndex}-border`} />
+                      <div>
+                        <p className="font-medium">{service.name}</p>
+                        <p className="text-sm tabular-nums text-muted-foreground">{service.durationMin} min + {service.bufferMin} min buffer</p>
+                      </div>
                     </div>
-                  </div>
-                </RecordRow>
+                  </RecordRow>
+                </div>
               ))}
             </div>
           ) : null}
@@ -896,15 +900,17 @@ const StaffSection = () => {
 
   const active = query.data.filter((s) => s.isActive)
   const inactive = query.data.filter((s) => !s.isActive)
+  const activeOwnerCount = query.data.filter((s) => s.role === "owner" && s.isActive).length
 
   const renderStaff = (member: StaffMember) => {
-    const canManage = member.role !== "owner"
+    const isLastOwner = member.role === "owner" && activeOwnerCount <= 1
     return (
       <RecordRow key={member.id} active={member.isActive} actions={
         <>
           <Button variant="secondary" onClick={() => setStaffSheet(member)}>Edit</Button>
-          {canManage && member.isActive ? <Button variant="ghost" onClick={() => setDeactivating({ id: member.id, name: member.name })}>Deactivate</Button> : null}
-          {canManage && !member.isActive ? <Button variant="secondary" onClick={() => reactivate(member.id)}>Reactivate</Button> : null}
+          {member.isActive && !isLastOwner ? <Button variant="ghost" onClick={() => setDeactivating({ id: member.id, name: member.name })}>Deactivate</Button> : null}
+          {!member.isActive ? <Button variant="secondary" onClick={() => reactivate(member.id)}>Reactivate</Button> : null}
+          {member.isActive && isLastOwner ? <p className="text-sm text-muted-foreground">The last owner can't be deactivated.</p> : null}
         </>
       }>
         <div className="flex items-center gap-4">

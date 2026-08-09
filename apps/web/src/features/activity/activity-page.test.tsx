@@ -2,7 +2,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 import { render, screen, waitFor } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { MemoryRouter } from "react-router"
-import { describe, expect, it } from "vitest"
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import { setSession } from "../../lib/session"
 import { API, http, HttpResponse, server } from "../../test/msw"
 import { ActivityPage } from "./activity-page"
@@ -159,5 +159,44 @@ describe("ActivityPage", () => {
 
     expect(await screen.findAllByRole("listitem")).toHaveLength(1)
     expect(screen.queryByText("Could not load the activity log")).not.toBeInTheDocument()
+  })
+
+  describe("day grouping", () => {
+    beforeEach(() => {
+      vi.useFakeTimers({ toFake: ["Date"] })
+      vi.setSystemTime(new Date("2026-08-03T12:00:00+07:00"))
+    })
+
+    afterEach(() => {
+      vi.useRealTimers()
+    })
+
+    it("buckets entries into Today, Yesterday and a formatted date for older days", async () => {
+      server.use(
+        http.get(`${API}/audit-logs`, () =>
+          HttpResponse.json({
+            entries: [booked, completed, cancelledOnline, shiftAdded],
+            nextCursor: null
+          })
+        )
+      )
+      mount()
+
+      expect(await screen.findByRole("heading", { name: "Today", level: 2 })).toBeInTheDocument()
+      expect(screen.getByRole("heading", { name: "Yesterday", level: 2 })).toBeInTheDocument()
+      expect(
+        screen.getByRole("heading", { name: "Sat, 1 Aug 2026", level: 2 })
+      ).toBeInTheDocument()
+
+      const todayList = screen.getByRole("list", { name: "Today" })
+      expect(todayList).toHaveTextContent("booked an appointment")
+      expect(todayList).toHaveTextContent("marked an appointment completed")
+
+      const yesterdayList = screen.getByRole("list", { name: "Yesterday" })
+      expect(yesterdayList).toHaveTextContent("cancelled their own booking")
+
+      const olderList = screen.getByRole("list", { name: "Sat, 1 Aug 2026" })
+      expect(olderList).toHaveTextContent("added a shift")
+    })
   })
 })

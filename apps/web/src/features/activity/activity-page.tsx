@@ -8,7 +8,7 @@ import { InitialsAvatar } from "../../components/ui/initials-avatar"
 import { Skeleton } from "../../components/ui/skeleton"
 import { api } from "../../lib/api"
 import { useCanViewActivity } from "../../lib/session"
-import { bkkDate, bkkToday, fmtDay, fmtTime } from "../timeline/lib/geometry"
+import { bkkDate, bkkShiftDate, bkkToday, fmtDay, fmtTime } from "../timeline/lib/geometry"
 
 const PAGE_SIZE = 25
 
@@ -161,9 +161,12 @@ export const ActivityPage = () => {
     )
   }
 
+  const today = bkkToday()
+  const yesterday = bkkShiftDate(today, -1)
+
   const groupedEntries = entries.reduce<Record<string, AuditEntry[]>>((groups, entry) => {
-    const day = fmtDay(bkkDate(entry.at.getTime()))
-    const key = day === fmtDay(bkkToday()) ? "Today" : day
+    const day = bkkDate(entry.at.getTime())
+    const key = day === today ? "Today" : day === yesterday ? "Yesterday" : fmtDay(day)
     if (!groups[key]) groups[key] = []
     groups[key].push(entry)
     return groups

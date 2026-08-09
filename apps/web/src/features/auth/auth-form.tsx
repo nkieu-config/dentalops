@@ -5,6 +5,7 @@ import { Button } from "../../components/ui/button"
 import { Input } from "../../components/ui/input"
 import { Label } from "../../components/ui/label"
 import { cn } from "../../lib/cn"
+import { passwordStrength } from "./password-strength"
 
 export interface FieldAria {
   id: string
@@ -26,7 +27,7 @@ export const Field = ({ id, label, error, hint, children }: FieldProps): ReactEl
   const describedBy = [error ? errorId : null, hint ? hintId : null].filter(Boolean).join(" ")
 
   return (
-    <div className="space-y-1.5">
+    <div className="space-y-1">
       <Label htmlFor={id}>{label}</Label>
       {children({
         id,
@@ -34,7 +35,7 @@ export const Field = ({ id, label, error, hint, children }: FieldProps): ReactEl
         "aria-describedby": describedBy.length > 0 ? describedBy : undefined
       })}
       {error ? (
-        <p id={errorId} className="flex items-start gap-1.5 text-sm font-medium text-destructive">
+        <p id={errorId} className="flex items-start gap-2 text-sm font-medium text-destructive">
           <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
           {error}
         </p>
@@ -79,6 +80,17 @@ export const FieldInput = forwardRef<HTMLInputElement, InputHTMLAttributes<HTMLI
   }
 )
 FieldInput.displayName = "FieldInput"
+
+export const PasswordStrengthHint = ({ password }: { password: string }): ReactElement | null => {
+  const strength = passwordStrength(password)
+  if (!strength) return null
+
+  return (
+    <p aria-live="polite" className="text-sm text-muted-foreground">
+      Password strength: {strength}
+    </p>
+  )
+}
 
 export const FormError = ({ message }: { message: string | null }): ReactElement | null =>
   message ? (
@@ -132,7 +144,7 @@ export const AuthCard = ({ title, subtitle, children, footer }: AuthCardProps): 
     <PublicHeader />
     <main className="mx-auto flex w-full max-w-md flex-1 flex-col justify-center gap-6 px-4 py-10">
       <div className="rounded-card border border-border bg-card p-6 shadow-xs sm:p-8 space-y-6">
-        <header className="space-y-1.5">
+        <header className="space-y-1">
           <h1 className="text-card-title text-xl font-bold tracking-tight text-balance">{title}</h1>
           {subtitle ? (
             <p className="text-supporting text-muted-foreground leading-relaxed">{subtitle}</p>

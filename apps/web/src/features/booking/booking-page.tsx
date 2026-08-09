@@ -148,11 +148,12 @@ export const BookingPage = () => {
             hold: { ...hold, startsAt, dentistId: slot.dentistId }
           }),
         onError: (error) => {
-          toast.error(
-            error instanceof ApiError && error.errorCode === "SLOT_HELD"
-              ? "Someone else is booking that time right now"
-              : "Could not hold that time"
-          )
+          if (error instanceof ApiError && error.errorCode === "SLOT_HELD") {
+            dispatch({ type: "slot-taken", startsAt })
+            refreshSlots()
+            return
+          }
+          toast.error("Could not hold that time — try picking another slot")
           refreshSlots()
         }
       }
@@ -167,7 +168,7 @@ export const BookingPage = () => {
   }
 
   const submitDetails = () => {
-    if (!state.hold) return
+    if (!state.hold || confirmBooking.isPending) return
     const email = state.details.email.trim()
     confirmBooking.mutate(
       {
@@ -187,7 +188,9 @@ export const BookingPage = () => {
             loseHold("expired")
             return
           }
-          toast.error(error instanceof ApiError ? error.message : "Booking failed")
+          toast.error(
+            error instanceof ApiError ? error.message : "Booking failed — check your details and try again"
+          )
         }
       }
     )

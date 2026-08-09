@@ -100,7 +100,10 @@ export const LandingPage = () => {
       {/* Public Navigation Bar */}
       <div className="sticky top-0 z-40 border-b border-border bg-background/80 backdrop-blur-md">
         <div className="mx-auto flex min-h-16 max-w-6xl flex-wrap items-center justify-between gap-y-2 px-4 py-2 sm:px-6">
-          <Link to="/" className="flex items-center gap-2.5 font-bold text-lg tracking-tight">
+          <Link
+            to="/"
+            className="flex items-center gap-2.5 rounded-sm font-bold text-lg tracking-tight focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+          >
             <span className="flex size-9 items-center justify-center rounded-control bg-decorative text-primary-foreground font-bold shadow-xs">
               D
             </span>
@@ -115,7 +118,7 @@ export const LandingPage = () => {
             </a>
             <Link
               to="/login"
-              className="text-sm font-semibold text-foreground hover:text-primary transition-colors px-3 py-1.5"
+              className="rounded-sm text-sm font-semibold text-foreground hover:text-primary transition-colors px-3 py-1.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
             >
               Sign in
             </Link>
@@ -178,7 +181,9 @@ export const LandingPage = () => {
                     </section>
                   ) : (
                     <div className="flex flex-col gap-3">
-                      {roles.map(({ role, label, hint }) => (
+                      {roles.map(({ role, label, hint }) => {
+                        const isSigningIn = demoLogin.isPending && demoLogin.variables === role
+                        return (
                         <Button
                           key={role}
                           className="h-auto w-full justify-between gap-4 px-4 py-3.5 text-left sm:h-auto"
@@ -187,7 +192,9 @@ export const LandingPage = () => {
                           onClick={() => demoLogin.mutate(role)}
                         >
                           <span className="flex min-w-0 flex-col gap-0.5">
-                            <span className="text-base font-semibold">{label}</span>
+                            <span className="text-base font-semibold">
+                              {isSigningIn ? "Signing in…" : label}
+                            </span>
                             <span
                               className={
                                 role === "owner"
@@ -200,7 +207,8 @@ export const LandingPage = () => {
                           </span>
                           <ArrowRight className="h-4 w-4 shrink-0 opacity-60" aria-hidden="true" />
                         </Button>
-                      ))}
+                        )
+                      })}
                     </div>
                   )}
                 </div>
@@ -293,7 +301,7 @@ export const LandingPage = () => {
               {capabilities.map(({ icon: Icon, title, description }) => (
                 <div key={title} className="rounded-card border border-border bg-card p-6 shadow-xs flex flex-col gap-3">
                   <div className="size-10 rounded-control bg-accent flex items-center justify-center text-primary">
-                    <Icon className="size-5" />
+                    <Icon className="size-5" aria-hidden="true" />
                   </div>
                   <h3 className="text-card-title font-bold">{title}</h3>
                   <p className="text-supporting text-muted-foreground leading-relaxed">{description}</p>
@@ -338,8 +346,18 @@ export const LandingPage = () => {
         <div className="mx-auto max-w-6xl px-4 sm:px-6 flex flex-col sm:flex-row items-center justify-between gap-4">
           <p>© 2026 DentalOps. All rights reserved.</p>
           <div className="flex items-center gap-4">
-            <Link to="/login" className="hover:text-foreground transition-colors">Sign in</Link>
-            <Link to="/signup" className="hover:text-foreground transition-colors">Create clinic</Link>
+            <Link
+              to="/login"
+              className="rounded-sm hover:text-foreground transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+            >
+              Sign in
+            </Link>
+            <Link
+              to="/signup"
+              className="rounded-sm hover:text-foreground transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+            >
+              Create clinic
+            </Link>
           </div>
         </div>
       </footer>

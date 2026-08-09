@@ -1,5 +1,6 @@
 import type { PublicBooking } from "@dentalops/contracts"
 import { CheckCircle2 } from "lucide-react"
+import { Link } from "react-router"
 import { BookingSummary } from "../booking-summary"
 
 interface ConfirmedStepProps {
@@ -16,12 +17,12 @@ export const ConfirmedStep = ({ booking, clinicName }: ConfirmedStepProps) => {
       <h2 className="text-2xl font-semibold">You are booked</h2>
       <p className="text-base text-muted-foreground">{clinicName}</p>
       <BookingSummary appointment={appointment} />
-      <a
-        href={`/manage/${manageToken}`}
+      <Link
+        to={`/manage/${manageToken}`}
         className="inline-flex min-h-11 items-center rounded-md border border-border px-4 text-base font-medium hover:bg-accent"
       >
         Change or cancel this booking
-      </a>
+      </Link>
       <p className="text-base text-muted-foreground">
         Keep this link — it is the only way to change the booking yourself.
       </p>

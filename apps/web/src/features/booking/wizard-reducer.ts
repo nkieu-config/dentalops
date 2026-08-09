@@ -2,7 +2,7 @@ import type { PublicBooking } from "@dentalops/contracts"
 
 export type WizardStep = "service" | "dentist" | "slot" | "details" | "confirmed"
 
-export type RecoveryReason = "expired" | "taken"
+export type RecoveryReason = "expired" | "taken" | "held"
 
 export interface WizardHold {
   holdId: string
@@ -42,6 +42,7 @@ export type WizardAction =
   | { type: "hold-acquired"; hold: WizardHold }
   | { type: "edit-details"; details: Partial<WizardDetails> }
   | { type: "lose-hold"; reason: RecoveryReason }
+  | { type: "slot-taken"; startsAt: string }
   | { type: "dismiss-recovery" }
   | { type: "booked"; booking: PublicBooking }
   | { type: "back" }
@@ -97,6 +98,8 @@ export const wizardReducer = (state: WizardState, action: WizardAction): WizardS
         hold: null,
         recovery: { reason: action.reason, startsAt: state.hold.startsAt }
       }
+    case "slot-taken":
+      return { ...state, recovery: { reason: "held", startsAt: action.startsAt } }
     case "dismiss-recovery":
       return state.recovery === null ? state : { ...state, recovery: null }
     case "booked":

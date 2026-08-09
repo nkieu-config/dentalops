@@ -241,7 +241,7 @@ export const LandingPage = () => {
 
                   <div className="space-y-3">
                     <div className="rounded-card border border-border bg-surface-subtle p-3.5 flex items-start gap-3">
-                      <div className="size-8 rounded-full bg-primary/10 text-primary font-bold flex items-center justify-center text-xs shrink-0">
+                      <div className="size-8 rounded-full bg-primary/10 text-foreground font-bold flex items-center justify-center text-xs shrink-0">
                         DR
                       </div>
                       <div className="min-w-0 flex-1">
@@ -260,7 +260,7 @@ export const LandingPage = () => {
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center justify-between text-xs font-semibold">
                           <span>Dr. Kanya (Chair 2)</span>
-                          <span className="text-primary font-bold">10:30 - 11:30</span>
+                          <span className="text-foreground font-bold">10:30 - 11:30</span>
                         </div>
                         <p className="text-xs text-muted-foreground mt-0.5">Root Canal Treatment — Reserved</p>
                       </div>

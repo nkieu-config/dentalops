@@ -5,6 +5,7 @@ import { useEffect, useMemo, useRef, useState } from "react"
 import { Navigate, useSearchParams } from "react-router"
 import { toast } from "sonner"
 import { z } from "zod"
+import { Badge } from "../../components/ui/badge"
 import { Button } from "../../components/ui/button"
 import { EmptyState } from "../../components/ui/empty-state"
 import { NativeSelect } from "../../components/ui/native-select"
@@ -238,6 +239,13 @@ export const RosterPage = () => {
     setDayOffset(0)
   }
 
+  const goToday = () => {
+    const merged = new URLSearchParams(params)
+    merged.set("w", bkkWeekStart(bkkToday()))
+    setParams(merged)
+    setDayOffset(0)
+  }
+
   const pickBranch = (next: string) => {
     const merged = new URLSearchParams(params)
     merged.set("b", next)
@@ -258,6 +266,9 @@ export const RosterPage = () => {
       : validation.violations.length > 0
         ? `${validation.violations.length} warnings`
         : "no violations"
+
+  const coverageTone =
+    validation.blocking.length > 0 ? "destructive" : validation.violations.length > 0 ? "warning" : "success"
 
   if (branches.isPending || dentists.isPending) {
     return (
@@ -293,6 +304,9 @@ export const RosterPage = () => {
         >
           <ChevronRight className="h-4 w-4" aria-hidden="true" />
         </Button>
+        <Button variant="secondary" size="sm" className="min-h-11" onClick={goToday}>
+          Today
+        </Button>
         <NativeSelect
           aria-label="Branch"
           className="min-h-11 w-auto"
@@ -306,8 +320,12 @@ export const RosterPage = () => {
           ))}
         </NativeSelect>
         <div className="flex-1" />
-        {mode === "lg" ? null : (
-          <Button variant="secondary" className="min-h-11" onClick={() => setSheetOpen(true)}>
+        {mode === "lg" ? (
+          <Badge tone={coverageTone} data-testid="coverage-health">
+            Coverage: {summary}
+          </Badge>
+        ) : (
+          <Button variant="secondary" className="min-h-11" onClick={() => setSheetOpen(true)} data-testid="coverage-health">
             Validation
             <span className="tabular-nums">({summary})</span>
           </Button>

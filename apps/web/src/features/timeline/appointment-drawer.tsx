@@ -3,6 +3,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query"
 import { useState } from "react"
 import { toast } from "sonner"
 import { SlotPicker } from "../../components/slot-picker"
+import { AlertDialog } from "../../components/ui/alert-dialog"
 import { Button } from "../../components/ui/button"
 import { Label } from "../../components/ui/label"
 import { Sheet } from "../../components/ui/sheet"
@@ -64,6 +65,7 @@ export const AppointmentDrawer = ({
   const online = useOnline()
   const canMove = useCanBook() && online
   const [seriesOpen, setSeriesOpen] = useState(false)
+  const [cancelling, setCancelling] = useState(false)
   const recurring = canMove && appointment?.status === "confirmed" && Boolean(appointment.seriesId)
   const setStatus = useMutation({
     mutationFn: ({ id, status }: { id: string; status: AppointmentStatus }) =>
@@ -79,6 +81,7 @@ export const AppointmentDrawer = ({
 
   const closeAll = () => {
     setSeriesOpen(false)
+    setCancelling(false)
     onClose()
   }
 
@@ -129,7 +132,7 @@ export const AppointmentDrawer = ({
                   variant="destructive"
                   disabled={setStatus.isPending || !online}
                   aria-describedby={online ? undefined : OFFLINE_REASON_ID}
-                  onClick={() => setStatus.mutate({ id: appointment.id, status: "cancelled" })}
+                  onClick={() => setCancelling(true)}
                 >
                   Cancel
                 </Button>
@@ -156,6 +159,22 @@ export const AppointmentDrawer = ({
         key={appointment?.id}
         appointment={seriesOpen ? appointment : null}
         onClose={closeAll}
+      />
+      <AlertDialog
+        open={cancelling}
+        onOpenChange={(open) => { if (!open) setCancelling(false) }}
+        title="Cancel appointment?"
+        description={
+          appointment
+            ? `Cancel ${appointment.patient.name}'s ${appointment.service.name} appointment? Booking history is retained, but this can't be undone from here.`
+            : ""
+        }
+        confirmLabel="Cancel appointment"
+        cancelLabel="Keep appointment"
+        onConfirm={() => {
+          setCancelling(false)
+          if (appointment) setStatus.mutate({ id: appointment.id, status: "cancelled" })
+        }}
       />
     </>
   )

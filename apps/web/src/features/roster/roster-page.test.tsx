@@ -9,6 +9,8 @@ import { setSession } from "../../lib/session"
 import { API, http, HttpResponse, server } from "../../test/msw"
 import { goOffline, goOnline } from "../../test/network"
 import { setViewport, type Viewport } from "../../test/viewport"
+import { bkkToday, fmtDay } from "../timeline/lib/geometry"
+import { bkkWeekStart } from "./hooks"
 import { RosterRoute } from "./roster-page"
 
 const branchId = "1f9619ff-8b86-4d01-b42d-00cf4fc964ff"
@@ -184,6 +186,18 @@ describe("RosterPage", () => {
     expect(screen.getByTestId(`shift-${tueShiftId}`)).toBeInTheDocument()
     expect(screen.getByTestId(`shift-${somchaiShiftId}`)).toBeInTheDocument()
     expect(screen.getByTestId("violations-panel")).toBeInTheDocument()
+    expect(screen.getByTestId("coverage-health")).toHaveTextContent("no violations")
+  })
+
+  it("jumps back to the current week when Today is pressed", async () => {
+    useHandlers(freshState())
+    mount("lg")
+
+    expect(await screen.findByTestId("roster-grid")).toBeInTheDocument()
+    await userEvent.click(screen.getByRole("button", { name: "Today" }))
+
+    const expectedWeek = bkkWeekStart(bkkToday())
+    expect(await screen.findByText(`Week of ${fmtDay(expectedWeek)}`)).toBeInTheDocument()
   })
 
   it("validates the draft being edited, not the shifts already saved", async () => {

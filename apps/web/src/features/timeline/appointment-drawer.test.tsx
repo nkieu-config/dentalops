@@ -137,6 +137,32 @@ describe("AppointmentDrawer", () => {
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument()
   })
 
+  it("requires confirmation before cancelling, and lets the owner back out first", async () => {
+    const bodies: unknown[] = []
+    server.use(
+      http.patch(`${API}/appointments/${appointmentId}/status`, async ({ request }) => {
+        bodies.push(await request.json())
+        return HttpResponse.json({ ...appointment, status: "cancelled", version: 2 })
+      })
+    )
+    mount()
+
+    await userEvent.click(screen.getByRole("button", { name: "Cancel" }))
+    expect(screen.getByRole("alertdialog", { name: "Cancel appointment?" })).toBeInTheDocument()
+    expect(bodies).toEqual([])
+
+    await userEvent.click(screen.getByRole("button", { name: "Keep appointment" }))
+    expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument()
+    expect(bodies).toEqual([])
+    expect(screen.getByText("S. Chaiwat · 0812345678")).toBeInTheDocument()
+
+    await userEvent.click(screen.getByRole("button", { name: "Cancel" }))
+    await userEvent.click(screen.getByRole("button", { name: "Cancel appointment" }))
+
+    expect(await screen.findByText("Marked cancelled")).toBeInTheDocument()
+    expect(bodies).toEqual([{ status: "cancelled" }])
+  })
+
   it("surfaces the api message on a rejected transition and keeps the drawer open", async () => {
     server.use(
       http.patch(`${API}/appointments/${appointmentId}/status`, () =>

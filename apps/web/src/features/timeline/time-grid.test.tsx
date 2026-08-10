@@ -138,6 +138,63 @@ describe("TimeGrid", () => {
     expect(screen.getByTestId(`col-${chairId}`)).toHaveTextContent(`card-${appointment.id}`)
   })
 
+  it("shades off-shift with a flat calm fill, not a diagonal hazard stripe", () => {
+    render(
+      <TimeGrid
+        date="2026-08-03"
+        columns={[dentistColumn]}
+        columnOf={byDentist}
+        shifts={[shift("2026-08-03T02:00:00.000Z", "2026-08-03T10:00:00.000Z")]}
+        appointments={[]}
+        renderAppointment={() => null}
+      />
+    )
+    const block = screen.getAllByTestId("offshift")[0]!
+    expect(block.getAttribute("style") ?? "").toContain("var(--offshift)")
+    expect(block.getAttribute("style") ?? "").not.toContain("repeating-linear-gradient")
+  })
+
+  it("renders week columns as weekday-and-date headers and highlights today's column", () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date("2026-08-04T02:00:00.000Z"))
+    const mon = { id: "2026-08-03", name: "Mon, 3 Aug 2026" }
+    const tue = { id: "2026-08-04", name: "Tue, 4 Aug 2026" }
+    render(
+      <TimeGrid
+        date="2026-08-03"
+        columns={[mon, tue]}
+        columnOf={() => null}
+        columnDate={(column) => column.id}
+        columnKind="day"
+        shifts={[]}
+        appointments={[]}
+        renderAppointment={() => null}
+      />
+    )
+    expect(screen.getByText("Mon")).toBeInTheDocument()
+    expect(screen.getByText("Tue")).toBeInTheDocument()
+    const todayBadge = screen.getByText("04")
+    expect(todayBadge).toHaveClass("bg-primary")
+    expect(screen.getByText("03")).not.toHaveClass("bg-primary")
+  })
+
+  it("rings a resource column with its assigned hue and shows its load caption", () => {
+    render(
+      <TimeGrid
+        date="2026-08-03"
+        columns={[dentistColumn]}
+        columnOf={byDentist}
+        columnMeta={() => ({ hue: 2, load: "3 booked · 4h open" })}
+        shifts={[]}
+        appointments={[]}
+        renderAppointment={() => null}
+      />
+    )
+    expect(screen.getByText("3 booked · 4h open")).toBeInTheDocument()
+    const avatar = screen.getByText("T")
+    expect(avatar.getAttribute("style") ?? "").toContain("var(--hue2-border)")
+  })
+
   it("drops a card no column claims", () => {
     const appointment = {
       id: "9f9619ff-8b86-4d01-b42d-00cf4fc964ff",

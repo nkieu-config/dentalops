@@ -5,7 +5,7 @@ import { useSearchParams } from "react-router"
 import { OFFLINE_MESSAGE } from "../../components/shell/offline-banner"
 import { Button } from "../../components/ui/button"
 import { EmptyState } from "../../components/ui/empty-state"
-import { NativeSelect } from "../../components/ui/native-select"
+import { SegmentedControl } from "../../components/ui/segmented-control"
 import { Skeleton } from "../../components/ui/skeleton"
 import { StatusCallout } from "../../components/ui/status-callout"
 import { useRealtime } from "../../lib/realtime"
@@ -17,13 +17,24 @@ import { AgendaView } from "./agenda-view"
 import { AppointmentCard } from "./appointment-card"
 import { AppointmentDrawer } from "./appointment-drawer"
 import { ColumnPicker } from "./column-picker"
+import { CommandPalette } from "./command-palette"
 import { CreateDrawer, type CreateDraft } from "./create-drawer"
-import { useAppointments, useBranches, useChairs, useDentists, useShifts } from "./hooks"
-import { bkkDayStart, bkkToday, msToY } from "./lib/geometry"
-import { layoutByDentist } from "./lib/lanes"
-import { TimeGrid } from "./time-grid"
-import { TimelineToolbar } from "./timeline-toolbar"
-import { columnModeFrom, useColumnMode } from "./use-column-mode"
+import {
+  useAppointments,
+  useBranches,
+  useChairs,
+  useDentists,
+  useShifts,
+  useWeekAppointments,
+  useWeekShifts
+} from "./hooks"
+import { bkkDate, bkkDayStart, bkkToday, bkkWeekStart, fmtDay, msToY, weekDates } from "./lib/geometry"
+import { layoutByDay, layoutByDentist } from "./lib/lanes"
+import { dentistLoad, fmtLoad } from "./lib/load"
+import { staffHue } from "./lib/staff-color"
+import { TimeGrid, type ColumnMeta } from "./time-grid"
+import { TimelineToolbar, type TimelineView } from "./timeline-toolbar"
+import { columnModeFrom, useColumnMode, type TimelineColumn } from "./use-column-mode"
 import { useDragCreate } from "./use-drag-create"
 import { useDragMove } from "./use-drag-move"
 import { useGridKeyboard } from "./use-grid-keyboard"
@@ -34,6 +45,7 @@ const ARRIVAL_HIGHLIGHT_MS = 1500
 const OFFLINE_REASON_ID = "add-staff-offline-reason"
 const HOUR_MS = 3_600_000
 const NEW_APPOINTMENT_HOUR = 9
+const VIEW_PARAM = "v"
 
 type TimelineMode = "sm" | "md" | "lg"
 
@@ -43,6 +55,9 @@ const useTimelineMode = (): TimelineMode => {
   if (isSmall) return "sm"
   return isMedium ? "md" : "lg"
 }
+
+const viewFrom = (params: URLSearchParams): TimelineView =>
+  params.get(VIEW_PARAM) === "week" ? "week" : "day"
 
 interface DragOverlayProps {
   dentist: StaffMember
@@ -76,13 +91,19 @@ const DragOverlay = ({ dentist, dayStart, branchId, onDraft }: DragOverlayProps)
 export const TimelinePage = () => {
   const [params, setParams] = useSearchParams()
   const date = params.get("d") ?? bkkToday()
+  const mode = useTimelineMode()
+  const view: TimelineView = mode === "sm" ? "day" : viewFrom(params)
+  const weekStart = bkkWeekStart(date)
   const branches = useBranches()
   const branchId = params.get("b") ?? branches.data?.[0]?.id
   const dayStart = bkkDayStart(date)
   const dentists = useDentists()
-  const chairs = useChairs(branchId, columnModeFrom(params) === "chair")
-  const shifts = useShifts(branchId, dayStart)
-  const appointments = useAppointments(branchId, dayStart)
+  const chairsEnabled = view === "day" && columnModeFrom(params) === "chair"
+  const chairs = useChairs(branchId, chairsEnabled)
+  const shifts = useShifts(branchId, dayStart, view === "day")
+  const weekShifts = useWeekShifts(branchId, weekStart, view === "week")
+  const appointments = useAppointments(branchId, dayStart, view === "day")
+  const weekAppointments = useWeekAppointments(branchId, weekStart, view === "week")
   const [selected, setSelected] = useState<Appointment | null>(null)
   const [draft, setDraft] = useState<CreateDraft | null>(null)
   const [conflictId, setConflictId] = useState<string | null>(null)
@@ -90,38 +111,82 @@ export const TimelinePage = () => {
   const [announcement, setAnnouncement] = useState("")
   const [hiddenColumns, setHiddenColumns] = useState<ReadonlySet<string>>(() => new Set())
   const [addingStaff, setAddingStaff] = useState(false)
+  const [paletteOpen, setPaletteOpen] = useState(false)
   const online = useOnline()
   const canCreate = useCanBook() && online
   const canAddStaff = useCanManageStaff()
-  const mode = useTimelineMode()
   const columnEls = useRef(new Map<string, HTMLDivElement>())
 
+  const activeAppointments = view === "week" ? weekAppointments : appointments
+  const activeShifts = view === "week" ? weekShifts : shifts
+  const appointmentData = activeAppointments.data ?? []
+
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k") {
+        event.preventDefault()
+        setPaletteOpen(true)
+      }
+    }
+    window.addEventListener("keydown", onKeyDown)
+    return () => window.removeEventListener("keydown", onKeyDown)
+  }, [])
+
   const lanePositions = useMemo(
-    () => layoutByDentist(appointments.data ?? []),
-    [appointments.data]
+    () => (view === "week" ? layoutByDay(appointmentData) : layoutByDentist(appointmentData)),
+    [view, appointmentData]
   )
   const allDentists = useMemo(() => dentists.data ?? [], [dentists.data])
   const allChairs = useMemo(() => chairs.data ?? [], [chairs.data])
   const {
     mode: columnMode,
     setMode: setColumnMode,
-    columns,
-    columnOf
+    columns: resourceColumns,
+    columnOf: resourceColumnOf
   } = useColumnMode({ dentists: allDentists, chairs: allChairs })
-  const gridColumns = useMemo(
-    () => (mode === "md" ? columns.filter((c) => !hiddenColumns.has(c.id)) : columns),
-    [columns, hiddenColumns, mode]
+
+  const weekColumns = useMemo<TimelineColumn[]>(
+    () => weekDates(weekStart).map((d) => ({ id: d, name: fmtDay(d) })),
+    [weekStart]
   )
-  const canDrag = canCreate && columnMode === "dentist"
+  const weekColumnOf = (appointment: Appointment) => bkkDate(Date.parse(appointment.startsAt))
+
+  const gridColumns = useMemo(() => {
+    if (view === "week") return weekColumns
+    return mode === "md" ? resourceColumns.filter((c) => !hiddenColumns.has(c.id)) : resourceColumns
+  }, [view, weekColumns, mode, resourceColumns, hiddenColumns])
+  const columnOf = view === "week" ? weekColumnOf : resourceColumnOf
+
+  const columnMeta = useMemo(() => {
+    if (view !== "day" || columnMode !== "dentist") return undefined
+    const shiftData = shifts.data ?? []
+    const apptData = appointments.data ?? []
+    return (column: TimelineColumn): ColumnMeta | undefined => {
+      if (!column.staffId) return undefined
+      return {
+        hue: staffHue(column.staffId),
+        load: fmtLoad(dentistLoad(column.staffId, shiftData, apptData))
+      }
+    }
+  }, [view, columnMode, shifts.data, appointments.data])
+
+  const canDrag = canCreate && columnMode === "dentist" && view === "day"
   const dragColumnIds = useMemo(
     () => (canDrag ? gridColumns.map((c) => c.id) : []),
     [canDrag, gridColumns]
   )
   const unseated = useMemo(
-    () => (appointments.data ?? []).filter((a) => columnOf(a) === null),
-    [appointments.data, columnOf]
+    () =>
+      view === "day" ? appointmentData.filter((a) => resourceColumnOf(a) === null) : [],
+    [view, appointmentData, resourceColumnOf]
   )
-  const dayKey = useMemo(() => ["appointments", branchId, dayStart], [branchId, dayStart])
+  const dayKey = useMemo(
+    () =>
+      view === "week"
+        ? (["appointments", branchId, "week", weekStart] as const)
+        : (["appointments", branchId, dayStart] as const),
+    [view, branchId, weekStart, dayStart]
+  )
 
   const { reschedule, isBusy } = useRescheduleAppointment({
     queryKey: dayKey,
@@ -154,7 +219,7 @@ export const TimelinePage = () => {
 
   const preview = useMemo(() => {
     if (!drag.preview) return null
-    const source = (appointments.data ?? []).find((a) => a.id === drag.preview?.id)
+    const source = appointmentData.find((a) => a.id === drag.preview?.id)
     if (!source) return null
     return {
       ...source,
@@ -162,7 +227,7 @@ export const TimelinePage = () => {
       startsAt: new Date(drag.preview.startMs).toISOString(),
       endsAt: new Date(drag.preview.endMs).toISOString()
     }
-  }, [drag.preview, appointments.data])
+  }, [drag.preview, appointmentData])
 
   useEffect(() => {
     if (conflictId === null) return
@@ -176,14 +241,27 @@ export const TimelinePage = () => {
     return () => clearTimeout(timer)
   }, [arrivedId])
 
-  const onChange = (next: { date?: string; branchId?: string }) => {
+  const onChange = (next: { date?: string; branchId?: string; view?: TimelineView }) => {
     const merged = new URLSearchParams(params)
     if (next.date) merged.set("d", next.date)
     if (next.branchId) merged.set("b", next.branchId)
+    if (next.view) {
+      if (next.view === "week") merged.set(VIEW_PARAM, "week")
+      else merged.delete(VIEW_PARAM)
+    }
     setParams(merged)
   }
 
-  const chairsPending = columnMode === "chair" && branchId !== undefined && chairs.isPending
+  const jumpToAppointment = (appointment: Appointment) => {
+    const appointmentDate = bkkDate(Date.parse(appointment.startsAt))
+    if (appointmentDate !== date || view !== "day") {
+      onChange({ date: appointmentDate, view: "day" })
+    }
+    setArrivedId(appointment.id)
+    setSelected(appointment)
+  }
+
+  const chairsPending = chairsEnabled && branchId !== undefined && chairs.isPending
 
   if (branches.isPending || dentists.isPending || chairsPending) {
     return (
@@ -193,7 +271,7 @@ export const TimelinePage = () => {
       </div>
     )
   }
-  if (branches.isError || dentists.isError || (columnMode === "chair" && chairs.isError)) {
+  if (branches.isError || dentists.isError || (chairsEnabled && chairs.isError)) {
     return <EmptyState icon={CalendarX} title="Could not load the clinic" hint="Retry shortly" />
   }
   if (allDentists.length === 0) {
@@ -229,21 +307,49 @@ export const TimelinePage = () => {
 
   return (
     <div className="flex h-[calc(100dvh-var(--spacing-topbar))] flex-col">
-      <TimelineToolbar date={date} branchId={branchId} branches={branches.data} onChange={onChange}>
-        {mode === "sm" ? null : (
-          <NativeSelect
-            aria-label="Column grouping"
-            className="w-auto"
-            value={columnMode}
-            onChange={(e) => setColumnMode(e.target.value === "chair" ? "chair" : "dentist")}
+      <TimelineToolbar
+        date={date}
+        branchId={branchId}
+        branches={branches.data}
+        view={view}
+        onChange={onChange}
+        onSearch={() => setPaletteOpen(true)}
+        showViewToggle={mode !== "sm"}
+        primaryAction={
+          <Button
+            size="sm"
+            className="min-h-11"
+            disabled={!canCreate || branchId === undefined}
+            title={!online ? OFFLINE_MESSAGE : undefined}
+            onClick={() =>
+              branchId !== undefined && allDentists[0]
+                ? setDraft({
+                    dentist: allDentists[0],
+                    branchId,
+                    startsAt: dayStart + NEW_APPOINTMENT_HOUR * HOUR_MS
+                  })
+                : undefined
+            }
           >
-            <option value="dentist">Dentists</option>
-            <option value="chair">Chairs</option>
-          </NativeSelect>
-        )}
-        {mode === "md" ? (
+            <Plus className="h-4 w-4" aria-hidden="true" />
+            New appointment
+          </Button>
+        }
+      >
+        {view === "day" && mode !== "sm" ? (
+          <SegmentedControl
+            ariaLabel="Column grouping"
+            value={columnMode}
+            onValueChange={(next) => setColumnMode(next === "chair" ? "chair" : "dentist")}
+            options={[
+              { value: "dentist", label: "Dentists" },
+              { value: "chair", label: "Chairs" }
+            ]}
+          />
+        ) : null}
+        {view === "day" && mode === "md" ? (
           <ColumnPicker
-            columns={columns}
+            columns={resourceColumns}
             hidden={hiddenColumns}
             onToggle={(id) =>
               setHiddenColumns((current) => {
@@ -255,33 +361,15 @@ export const TimelinePage = () => {
             }
           />
         ) : null}
-        <Button
-          size="sm"
-          className="min-h-11"
-          disabled={!canCreate || branchId === undefined}
-          title={!online ? OFFLINE_MESSAGE : undefined}
-          onClick={() =>
-            branchId !== undefined && allDentists[0]
-              ? setDraft({
-                  dentist: allDentists[0],
-                  branchId,
-                  startsAt: dayStart + NEW_APPOINTMENT_HOUR * HOUR_MS
-                })
-              : undefined
-          }
-        >
-          <Plus className="h-4 w-4" aria-hidden="true" />
-          New appointment
-        </Button>
       </TimelineToolbar>
-      {appointments.isError ? (
+      {activeAppointments.isError ? (
         <div className="px-4 pt-2">
           <StatusCallout tone="warning" icon={TriangleAlert} title="Appointments could not be loaded">
             The schedule below may be incomplete.{" "}
             <button
               type="button"
               className="font-semibold underline underline-offset-2"
-              onClick={() => void appointments.refetch()}
+              onClick={() => void activeAppointments.refetch()}
             >
               Retry
             </button>
@@ -290,7 +378,7 @@ export const TimelinePage = () => {
       ) : null}
       {mode === "sm" ? (
         <AgendaView
-          appointments={appointments.data ?? []}
+          appointments={appointmentData}
           dentists={allDentists}
           date={date}
           conflictId={conflictId}
@@ -311,11 +399,14 @@ export const TimelinePage = () => {
           ) : null}
           <TimeGrid
             date={date}
-            snap={mode === "md"}
             columns={gridColumns}
             columnOf={columnOf}
-            shifts={shifts.data ?? []}
-            appointments={appointments.data ?? []}
+            columnDate={view === "week" ? (column) => column.id : undefined}
+            columnKind={view === "week" ? "day" : "resource"}
+            columnMeta={columnMeta}
+            snap={mode === "md"}
+            shifts={activeShifts.data ?? []}
+            appointments={appointmentData}
             columnRef={(id, element) => {
               if (element) columnEls.current.set(id, element)
               else columnEls.current.delete(id)
@@ -372,8 +463,15 @@ export const TimelinePage = () => {
       <p role="status" aria-live="polite" className="sr-only">
         {announcement}
       </p>
+      <CommandPalette
+        open={paletteOpen}
+        onOpenChange={setPaletteOpen}
+        appointments={appointmentData}
+        onSelect={jumpToAppointment}
+      />
       <AppointmentDrawer
         appointment={selected}
+        dentists={allDentists}
         onClose={() => setSelected(null)}
         onReschedule={reschedule}
       />

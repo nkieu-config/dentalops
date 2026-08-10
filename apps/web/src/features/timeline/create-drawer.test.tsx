@@ -227,6 +227,26 @@ describe("CreateDrawer", () => {
     expect(screen.getByRole("dialog")).toBeInTheDocument()
   })
 
+  it("recaps the draft in plain language as the form is filled in, before it is submitted", async () => {
+    server.use(...directoryHandlers())
+    mount()
+    expect(screen.getByTestId("create-summary")).toHaveTextContent("Choose a service with Dr. Anong")
+
+    await screen.findByRole("option", { name: /Whitening/ })
+    await userEvent.selectOptions(screen.getByLabelText("Service"), whiteningId)
+    const summary = screen.getByTestId("create-summary")
+    expect(summary).toHaveTextContent("Whitening with Dr. Anong")
+    expect(summary).toHaveTextContent("Mon, 3 Aug 2026 · 09:00")
+
+    await userEvent.click(await screen.findByRole("button", { name: /S\. Chaiwat/ }))
+    expect(screen.getByTestId("create-summary")).toHaveTextContent(
+      "Mon, 3 Aug 2026 · 09:00 · S. Chaiwat"
+    )
+
+    await userEvent.click(screen.getByLabelText("Repeat weekly"))
+    expect(screen.getByTestId("create-summary")).toHaveTextContent("weekly ×4")
+  })
+
   it("passes the typed search through to the patients query", async () => {
     const queries: (string | null)[] = []
     server.use(

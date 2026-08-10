@@ -96,4 +96,34 @@ describe("AppointmentCard", () => {
     renderCard(makeAppointment({ seriesId: "7f9619ff-8b86-4d01-b42d-00cf4fc964ff" }))
     expect(screen.getByLabelText("Recurring")).toBeInTheDocument()
   })
+
+  it("shows a patient initials chip that a screen reader does not double-announce", () => {
+    renderCard(makeAppointment())
+    const chip = screen.getByText("SC")
+    expect(chip).toBeInTheDocument()
+    expect(chip.closest("[aria-hidden]")).not.toBeNull()
+  })
+
+  it("lifts on hover and reveals a resize grip only when a resize handler is given", () => {
+    const onResizeStart = vi.fn()
+    render(
+      <AppointmentCard
+        appointment={makeAppointment()}
+        dayStart={dayStart}
+        lane={0}
+        lanes={1}
+        onClick={() => {}}
+        onResizeStart={onResizeStart}
+      />
+    )
+    const card = screen.getByTestId(`appt-${makeAppointment().id}`)
+    expect(card.className).toContain("hover:-translate-y-0.5")
+    expect(card.className).toContain("hover:shadow-md")
+    expect(screen.getByTestId(`resize-${makeAppointment().id}`)).toBeInTheDocument()
+  })
+
+  it("offers no resize grip when the card cannot be resized", () => {
+    renderCard(makeAppointment())
+    expect(screen.queryByTestId(`resize-${makeAppointment().id}`)).not.toBeInTheDocument()
+  })
 })

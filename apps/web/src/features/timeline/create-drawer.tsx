@@ -16,7 +16,7 @@ import { Sheet } from "../../components/ui/sheet"
 import { api, ApiError } from "../../lib/api"
 import { cn } from "../../lib/cn"
 import { useServices } from "./hooks"
-import { fmtTime } from "./lib/geometry"
+import { bkkDate, fmtDay, fmtTime } from "./lib/geometry"
 import { SeriesConflictList, readSeriesConflicts } from "./series-dialog"
 
 const MINUTE = 60_000
@@ -68,6 +68,7 @@ export const CreateDrawer = ({ draft, dentists, dayStart, onClose }: CreateDrawe
   const services = useServices()
   const [serviceId, setServiceId] = useState("")
   const [patientId, setPatientId] = useState("")
+  const [patientName, setPatientName] = useState("")
   const [search, setSearch] = useState("")
   const [repeats, setRepeats] = useState(false)
   const [interval, setInterval] = useState(1)
@@ -231,7 +232,10 @@ export const CreateDrawer = ({ draft, dentists, dayStart, onClose }: CreateDrawe
                   key={p.id}
                   type="button"
                   aria-pressed={p.id === patientId}
-                  onClick={() => setPatientId(p.id)}
+                  onClick={() => {
+                    setPatientId(p.id)
+                    setPatientName(p.name)
+                  }}
                   className={
                     p.id === patientId
                       ? "w-full rounded-sm bg-secondary px-2 py-1.5 text-left text-sm text-primary"
@@ -311,6 +315,23 @@ export const CreateDrawer = ({ draft, dentists, dayStart, onClose }: CreateDrawe
             ) : null}
           </section>
           <SeriesConflictList conflicts={conflicts} />
+          {resolvedDraft ? (
+            <div
+              data-testid="create-summary"
+              className="rounded-card border border-border bg-secondary px-3 py-2.5 text-sm text-secondary-foreground"
+            >
+              <p className="font-medium">
+                {services.data?.find((s) => s.id === serviceId)?.name ?? "Choose a service"}
+                {" with "}
+                {resolvedDraft.dentist.name}
+              </p>
+              <p className="tabular-nums opacity-80">
+                {fmtDay(bkkDate(resolvedDraft.startsAt))} · {timeValue || "—"}
+                {repeats ? ` · weekly ×${count}` : ""}
+                {patientName ? ` · ${patientName}` : ""}
+              </p>
+            </div>
+          ) : null}
           <Button
             type="submit"
             className="w-full"

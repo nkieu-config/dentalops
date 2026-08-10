@@ -10,7 +10,7 @@ import { useQuery } from "@tanstack/react-query"
 import { useEffect, useState } from "react"
 import { z } from "zod"
 import { api } from "../../lib/api"
-import { DAY_MS } from "./lib/geometry"
+import { DAY_MS, WEEK_DAYS, bkkDayStart } from "./lib/geometry"
 
 export const useNow = (active: boolean): number => {
   const [now, setNow] = useState(() => Date.now())
@@ -52,20 +52,43 @@ const dayQuery = (dayStart: number) => ({
   to: new Date(dayStart + DAY_MS).toISOString()
 })
 
-export const useShifts = (branchId: string | undefined, dayStart: number) =>
+export const useShifts = (branchId: string | undefined, dayStart: number, enabled = true) =>
   useQuery({
     queryKey: ["shifts", branchId, dayStart],
-    enabled: branchId !== undefined,
+    enabled: enabled && branchId !== undefined,
     queryFn: () =>
       api("/shifts", z.array(shiftSchema), { query: { branchId, ...dayQuery(dayStart) } })
   })
 
-export const useAppointments = (branchId: string | undefined, dayStart: number) =>
+export const useAppointments = (branchId: string | undefined, dayStart: number, enabled = true) =>
   useQuery({
     queryKey: ["appointments", branchId, dayStart],
-    enabled: branchId !== undefined,
+    enabled: enabled && branchId !== undefined,
     queryFn: () =>
       api("/appointments", z.array(appointmentSchema), {
         query: { branchId, ...dayQuery(dayStart) }
+      })
+  })
+
+const weekQuery = (weekStart: string) => {
+  const start = bkkDayStart(weekStart)
+  return { from: new Date(start).toISOString(), to: new Date(start + WEEK_DAYS * DAY_MS).toISOString() }
+}
+
+export const useWeekShifts = (branchId: string | undefined, weekStart: string, enabled = true) =>
+  useQuery({
+    queryKey: ["shifts", branchId, "week", weekStart],
+    enabled: enabled && branchId !== undefined,
+    queryFn: () =>
+      api("/shifts", z.array(shiftSchema), { query: { branchId, ...weekQuery(weekStart) } })
+  })
+
+export const useWeekAppointments = (branchId: string | undefined, weekStart: string, enabled = true) =>
+  useQuery({
+    queryKey: ["appointments", branchId, "week", weekStart],
+    enabled: enabled && branchId !== undefined,
+    queryFn: () =>
+      api("/appointments", z.array(appointmentSchema), {
+        query: { branchId, ...weekQuery(weekStart) }
       })
   })

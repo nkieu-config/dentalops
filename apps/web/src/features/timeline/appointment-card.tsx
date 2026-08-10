@@ -1,6 +1,7 @@
 import type { Appointment } from "@dentalops/contracts"
 import { AlertTriangle, Ban, Check, Repeat } from "lucide-react"
 import type { PointerEvent as ReactPointerEvent } from "react"
+import { InitialsAvatar } from "../../components/ui/initials-avatar"
 import { cn } from "../../lib/cn"
 import { fmtTime, msToY } from "./lib/geometry"
 
@@ -54,7 +55,8 @@ export const AppointmentCard = ({
       onClick={() => onClick(appointment)}
       onPointerDown={onMoveStart}
       className={cn(
-        "absolute z-[5] flex scroll-mb-bottomnav scroll-mt-topbar flex-col items-start overflow-hidden rounded-md border-l-[3px] px-2 py-1 text-left text-xs leading-tight text-card-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+        "group absolute z-5 flex scroll-mb-bottomnav scroll-mt-topbar flex-col items-start overflow-hidden rounded-md border-l-[3px] px-2 py-1 text-left text-xs leading-tight text-card-foreground transition-[transform,box-shadow] duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+        !preview && "hover:z-10 hover:-translate-y-0.5 hover:shadow-md",
         completed && "opacity-70",
         cancelled && "border-l-border bg-muted text-muted-foreground",
         conflict && "ring-2 ring-destructive",
@@ -104,20 +106,29 @@ export const AppointmentCard = ({
       </span>
       <span
         className={cn(
-          "w-full truncate",
+          "flex w-full min-w-0 items-center gap-1",
           !cancelled && "text-appointment-muted",
           !roomForPatient && "sr-only"
         )}
       >
-        {appointment.patient.name}
+        <span aria-hidden="true">
+          <InitialsAvatar name={appointment.patient.name} className="size-4 text-[8px]" />
+        </span>
+        <span className="truncate">{appointment.patient.name}</span>
       </span>
       {onResizeStart ? (
         <span
           data-testid={`resize-${appointment.id}`}
           onPointerDown={onResizeStart}
           onClick={(e) => e.stopPropagation()}
-          className="absolute inset-x-0 bottom-0 h-2 cursor-ns-resize"
-        />
+          className="absolute inset-x-0 bottom-0 flex h-2 cursor-ns-resize items-end justify-center pb-0.5"
+        >
+          <span className="flex gap-0.5 opacity-0 transition-opacity duration-150 group-hover:opacity-70">
+            <span className="size-0.75 rounded-full bg-current" />
+            <span className="size-0.75 rounded-full bg-current" />
+            <span className="size-0.75 rounded-full bg-current" />
+          </span>
+        </span>
       ) : null}
     </button>
   )

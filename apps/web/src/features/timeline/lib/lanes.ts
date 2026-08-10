@@ -1,3 +1,5 @@
+import { bkkDate } from "./geometry"
+
 export interface LaneItem {
   id: string
   start: number
@@ -71,6 +73,27 @@ export const layoutByDentist = (
   }
   const positions = new Map<string, LanePosition>()
   for (const items of byDentist.values()) {
+    for (const [id, position] of layoutLanes(items)) positions.set(id, position)
+  }
+  return positions
+}
+
+export const layoutByDay = (
+  subjects: readonly Pick<LaneSubject, "id" | "startsAt" | "endsAt">[]
+): Map<string, LanePosition> => {
+  const byDay = new Map<string, LaneItem[]>()
+  for (const subject of subjects) {
+    const day = bkkDate(Date.parse(subject.startsAt))
+    const items = byDay.get(day) ?? []
+    items.push({
+      id: subject.id,
+      start: Date.parse(subject.startsAt),
+      end: Date.parse(subject.endsAt)
+    })
+    byDay.set(day, items)
+  }
+  const positions = new Map<string, LanePosition>()
+  for (const items of byDay.values()) {
     for (const [id, position] of layoutLanes(items)) positions.set(id, position)
   }
   return positions

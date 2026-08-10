@@ -1,5 +1,5 @@
 import { computeSlots, type Interval } from "@dentalops/availability"
-import type { Appointment, UserRole } from "@dentalops/contracts"
+import type { Appointment, StaffMember, UserRole } from "@dentalops/contracts"
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 import { render, screen, waitFor } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
@@ -38,16 +38,16 @@ const appointment: Appointment = {
 
 const seriesId = "c1000000-0000-4000-8000-000000000001"
 
-const Harness = () => {
+const Harness = ({ dentists }: { dentists?: StaffMember[] }) => {
   const [selected, setSelected] = useState<Appointment | null>(appointment)
-  return <AppointmentDrawer appointment={selected} onClose={() => setSelected(null)} />
+  return <AppointmentDrawer appointment={selected} dentists={dentists} onClose={() => setSelected(null)} />
 }
 
-const mount = () => {
+const mount = (dentists?: StaffMember[]) => {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   return render(
     <QueryClientProvider client={client}>
-      <Harness />
+      <Harness dentists={dentists} />
       <Toaster />
     </QueryClientProvider>
   )
@@ -127,14 +127,29 @@ describe("AppointmentDrawer", () => {
       })
     )
     mount()
-    expect(screen.getByText("09:00–10:00")).toBeInTheDocument()
-    expect(screen.getByText("S. Chaiwat · 0812345678")).toBeInTheDocument()
+    expect(screen.getByText("09:00–10:00 (1h)")).toBeInTheDocument()
+    expect(screen.getByRole("heading", { name: "S. Chaiwat" })).toBeInTheDocument()
+    expect(screen.getByText("0812345678")).toBeInTheDocument()
 
     await userEvent.click(screen.getByRole("button", { name: "Complete" }))
 
     expect(await screen.findByText("Marked completed")).toBeInTheDocument()
     expect(bodies).toEqual([{ status: "completed" }])
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument()
+  })
+
+  it("resolves the dentist's name from the roster it is given, or shows a dash without one", () => {
+    mount([
+      { id: appointment.dentistId, name: "Dr. Anong", role: "dentist", isActive: true }
+    ])
+    expect(screen.getByText("Dentist")).toBeInTheDocument()
+    expect(screen.getByText("Dr. Anong")).toBeInTheDocument()
+  })
+
+  it("shows a dash for the dentist when no roster was passed in", () => {
+    mount()
+    expect(screen.getByText("Dentist")).toBeInTheDocument()
+    expect(screen.getByText("—")).toBeInTheDocument()
   })
 
   it("requires confirmation before cancelling, and lets the owner back out first", async () => {
@@ -154,7 +169,7 @@ describe("AppointmentDrawer", () => {
     await userEvent.click(screen.getByRole("button", { name: "Keep appointment" }))
     expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument()
     expect(bodies).toEqual([])
-    expect(screen.getByText("S. Chaiwat · 0812345678")).toBeInTheDocument()
+    expect(screen.getByRole("heading", { name: "S. Chaiwat" })).toBeInTheDocument()
 
     await userEvent.click(screen.getByRole("button", { name: "Cancel" }))
     await userEvent.click(screen.getByRole("button", { name: "Cancel appointment" }))
@@ -192,7 +207,7 @@ describe("AppointmentDrawer", () => {
         <AppointmentDrawer appointment={{ ...appointment, status: "cancelled" }} onClose={() => {}} />
       </QueryClientProvider>
     )
-    expect(screen.getByText("cancelled")).toBeInTheDocument()
+    expect(screen.getByText("Cancelled")).toBeInTheDocument()
     expect(screen.queryByRole("button", { name: "Complete" })).not.toBeInTheDocument()
   })
 
@@ -257,7 +272,7 @@ describe("AppointmentDrawer", () => {
 
   it("hides the move controls from a role the api will not let reschedule", async () => {
     mountMove("dentist")
-    expect(await screen.findByText("S. Chaiwat · 0812345678")).toBeInTheDocument()
+    expect(await screen.findByRole("heading", { name: "S. Chaiwat" })).toBeInTheDocument()
     expect(screen.queryByText("Move")).not.toBeInTheDocument()
     expect(screen.queryAllByTestId("slot")).toHaveLength(0)
   })

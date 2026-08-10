@@ -38,9 +38,9 @@ describe("DevUiPage", () => {
     expect(states.getByTestId("appt-f0000000-0000-4000-8000-000000000200").className).toContain(
       "opacity-40"
     )
-    expect(states.queryAllByTestId(/^appt-/).filter((el) => el.className.includes("shadow"))).toEqual(
-      []
-    )
+    expect(
+      states.queryAllByTestId(/^appt-/).filter((el) => el.className.includes("shadow-lg"))
+    ).toEqual([])
   })
 
   it("marks the conflict card with a destructive ring and a warning icon", () => {

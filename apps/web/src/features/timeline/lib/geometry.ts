@@ -18,6 +18,10 @@ const dayFmt = new Intl.DateTimeFormat("en-GB", {
   month: "short",
   year: "numeric"
 })
+const weekdayShortFmt = new Intl.DateTimeFormat("en-GB", {
+  timeZone: "Asia/Bangkok",
+  weekday: "short"
+})
 
 export const bkkDate = (ms: number): string => dateFmt.format(new Date(ms))
 
@@ -25,6 +29,16 @@ export const bkkToday = (): string => bkkDate(Date.now())
 
 export const bkkShiftDate = (isoDate: string, days: number): string =>
   dateFmt.format(new Date(bkkDayStart(isoDate) + days * DAY_MS + DAY_MS / 2))
+
+export const WEEK_DAYS = 7
+
+export const bkkWeekStart = (isoDate: string): string => {
+  const weekday = new Date(bkkDayStart(isoDate) + DAY_MS / 2).getUTCDay()
+  return bkkShiftDate(isoDate, -((weekday + 6) % 7))
+}
+
+export const weekDates = (weekStart: string): string[] =>
+  Array.from({ length: WEEK_DAYS }, (_, index) => bkkShiftDate(weekStart, index))
 
 export const msToY = (ms: number, dayStart: number): number =>
   ((ms - dayStart) / MINUTE) * PX_PER_MIN
@@ -42,3 +56,6 @@ export const fmtTime = (ms: number): string => timeFmt.format(new Date(ms))
 
 export const fmtDay = (isoDate: string): string =>
   dayFmt.format(new Date(bkkDayStart(isoDate) + DAY_MS / 2))
+
+export const fmtWeekdayShort = (isoDate: string): string =>
+  weekdayShortFmt.format(new Date(bkkDayStart(isoDate) + DAY_MS / 2))

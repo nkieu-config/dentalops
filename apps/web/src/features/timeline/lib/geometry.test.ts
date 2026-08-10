@@ -3,10 +3,13 @@ import {
   bkkDate,
   bkkDayStart,
   bkkShiftDate,
+  bkkWeekStart,
   fmtTime,
+  fmtWeekdayShort,
   msToY,
   snapCeil,
   snapFloor,
+  weekDates,
   yToMs
 } from "./geometry"
 
@@ -49,5 +52,28 @@ describe("geometry", () => {
   it("shifts a calendar date across a month boundary", () => {
     expect(bkkShiftDate("2026-08-31", 1)).toBe("2026-09-01")
     expect(bkkShiftDate("2026-08-01", -1)).toBe("2026-07-31")
+  })
+
+  it("finds the Monday that starts a date's week", () => {
+    expect(bkkWeekStart("2026-08-03")).toBe("2026-08-03")
+    expect(bkkWeekStart("2026-08-01")).toBe("2026-07-27")
+    expect(bkkWeekStart("2026-08-09")).toBe("2026-08-03")
+  })
+
+  it("lists the 7 dates of a week starting from its Monday", () => {
+    expect(weekDates("2026-08-03")).toEqual([
+      "2026-08-03",
+      "2026-08-04",
+      "2026-08-05",
+      "2026-08-06",
+      "2026-08-07",
+      "2026-08-08",
+      "2026-08-09"
+    ])
+  })
+
+  it("abbreviates the weekday for a compact column label", () => {
+    expect(fmtWeekdayShort("2026-08-03")).toBe("Mon")
+    expect(fmtWeekdayShort("2026-08-01")).toBe("Sat")
   })
 })

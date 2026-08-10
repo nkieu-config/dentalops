@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest"
-import { layoutLanes } from "./lanes"
+import { layoutByDay, layoutLanes } from "./lanes"
 
 const item = (id: string, start: number, end: number) => ({ id, start, end })
 
@@ -44,5 +44,25 @@ describe("layoutLanes", () => {
   it("triple overlap needs three lanes", () => {
     const out = layoutLanes([item("a", 0, 30), item("b", 5, 30), item("c", 10, 30)])
     expect(out.get("c")).toEqual({ id: "c", lane: 2, lanes: 3 })
+  })
+})
+
+describe("layoutByDay", () => {
+  it("stacks overlapping appointments from different dentists that land on the same day column", () => {
+    const out = layoutByDay([
+      { id: "a", startsAt: "2026-08-03T02:00:00.000Z", endsAt: "2026-08-03T03:00:00.000Z" },
+      { id: "b", startsAt: "2026-08-03T02:30:00.000Z", endsAt: "2026-08-03T03:30:00.000Z" }
+    ])
+    expect(out.get("a")).toEqual({ id: "a", lane: 0, lanes: 2 })
+    expect(out.get("b")).toEqual({ id: "b", lane: 1, lanes: 2 })
+  })
+
+  it("keeps two different days independent even when their clock times overlap", () => {
+    const out = layoutByDay([
+      { id: "a", startsAt: "2026-08-03T02:00:00.000Z", endsAt: "2026-08-03T03:00:00.000Z" },
+      { id: "b", startsAt: "2026-08-04T02:00:00.000Z", endsAt: "2026-08-04T03:00:00.000Z" }
+    ])
+    expect(out.get("a")).toEqual({ id: "a", lane: 0, lanes: 1 })
+    expect(out.get("b")).toEqual({ id: "b", lane: 0, lanes: 1 })
   })
 })

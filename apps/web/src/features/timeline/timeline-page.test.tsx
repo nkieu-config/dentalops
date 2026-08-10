@@ -201,7 +201,8 @@ describe("TimelinePage", () => {
     const dialog = await screen.findByRole("dialog")
     expect(dialog).toHaveTextContent("Root canal")
     expect(dialog).toHaveTextContent("09:00–10:00")
-    expect(dialog).toHaveTextContent("S. Chaiwat · 0812345678")
+    expect(dialog).toHaveTextContent("S. Chaiwat")
+    expect(dialog).toHaveTextContent("0812345678")
   })
 
   it("drags a range on a dentist column into a prefilled booking drawer", async () => {
@@ -277,7 +278,7 @@ describe("TimelinePage", () => {
 
     expect(overlay.contains(card)).toBe(false)
     expect(card.compareDocumentPosition(overlay) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
-    expect(card.className).toContain("z-[5]")
+    expect(card.className).toContain("z-5")
     expect(overlay.className).not.toMatch(/(^|\s)z-/)
 
     fireEvent.pointerDown(card, { clientY: 576, button: 0 })
@@ -318,7 +319,7 @@ describe("TimelinePage", () => {
     expect(preview.className).toContain("shadow-lg")
     expect(card.className).toContain("opacity-40")
     const grid = screen.getByTestId("timegrid-scroll")
-    expect([...grid.querySelectorAll('[class*="shadow"]')]).toEqual([preview])
+    expect([...grid.querySelectorAll('[class*="shadow-lg"]')]).toEqual([preview])
 
     fireEvent.pointerUp(window)
     expect(screen.queryByTestId("drag-preview")).not.toBeInTheDocument()
@@ -635,7 +636,7 @@ describe("TimelinePage", () => {
       screen.getByTestId(`appt-${id}`)
     )
 
-    await userEvent.selectOptions(screen.getByLabelText("Column grouping"), "dentist")
+    await userEvent.click(screen.getByRole("radio", { name: "Dentists" }))
     const sameCard = await screen.findByTestId(`appt-${id}`)
     fireEvent.pointerDown(sameCard, { button: 0, clientX: 10, clientY: 576 })
     fireEvent.pointerMove(window, { clientX: 10, clientY: 640 })
@@ -690,14 +691,13 @@ describe("TimelinePage", () => {
     mount()
 
     expect(await screen.findByText("Dr. Anong")).toBeInTheDocument()
-    const toggle = screen.getByLabelText("Column grouping")
-    expect(toggle).toHaveValue("dentist")
+    expect(screen.getByRole("radio", { name: "Dentists" })).toHaveAttribute("aria-checked", "true")
 
-    await userEvent.selectOptions(toggle, "chair")
+    await userEvent.click(screen.getByRole("radio", { name: "Chairs" }))
     expect(await screen.findByText("Chair 1")).toBeInTheDocument()
     expect(screen.queryByText("Dr. Anong")).not.toBeInTheDocument()
 
-    await userEvent.selectOptions(screen.getByLabelText("Column grouping"), "dentist")
+    await userEvent.click(screen.getByRole("radio", { name: "Dentists" }))
     expect(await screen.findByText("Dr. Anong")).toBeInTheDocument()
     expect(screen.getByTestId(`overlay-${dentistId}`)).toBeInTheDocument()
   })
@@ -722,6 +722,71 @@ describe("TimelinePage", () => {
     const card = await screen.findByTestId(`appt-${id}`)
     expect(card.className).toContain("appointment-arrive")
     expect(screen.getByText("A new booking just arrived on this day")).toBeInTheDocument()
+  })
+
+  it("switches to a week view showing every day, and hides the day-only column controls", async () => {
+    const requests: { from: string | null; to: string | null }[] = []
+    server.use(
+      ...directory([{ id: dentistId, name: "Dr. Anong" }]),
+      http.get(`${API}/appointments`, ({ request }) => {
+        const url = new URL(request.url)
+        requests.push({ from: url.searchParams.get("from"), to: url.searchParams.get("to") })
+        return HttpResponse.json([])
+      })
+    )
+    mount()
+    expect(await screen.findByText("Dr. Anong")).toBeInTheDocument()
+
+    await userEvent.click(screen.getByRole("radio", { name: "Week" }))
+
+    expect(await screen.findByTestId("col-2026-08-03")).toBeInTheDocument()
+    expect(screen.getByTestId("col-2026-08-09")).toBeInTheDocument()
+    expect(screen.getByText("Week of Mon, 3 Aug 2026")).toBeInTheDocument()
+    expect(screen.queryByRole("radio", { name: "Dentists" })).not.toBeInTheDocument()
+
+    await waitFor(() =>
+      expect(
+        requests.some(
+          (r) => r.from && r.to && Date.parse(r.to) - Date.parse(r.from) === 7 * 86_400_000
+        )
+      ).toBe(true)
+    )
+  })
+
+  it("opens the command palette with the keyboard shortcut and jumps straight to the picked appointment", async () => {
+    const id = "a1000000-0000-4000-8000-000000000040"
+    server.use(
+      ...directory([{ id: dentistId, name: "Dr. Anong" }]),
+      http.get(`${API}/appointments`, () =>
+        HttpResponse.json([
+          appointment(id, dentistId, "2026-08-03T02:00:00.000Z", "2026-08-03T03:00:00.000Z")
+        ])
+      )
+    )
+    mount()
+    expect(await screen.findByTestId(`appt-${id}`)).toBeInTheDocument()
+
+    await userEvent.keyboard("{Meta>}k{/Meta}")
+    expect(await screen.findByPlaceholderText("Search by patient name or phone…")).toBeInTheDocument()
+
+    const results = screen.getByRole("listbox", { name: "Matching appointments" })
+    await userEvent.click(within(results).getByText("S. Chaiwat"))
+    expect(await screen.findByRole("dialog")).toHaveTextContent("Cleaning")
+    expect(
+      screen.queryByPlaceholderText("Search by patient name or phone…")
+    ).not.toBeInTheDocument()
+  })
+
+  it("also opens the command palette from the toolbar's find-a-patient button", async () => {
+    server.use(
+      ...directory([{ id: dentistId, name: "Dr. Anong" }]),
+      http.get(`${API}/appointments`, () => HttpResponse.json([]))
+    )
+    mount()
+    expect(await screen.findByText("Dr. Anong")).toBeInTheDocument()
+
+    await userEvent.click(screen.getByRole("button", { name: /Find a patient/ }))
+    expect(await screen.findByPlaceholderText("Search by patient name or phone…")).toBeInTheDocument()
   })
 
   describe("a clinic with no dentists yet", () => {

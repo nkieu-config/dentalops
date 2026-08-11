@@ -1,7 +1,7 @@
 # Timeline Command Center Redesign
 
 **Date:** 2026-08-11  
-**Status:** Draft - awaiting user review  
+**Status:** Approved
 **Scope:** `/app/timeline`, its day and week views, mobile agenda, schedule search, and appointment create/detail sheets
 
 ## 1. Goal

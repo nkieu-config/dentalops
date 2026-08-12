@@ -7,10 +7,12 @@ import { scoped } from "../prisma/scoped-input"
 import { currentTenant } from "../tenant/tenant-context"
 import { CreatePatientDto } from "./dto/create-patient.dto"
 import { QueryPatientsDto } from "./dto/query-patients.dto"
+import { UpdatePatientDto } from "./dto/update-patient.dto"
 
 const HISTORY_LIMIT = 50
 
 const HISTORY_INCLUDE = {
+  branch: { select: { id: true, name: true } },
   service: { select: { id: true, name: true } },
   dentist: { select: { id: true, name: true } }
 } satisfies Prisma.AppointmentInclude
@@ -22,7 +24,7 @@ export class PatientsService {
   async create(dto: CreatePatientDto) {
     try {
       return await this.prisma.scoped.patient.create({
-        data: scoped<Prisma.PatientUncheckedCreateInput>({ ...dto })
+        data: scoped<Prisma.PatientUncheckedCreateInput>({ ...dto, email: dto.email ?? "" })
       })
     } catch (e) {
       if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === "P2002") {
@@ -63,7 +65,42 @@ export class PatientsService {
       orderBy: [{ createdAt: "desc" }, { id: "desc" }],
       take: limit + 1
     })
-    return toPage(rows, limit)
+    const page = toPage(rows, limit)
+    const ids = page.items.map((patient) => patient.id)
+    const upcoming = ids.length
+      ? await this.prisma.scoped.appointment.findMany({
+          where: { patientId: { in: ids }, status: "confirmed", startsAt: { gte: new Date() } },
+          orderBy: [{ patientId: "asc" }, { startsAt: "asc" }],
+          distinct: ["patientId"],
+          select: { patientId: true, startsAt: true }
+        })
+      : []
+    const nextAppointmentByPatient = new Map(upcoming.map((a) => [a.patientId, a.startsAt]))
+    return {
+      ...page,
+      items: page.items.map((patient) => ({
+        ...patient,
+        nextAppointmentAt: nextAppointmentByPatient.get(patient.id)?.toISOString() ?? null
+      }))
+    }
+  }
+
+  async update(id: string, dto: UpdatePatientDto) {
+    try {
+      return await this.prisma.scoped.patient.update({ where: { id }, data: { ...dto } })
+    } catch (e) {
+      if (e instanceof Prisma.PrismaClientKnownRequestError) {
+        if (e.code === "P2002") {
+          throw new AppException(
+            409,
+            "DUPLICATE_PATIENT",
+            "A patient with this phone number already exists"
+          )
+        }
+        if (e.code === "P2025") throw new AppException(404, "NOT_FOUND", "Patient not found")
+      }
+      throw e
+    }
   }
 
   async get(id: string) {

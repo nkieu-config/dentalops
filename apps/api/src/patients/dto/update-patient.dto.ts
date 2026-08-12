@@ -1,16 +1,18 @@
-import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger"
+import { ApiPropertyOptional } from "@nestjs/swagger"
 import { IsEmail, IsOptional, IsString, Matches, MaxLength, MinLength, ValidateIf } from "class-validator"
 
-export class CreatePatientDto {
-  @ApiProperty()
+export class UpdatePatientDto {
+  @ApiPropertyOptional()
+  @IsOptional()
   @IsString()
   @MinLength(1)
   @MaxLength(120)
-  name!: string
+  name?: string
 
-  @ApiProperty({ example: "0812345678" })
+  @ApiPropertyOptional({ example: "0812345678" })
+  @IsOptional()
   @Matches(/^0\d{8,9}$/)
-  phone!: string
+  phone?: string
 
   @ApiPropertyOptional({ example: "patient@example.com" })
   @IsOptional()

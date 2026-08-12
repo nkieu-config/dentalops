@@ -11,6 +11,7 @@ interface PatientRow {
   name: string
   phone: string
   email: string
+  nextAppointmentAt: string | null
 }
 
 interface PatientPage {
@@ -94,6 +95,24 @@ describe("patients endpoints", () => {
     expect(res.body.tenantId).toBe(tenantId)
   })
 
+  it("creates a patient with no email, matching the front desk's phone-first walk-ins", async () => {
+    const res = await request(server)
+      .post("/patients")
+      .set("Authorization", `Bearer ${ownerToken}`)
+      .send({ name: "Walk-in Somchai", phone: "0888888888" })
+      .expect(201)
+    expect(res.body.email).toBe("")
+  })
+
+  it("rejects a malformed email on create", async () => {
+    const res = await request(server)
+      .post("/patients")
+      .set("Authorization", `Bearer ${ownerToken}`)
+      .send({ name: "Bad Email", phone: "0877777777", email: "not-an-email" })
+      .expect(400)
+    expect(apiErrorSchema.parse(res.body).errorCode).toBe("VALIDATION_ERROR")
+  })
+
   it("rejects a duplicate phone and email with DUPLICATE_PATIENT", async () => {
     const res = await request(server)
       .post("/patients")
@@ -105,7 +124,7 @@ describe("patients endpoints", () => {
 
   it("walks every page through the cursor without overlap or omission", async () => {
     const total = await prisma.patient.count({ where: { tenantId } })
-    expect(total).toBe(26)
+    expect(total).toBe(27)
 
     const first = await listPage({ limit: 10 }).expect(200)
     const page1 = first.body as PatientPage
@@ -145,6 +164,68 @@ describe("patients endpoints", () => {
     expect(phoneHits[0]!.phone).toBe(phoneFor(7))
   })
 
+  it("shows a patient's soonest upcoming confirmed appointment in the list, and null for patients without one", async () => {
+    const branch = await prisma.branch.findFirstOrThrow({ where: { tenantId } })
+    const service = await prisma.service.findFirstOrThrow({ where: { tenantId } })
+    const owner = await prisma.user.findFirstOrThrow({
+      where: { tenantId },
+      omit: { passwordHash: false }
+    })
+    const dentist = await prisma.user.create({
+      data: {
+        tenantId,
+        email: `dentist@${slug}.local`,
+        passwordHash: owner.passwordHash,
+        name: "Dentist Soonest",
+        role: "dentist"
+      }
+    })
+
+    const soonest = new Date(Date.now() + 2 * 24 * 60 * 60 * 1000)
+    const later = new Date(Date.now() + 9 * 24 * 60 * 60 * 1000)
+    await prisma.appointment.createMany({
+      data: [
+        {
+          tenantId,
+          branchId: branch.id,
+          serviceId: service.id,
+          dentistId: dentist.id,
+          patientId: seededIds[7]!,
+          startsAt: later,
+          endsAt: new Date(later.getTime() + 1_800_000),
+          status: "confirmed"
+        },
+        {
+          tenantId,
+          branchId: branch.id,
+          serviceId: service.id,
+          dentistId: dentist.id,
+          patientId: seededIds[7]!,
+          startsAt: soonest,
+          endsAt: new Date(soonest.getTime() + 1_800_000),
+          status: "confirmed"
+        },
+        {
+          tenantId,
+          branchId: branch.id,
+          serviceId: service.id,
+          dentistId: dentist.id,
+          patientId: seededIds[7]!,
+          startsAt: new Date(Date.now() - 24 * 60 * 60 * 1000),
+          endsAt: new Date(Date.now() - 24 * 60 * 60 * 1000 + 1_800_000),
+          status: "completed"
+        }
+      ]
+    })
+
+    const withAppointment = await listPage({ q: "kanya" }).expect(200)
+    const kanya = (withAppointment.body as PatientPage).items[0]!
+    expect(kanya.nextAppointmentAt).toBe(soonest.toISOString())
+
+    const noAppointmentPage = await listPage({ q: nameFor(0) }).expect(200)
+    expect((noAppointmentPage.body as PatientPage).items[0]!.nextAppointmentAt).toBeNull()
+  })
+
   it("rejects a malformed cursor with INVALID_CURSOR", async () => {
     const res = await listPage({ cursor: Buffer.from("garbage").toString("base64url") }).expect(400)
     expect(apiErrorSchema.parse(res.body).errorCode).toBe("INVALID_CURSOR")
@@ -163,5 +244,54 @@ describe("patients endpoints", () => {
       .set("Authorization", `Bearer ${ownerToken}`)
       .expect(404)
     expect(apiErrorSchema.parse(missing.body).errorCode).toBe("NOT_FOUND")
+  })
+
+  it("lets staff correct a patient's contact info", async () => {
+    const res = await request(server)
+      .patch(`/patients/${seededIds[1]}`)
+      .set("Authorization", `Bearer ${ownerToken}`)
+      .send({ email: "corrected@patientsapi.local" })
+      .expect(200)
+    expect(res.body.email).toBe("corrected@patientsapi.local")
+    expect(res.body.phone).toBe(phoneFor(1))
+
+    const reread = await request(server)
+      .get(`/patients/${seededIds[1]}`)
+      .set("Authorization", `Bearer ${ownerToken}`)
+      .expect(200)
+    expect(reread.body.email).toBe("corrected@patientsapi.local")
+  })
+
+  it("lets staff clear a patient's email back to blank", async () => {
+    const res = await request(server)
+      .patch(`/patients/${seededIds[2]}`)
+      .set("Authorization", `Bearer ${ownerToken}`)
+      .send({ email: "" })
+      .expect(200)
+    expect(res.body.email).toBe("")
+
+    const reread = await request(server)
+      .get(`/patients/${seededIds[2]}`)
+      .set("Authorization", `Bearer ${ownerToken}`)
+      .expect(200)
+    expect(reread.body.email).toBe("")
+  })
+
+  it("404s updating an unknown patient id", async () => {
+    const res = await request(server)
+      .patch("/patients/00000000-0000-4000-8000-000000000000")
+      .set("Authorization", `Bearer ${ownerToken}`)
+      .send({ name: "Nobody" })
+      .expect(404)
+    expect(apiErrorSchema.parse(res.body).errorCode).toBe("NOT_FOUND")
+  })
+
+  it("rejects a PATCH that collides with another patient's phone", async () => {
+    const res = await request(server)
+      .patch(`/patients/${seededIds[2]}`)
+      .set("Authorization", `Bearer ${ownerToken}`)
+      .send({ phone: phoneFor(1) })
+      .expect(409)
+    expect(apiErrorSchema.parse(res.body).errorCode).toBe("DUPLICATE_PATIENT")
   })
 })

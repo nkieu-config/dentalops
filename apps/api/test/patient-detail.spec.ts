@@ -11,6 +11,7 @@ interface DetailAppointment {
   startsAt: string
   endsAt: string
   status: string
+  branch: { id: string; name: string }
   service: { id: string; name: string }
   dentist: { id: string; name: string }
 }
@@ -163,6 +164,7 @@ describe("patient detail", () => {
       expect(appointment.service.name.length).toBeGreaterThan(0)
       expect(appointment.dentist.name).toMatch(/^Dentist (Anong|Boonmee)$/)
       expect(appointment.branchId).toBe(branchId)
+      expect(appointment.branch).toEqual({ id: branchId, name: expect.any(String) })
       expect(appointment.status).toBe("confirmed")
     }
     const names = new Set(body.appointments.map((a) => a.dentist.name))

@@ -46,17 +46,27 @@ export const appointmentSchema = z.looseObject({
   claims: z.array(resourceClaimSchema)
 })
 
+export const patientListItemSchema = patientSchema.extend({
+  nextAppointmentAt: z.iso.datetime().nullable()
+})
+
 export const patientPageSchema = z.object({
-  items: z.array(patientSchema),
+  items: z.array(patientListItemSchema),
   nextCursor: z.string().nullable()
 })
 
-export const patientAppointmentSchema = z.looseObject({
+export const patientAppointmentBranchSchema = z.object({
+  id: z.uuid(),
+  name: z.string()
+})
+
+export const patientAppointmentSchema = z.object({
   id: z.uuid(),
   branchId: z.uuid(),
   startsAt: z.iso.datetime(),
   endsAt: z.iso.datetime(),
   status: appointmentStatusSchema,
+  branch: patientAppointmentBranchSchema,
   service: z.looseObject({ id: z.uuid(), name: z.string() }),
   dentist: z.looseObject({ id: z.uuid(), name: z.string() })
 })
@@ -79,6 +89,7 @@ export type Appointment = z.infer<typeof appointmentSchema>
 export type AppointmentStatus = z.infer<typeof appointmentStatusSchema>
 export type ResourceClaim = z.infer<typeof resourceClaimSchema>
 export type Patient = z.infer<typeof patientSchema>
+export type PatientListItem = z.infer<typeof patientListItemSchema>
 export type PatientPage = z.infer<typeof patientPageSchema>
 export type PatientAppointment = z.infer<typeof patientAppointmentSchema>
 export type PatientDetail = z.infer<typeof patientDetailSchema>

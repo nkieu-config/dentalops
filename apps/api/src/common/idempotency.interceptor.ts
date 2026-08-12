@@ -16,6 +16,7 @@ import { AppException } from "./app.exception"
 import { DegradationLog } from "./degradation-log"
 
 const TTL_SECONDS = 24 * 60 * 60
+export const MAX_IDEMPOTENCY_KEY_LENGTH = 128
 
 type Lock = "acquired" | "busy" | "unavailable"
 
@@ -34,6 +35,13 @@ export class IdempotencyInterceptor implements NestInterceptor {
     const res = context.switchToHttp().getResponse<Response>()
     const key = req.headers["idempotency-key"]
     if (!key || typeof key !== "string") return next.handle()
+    if (key.length > MAX_IDEMPOTENCY_KEY_LENGTH) {
+      throw new AppException(
+        400,
+        "IDEMPOTENCY_KEY_TOO_LONG",
+        `Idempotency-Key must be at most ${MAX_IDEMPOTENCY_KEY_LENGTH} characters`
+      )
+    }
 
     const tenantId = currentTenant()?.tenantId ?? "anon"
     const storeKey = `idem:${tenantId}:${req.method}:${req.path}:${key}`

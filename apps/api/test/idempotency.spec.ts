@@ -2,6 +2,7 @@ import { INestApplication } from "@nestjs/common"
 import request from "supertest"
 import type { Server } from "node:http"
 import { apiErrorSchema } from "@dentalops/contracts"
+import { MAX_IDEMPOTENCY_KEY_LENGTH } from "../src/common/idempotency.interceptor"
 import { PrismaService } from "../src/prisma/prisma.service"
 import { createTestApp } from "./utils/test-app"
 import { expectStatus } from "./utils/expect-status"
@@ -104,6 +105,20 @@ describe("idempotency keys", () => {
 
     const count = await prisma.appointment.count({ where: { dentistId } })
     expect(count).toBe(1)
+  })
+
+  it("refuses an oversized key rather than letting a client name a huge redis key", async () => {
+    const res = await book(at(9, 9), "x".repeat(MAX_IDEMPOTENCY_KEY_LENGTH + 1))
+    expectStatus(res, 400)
+    expect(apiErrorSchema.parse(res.body).errorCode).toBe("IDEMPOTENCY_KEY_TOO_LONG")
+
+    const count = await prisma.appointment.count({ where: { dentistId, startsAt: new Date(at(9, 9)) } })
+    expect(count).toBe(0)
+  })
+
+  it("still accepts a key right at the limit", async () => {
+    const res = await book(at(10, 9), "y".repeat(MAX_IDEMPOTENCY_KEY_LENGTH))
+    expectStatus(res, 201)
   })
 
   it("key is scoped per route", async () => {

@@ -22,6 +22,13 @@ const cookieOptions = {
 
 const CREDENTIAL_ATTEMPTS = { default: { limit: 10, ttl: 60_000 } }
 
+const clearCookieOptions = {
+  httpOnly: cookieOptions.httpOnly,
+  sameSite: cookieOptions.sameSite,
+  secure: cookieOptions.secure,
+  path: cookieOptions.path
+}
+
 @ApiTags("auth")
 @Controller("auth")
 export class AuthController {
@@ -73,6 +80,17 @@ export class AuthController {
   async refresh(@Req() req: Request, @Res() res: Response) {
     const token = (req.cookies as Record<string, string> | undefined)?.[REFRESH_COOKIE]
     return this.respond(res, await this.auth.refresh(token))
+  }
+
+  @Post("logout")
+  @Public()
+  @SkipThrottle()
+  @HttpCode(204)
+  async logout(@Req() req: Request, @Res() res: Response) {
+    const token = (req.cookies as Record<string, string> | undefined)?.[REFRESH_COOKIE]
+    await this.auth.logout(token)
+    res.clearCookie(REFRESH_COOKIE, clearCookieOptions)
+    return res.status(204).send()
   }
 
   @Get("me")

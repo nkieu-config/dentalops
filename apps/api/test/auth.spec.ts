@@ -100,6 +100,78 @@ describe("auth", () => {
     expect(res.body.accessToken).toBeDefined()
   })
 
+  it("rejects a replayed refresh token after it has been rotated out", async () => {
+    const login = await request(server)
+      .post("/auth/login")
+      .send({ clinicSlug: slug, email: signupBody.email, password: signupBody.password })
+    const firstCookies = login.headers["set-cookie"] as unknown as string[]
+
+    const rotated = await request(server)
+      .post("/auth/refresh")
+      .set("Cookie", firstCookies)
+      .expect(200)
+    const secondCookies = rotated.headers["set-cookie"] as unknown as string[]
+    expect(secondCookies[0]).not.toBe(firstCookies[0])
+
+    const replay = await request(server)
+      .post("/auth/refresh")
+      .set("Cookie", firstCookies)
+      .expect(401)
+    expect(apiErrorSchema.parse(replay.body).errorCode).toBe("INVALID_REFRESH_TOKEN")
+
+    await request(server).post("/auth/refresh").set("Cookie", secondCookies).expect(200)
+  })
+
+  it("keeps each device's session independent, so a second login never signs the first one out", async () => {
+    const login = () =>
+      request(server)
+        .post("/auth/login")
+        .send({ clinicSlug: slug, email: signupBody.email, password: signupBody.password })
+
+    const desktop = await login()
+    const tablet = await login()
+    const desktopCookies = desktop.headers["set-cookie"] as unknown as string[]
+    const tabletCookies = tablet.headers["set-cookie"] as unknown as string[]
+
+    await request(server).post("/auth/refresh").set("Cookie", desktopCookies).expect(200)
+    await request(server).post("/auth/refresh").set("Cookie", tabletCookies).expect(200)
+  })
+
+  it("logs out one device without ending the other device's session", async () => {
+    const login = () =>
+      request(server)
+        .post("/auth/login")
+        .send({ clinicSlug: slug, email: signupBody.email, password: signupBody.password })
+
+    const staying = await login()
+    const leaving = await login()
+    const stayingCookies = staying.headers["set-cookie"] as unknown as string[]
+    const leavingCookies = leaving.headers["set-cookie"] as unknown as string[]
+
+    await request(server).post("/auth/logout").set("Cookie", leavingCookies).expect(204)
+
+    await request(server).post("/auth/refresh").set("Cookie", leavingCookies).expect(401)
+    await request(server).post("/auth/refresh").set("Cookie", stayingCookies).expect(200)
+  })
+
+  it("logs out by clearing the refresh cookie and revoking the session server-side", async () => {
+    const login = await request(server)
+      .post("/auth/login")
+      .send({ clinicSlug: slug, email: signupBody.email, password: signupBody.password })
+    const cookies = login.headers["set-cookie"] as unknown as string[]
+
+    const out = await request(server).post("/auth/logout").set("Cookie", cookies).expect(204)
+    const cleared = out.headers["set-cookie"] as unknown as string[]
+    expect(cleared.some((c) => c.startsWith("dentalops_refresh=;"))).toBe(true)
+
+    const res = await request(server).post("/auth/refresh").set("Cookie", cookies).expect(401)
+    expect(apiErrorSchema.parse(res.body).errorCode).toBe("INVALID_REFRESH_TOKEN")
+  })
+
+  it("logout is a no-op with no cookie and never 500s", async () => {
+    await request(server).post("/auth/logout").expect(204)
+  })
+
   it("demo-login works for every role after seeding", async () => {
     for (const role of ["owner", "receptionist", "dentist"]) {
       const res = await request(server)

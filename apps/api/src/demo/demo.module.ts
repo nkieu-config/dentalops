@@ -1,13 +1,14 @@
-import { Module, OnModuleDestroy, Inject } from "@nestjs/common"
-import Redis from "ioredis"
+import { Inject, Module, OnModuleDestroy } from "@nestjs/common"
+import type Redis from "ioredis"
+import { createQueueConnection } from "../redis/queue-connection"
+import { closeRedis } from "../redis/redis-client"
 import { DemoProcessor } from "./demo.processor"
-import { DemoQueue } from "./demo.queue"
+import { DEMO_REDIS, DemoQueue } from "./demo.queue"
 import { DemoResetService } from "./demo-reset.service"
-import { DEMO_REDIS, createDemoRedis } from "./demo.redis"
 
 @Module({
   providers: [
-    { provide: DEMO_REDIS, useFactory: createDemoRedis },
+    { provide: DEMO_REDIS, useFactory: createQueueConnection("demo") },
     DemoResetService,
     DemoQueue,
     DemoProcessor
@@ -18,6 +19,6 @@ export class DemoModule implements OnModuleDestroy {
   constructor(@Inject(DEMO_REDIS) private readonly redis: Redis) {}
 
   async onModuleDestroy(): Promise<void> {
-    await this.redis.quit()
+    await closeRedis(this.redis)
   }
 }

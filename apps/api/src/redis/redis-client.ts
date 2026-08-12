@@ -24,3 +24,7 @@ export const createRedisClient = (name: string, options: RedisOptions = {}): Red
   client.on("error", (error: Error) => logger.warn(`${name} redis error: ${error.message}`))
   return client
 }
+
+export const closeRedis = async (client: Redis): Promise<void> => {
+  await client.quit().catch(() => client.disconnect())
+}

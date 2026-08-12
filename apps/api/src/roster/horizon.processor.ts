@@ -1,12 +1,10 @@
-import { Inject, Injectable, Logger, OnModuleDestroy } from "@nestjs/common"
-import { Worker } from "bullmq"
-import Redis from "ioredis"
+import { Inject, Injectable } from "@nestjs/common"
+import type Redis from "ioredis"
 import { PrismaService } from "../prisma/prisma.service"
+import { JobWorker } from "../redis/job-worker"
 import { ShiftSeriesService } from "../shifts/shift-series.service"
 import { tenantContext } from "../tenant/tenant-context"
-import { HORIZON_QUEUE_NAME } from "./horizon.queue"
-import { HORIZON_REDIS } from "./horizon.redis"
-import { idleFriendlyWorkerOptions } from "../redis/worker-options"
+import { HORIZON_QUEUE_NAME, HORIZON_REDIS } from "./horizon.queue"
 
 export interface HorizonSummary {
   tenants: number
@@ -16,23 +14,17 @@ export interface HorizonSummary {
 }
 
 @Injectable()
-export class HorizonProcessor implements OnModuleDestroy {
-  private readonly worker: Worker
-  private readonly logger = new Logger(HorizonProcessor.name)
-
+export class HorizonProcessor extends JobWorker {
   constructor(
     @Inject(HORIZON_REDIS) connection: Redis,
     private readonly prisma: PrismaService,
     private readonly series: ShiftSeriesService
   ) {
-    this.worker = new Worker(HORIZON_QUEUE_NAME, () => this.run(), {
-      connection,
-      ...idleFriendlyWorkerOptions
-    })
-    this.worker.on("error", (error) => this.logger.error(`horizon worker error: ${error.message}`))
-    this.worker.on("failed", (_job, error) =>
-      this.logger.warn(`horizon run failed: ${error.message}`)
-    )
+    super(connection, HORIZON_QUEUE_NAME, "horizon run failed")
+  }
+
+  protected handle(): Promise<unknown> {
+    return this.run()
   }
 
   async run(now: number = Date.now()): Promise<HorizonSummary> {
@@ -57,9 +49,5 @@ export class HorizonProcessor implements OnModuleDestroy {
       `horizon: ${summary.created} created, ${summary.skipped} skipped across ${summary.series} series`
     )
     return summary
-  }
-
-  async onModuleDestroy(): Promise<void> {
-    await this.worker.close()
   }
 }

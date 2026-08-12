@@ -1,31 +1,19 @@
-import { Inject, Injectable, Logger, OnModuleDestroy } from "@nestjs/common"
-import { Worker } from "bullmq"
-import Redis from "ioredis"
+import { Inject, Injectable } from "@nestjs/common"
+import type Redis from "ioredis"
+import { JobWorker } from "../redis/job-worker"
 import { DemoResetService } from "./demo-reset.service"
-import { DEMO_QUEUE_NAME } from "./demo.queue"
-import { DEMO_REDIS } from "./demo.redis"
-import { idleFriendlyWorkerOptions } from "../redis/worker-options"
+import { DEMO_QUEUE_NAME, DEMO_REDIS } from "./demo.queue"
 
 @Injectable()
-export class DemoProcessor implements OnModuleDestroy {
-  private readonly worker: Worker
-  private readonly logger = new Logger(DemoProcessor.name)
-
+export class DemoProcessor extends JobWorker {
   constructor(
     @Inject(DEMO_REDIS) connection: Redis,
     private readonly demo: DemoResetService
   ) {
-    this.worker = new Worker(DEMO_QUEUE_NAME, () => this.demo.reset(), {
-      connection,
-      ...idleFriendlyWorkerOptions
-    })
-    this.worker.on("error", (error) => this.logger.error(`demo worker error: ${error.message}`))
-    this.worker.on("failed", (_job, error) =>
-      this.logger.warn(`demo reset failed: ${error.message}`)
-    )
+    super(connection, DEMO_QUEUE_NAME, "demo reset failed")
   }
 
-  async onModuleDestroy(): Promise<void> {
-    await this.worker.close()
+  protected handle(): Promise<unknown> {
+    return this.demo.reset()
   }
 }

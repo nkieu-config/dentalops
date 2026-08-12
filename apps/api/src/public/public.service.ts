@@ -239,7 +239,9 @@ export class PublicService {
     await this.mail.enqueueConfirmation({
       appointmentId: created.id,
       tenantId: ctx.tenantId,
-      manageToken
+      manageToken,
+      patientName: body.name,
+      patientEmail: body.email
     })
 
     return { appointment: await this.appointmentView(created.id), manageToken }

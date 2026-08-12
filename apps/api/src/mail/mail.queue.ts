@@ -1,21 +1,24 @@
 import { Inject, Injectable, Logger, OnModuleDestroy } from "@nestjs/common"
 import { JobsOptions, Queue } from "bullmq"
 import Redis from "ioredis"
-import { MAIL_REDIS } from "./mail.redis"
 
+export const MAIL_REDIS = "MAIL_REDIS_CLIENT"
 export const MAIL_QUEUE_NAME = "mail"
 export const CONFIRMATION_JOB = "confirmation"
 
 export const MAIL_JOB_OPTIONS: JobsOptions = {
   attempts: 3,
   backoff: { type: "exponential", delay: 1000 },
-  removeOnComplete: 50
+  removeOnComplete: 50,
+  removeOnFail: 50
 }
 
 export interface ConfirmationJobData {
   appointmentId: string
   tenantId: string
   manageToken: string
+  patientName: string
+  patientEmail?: string
 }
 
 @Injectable()

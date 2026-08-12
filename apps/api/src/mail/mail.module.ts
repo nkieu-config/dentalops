@@ -1,13 +1,14 @@
 import { Inject, Module, OnModuleDestroy } from "@nestjs/common"
 import Redis from "ioredis"
 import { MailProcessor } from "./mail.processor"
-import { MailQueue } from "./mail.queue"
-import { createMailRedis, MAIL_REDIS } from "./mail.redis"
+import { MAIL_REDIS, MailQueue } from "./mail.queue"
+import { createQueueConnection } from "../redis/queue-connection"
+import { closeRedis } from "../redis/redis-client"
 import { createMailTransport, MAIL_TRANSPORT } from "./mail.transport"
 
 @Module({
   providers: [
-    { provide: MAIL_REDIS, useFactory: createMailRedis },
+    { provide: MAIL_REDIS, useFactory: createQueueConnection("mail") },
     { provide: MAIL_TRANSPORT, useFactory: createMailTransport },
     MailQueue,
     MailProcessor
@@ -18,6 +19,6 @@ export class MailModule implements OnModuleDestroy {
   constructor(@Inject(MAIL_REDIS) private readonly redis: Redis) {}
 
   async onModuleDestroy() {
-    await this.redis.quit()
+    await closeRedis(this.redis)
   }
 }

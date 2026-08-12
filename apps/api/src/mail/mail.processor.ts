@@ -1,39 +1,32 @@
-import { Inject, Injectable, Logger, OnModuleDestroy } from "@nestjs/common"
-import { Job, Worker } from "bullmq"
-import Redis from "ioredis"
+import { Inject, Injectable } from "@nestjs/common"
+import type Redis from "ioredis"
 import { PrismaService } from "../prisma/prisma.service"
+import { JobWorker } from "../redis/job-worker"
 import { tenantContext } from "../tenant/tenant-context"
-import { ConfirmationJobData, MAIL_QUEUE_NAME } from "./mail.queue"
-import { MAIL_REDIS } from "./mail.redis"
+import { ConfirmationJobData, MAIL_QUEUE_NAME, MAIL_REDIS } from "./mail.queue"
 import { MAIL_TRANSPORT, MailTransport } from "./mail.transport"
 import { renderConfirmation } from "./templates"
-import { idleFriendlyWorkerOptions } from "../redis/worker-options"
 
 @Injectable()
-export class MailProcessor implements OnModuleDestroy {
-  private readonly worker: Worker<ConfirmationJobData>
-  private readonly logger = new Logger(MailProcessor.name)
-
+export class MailProcessor extends JobWorker<ConfirmationJobData> {
   constructor(
     @Inject(MAIL_REDIS) connection: Redis,
     private readonly prisma: PrismaService,
     @Inject(MAIL_TRANSPORT) private readonly transport: MailTransport
   ) {
-    this.worker = new Worker<ConfirmationJobData>(
-      MAIL_QUEUE_NAME,
-      (job: Job<ConfirmationJobData>) => this.process(job.data),
-      { connection, ...idleFriendlyWorkerOptions }
-    )
-    this.worker.on("error", (error) => this.logger.error(`mail worker error: ${error.message}`))
-    this.worker.on("failed", (_job, error) =>
-      this.logger.warn(`confirmation email attempt failed: ${error.message}`)
-    )
+    super(connection, MAIL_QUEUE_NAME, "confirmation email attempt failed")
+  }
+
+  protected handle(data: ConfirmationJobData): Promise<void> {
+    return this.process(data)
   }
 
   process(data: ConfirmationJobData): Promise<void> {
     return tenantContext.run(
       { tenantId: data.tenantId, userId: "mail", role: "system", name: "Mail worker" },
       async () => {
+        if (!data.patientEmail) return
+
         const appointment = await this.prisma.scoped.appointment.findUnique({
           where: { id: data.appointmentId },
           select: {
@@ -41,17 +34,16 @@ export class MailProcessor implements OnModuleDestroy {
             tenant: { select: { name: true } },
             branch: { select: { name: true } },
             service: { select: { name: true } },
-            dentist: { select: { name: true } },
-            patient: { select: { name: true, email: true } }
+            dentist: { select: { name: true } }
           }
         })
-        if (!appointment || !appointment.patient.email) return
+        if (!appointment) return
 
         await this.transport.send(
           renderConfirmation({
-            to: appointment.patient.email,
+            to: data.patientEmail,
             clinicName: appointment.tenant.name,
-            patientName: appointment.patient.name,
+            patientName: data.patientName,
             serviceName: appointment.service.name,
             dentistName: appointment.dentist.name,
             branchName: appointment.branch.name,
@@ -61,9 +53,5 @@ export class MailProcessor implements OnModuleDestroy {
         )
       }
     )
-  }
-
-  async onModuleDestroy(): Promise<void> {
-    await this.worker.close()
   }
 }

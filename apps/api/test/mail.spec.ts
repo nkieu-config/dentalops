@@ -194,6 +194,46 @@ describe("confirmation email", () => {
     expect(message.html).toContain(`/manage/${manageToken}`)
   })
 
+  it("sends this booking's confirmation to the email typed just now, not a squatted address on file", async () => {
+    const phone = "0830000099"
+    const squatted = "squatter@example.com"
+    const real = "real-patient@example.com"
+
+    const first = await confirm(await acquire(utc(6)), {
+      name: "Squatter",
+      phone,
+      email: squatted
+    })
+    expectStatus(first, 201)
+    await waitFor(() => transport.sentTo(squatted).length > 0)
+
+    const patient = await prisma.patient.findFirstOrThrow({ where: { tenantId, phone } })
+    expect(patient.email).toBe(squatted)
+
+    const second = await confirm(await acquire(utc(7)), {
+      name: "Real Patient",
+      phone,
+      email: real
+    })
+    expectStatus(second, 201)
+    const { manageToken } = second.body as ConfirmResponse
+
+    await waitFor(() => transport.sentTo(real).length > 0)
+    expect(transport.sentTo(real)[0]!.text).toContain(`/manage/${manageToken}`)
+    expect(transport.sentTo(squatted)).toHaveLength(1)
+  })
+
+  it("sends no confirmation when this booking omits an email, even if one is on file", async () => {
+    const res = await confirm(await acquire(utc(8)), {
+      name: "No Email This Time",
+      phone: "0830000098"
+    })
+    expectStatus(res, 201)
+
+    await new Promise((resolve) => setTimeout(resolve, 300))
+    expect(transport.attempts.some((m) => m.text.includes("No Email This Time"))).toBe(false)
+  })
+
   it("still returns 201 and retries three times when the transport throws", async () => {
     const address = "always-fails@example.com"
     transport.failFor = address

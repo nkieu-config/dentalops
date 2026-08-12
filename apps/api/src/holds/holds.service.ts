@@ -120,8 +120,11 @@ export class HoldsService {
     if (!record || record.tenantId !== tenantId) return
     const keys = record.slotIndexes.map((index) => slotKey(tenantId, record.dentistId, index))
     try {
-      if (keys.length > 0) await this.redis.eval(RELEASE_HOLD, keys.length, ...keys, holdId)
-      await this.redis.del(holdKey(holdId))
+      const cleanup = this.redis.pipeline()
+      if (keys.length > 0) cleanup.eval(RELEASE_HOLD, keys.length, ...keys, holdId)
+      cleanup.del(holdKey(holdId))
+      const failure = (await cleanup.exec())?.find(([error]) => error)?.[0]
+      if (failure) throw failure
       this.outage.clear()
     } catch (error) {
       this.outage.report(error)

@@ -2,6 +2,7 @@ import { INestApplication } from "@nestjs/common"
 import type { Server } from "node:http"
 import request from "supertest"
 import { AuditPage, AuditService } from "../src/audit/audit.service"
+import { MONGO, type MongoConnection } from "../src/audit/mongo.provider"
 import { PrismaService } from "../src/prisma/prisma.service"
 import { tenantContext } from "../src/tenant/tenant-context"
 import { createTestApp } from "./utils/test-app"
@@ -10,7 +11,13 @@ import { expectStatus } from "./utils/expect-status"
 const settle = () => new Promise((resolve) => setTimeout(resolve, 200))
 
 interface SerializedPage {
-  entries: Array<{ tenantId: string; at: string; requestId: string }>
+  entries: Array<{
+    tenantId: string
+    at: string
+    requestId: string
+    actor: { id: string; type: string }
+    entity: { type: string; id: string }
+  }>
   nextCursor: string | null
 }
 
@@ -166,6 +173,19 @@ describe("audit log", () => {
     expect(ttl!.expireAfterSeconds).toBe(30 * 24 * 60 * 60)
   })
 
+  it("pages without a blocking sort, so a busy clinic's log stays cheap to read", async () => {
+    const mongo = app.get<MongoConnection>(MONGO)
+    const plan = (await mongo.client
+      .db(mongo.dbName)
+      .collection("audit_logs")
+      .find({ tenantId })
+      .sort({ _id: -1 })
+      .limit(51)
+      .explain("queryPlanner")) as { queryPlanner: { winningPlan: unknown } }
+
+    expect(JSON.stringify(plan.queryPlanner.winningPlan)).not.toContain('"stage":"SORT"')
+  })
+
   it("never returns another tenant's entries", async () => {
     const page = await listAsTenant(100)
     expect(page.entries.length).toBeGreaterThan(0)
@@ -199,6 +219,94 @@ describe("audit log", () => {
     expect(secondPage.entries).toHaveLength(1)
     expect(secondPage.entries[0]).not.toEqual(firstPage.entries[0])
     expect(secondPage.entries[0]!.at <= firstPage.entries[0]!.at).toBe(true)
+  })
+
+  it("narrows to the requested entity types", async () => {
+    const shift = await request(server)
+      .post("/shifts")
+      .set("Authorization", `Bearer ${token}`)
+      .send({
+        staffId: dentistId,
+        branchId,
+        startsAt: "2027-04-03T02:00:00.000Z",
+        endsAt: "2027-04-03T10:00:00.000Z"
+      })
+    expectStatus(shift, 201)
+    await settle()
+
+    const res = await request(server)
+      .get("/audit-logs?limit=50&entityTypes=shifts")
+      .set("Authorization", `Bearer ${token}`)
+    expectStatus(res, 200)
+    const body = res.body as SerializedPage
+    expect(body.entries.length).toBeGreaterThan(0)
+    expect(body.entries.every((entry) => entry.entity.type === "shifts")).toBe(true)
+  })
+
+  it("narrows to a single actor", async () => {
+    const created = await request(server)
+      .post("/appointments")
+      .set("Authorization", `Bearer ${token}`)
+      .send({ branchId, serviceId, dentistId, patientId, startsAt: "2027-04-04T03:00:00.000Z" })
+    expectStatus(created, 201)
+    const appointmentId = (created.body as { id: string }).id
+
+    const login = await request(server)
+      .post("/auth/login")
+      .send({ email: `d@${slug}.local`, password: "s3cure-pass", clinicSlug: slug })
+    expectStatus(login, 200)
+    const dentistToken = (login.body as { accessToken: string }).accessToken
+
+    const statusChange = await request(server)
+      .patch(`/appointments/${appointmentId}/status`)
+      .set("Authorization", `Bearer ${dentistToken}`)
+      .send({ status: "completed" })
+    expectStatus(statusChange, 200)
+    await settle()
+
+    const res = await request(server)
+      .get(`/audit-logs?limit=50&actorId=${dentistId}`)
+      .set("Authorization", `Bearer ${token}`)
+    expectStatus(res, 200)
+    const body = res.body as SerializedPage
+    expect(body.entries.length).toBeGreaterThan(0)
+    expect(body.entries.every((entry) => entry.actor.id === dentistId)).toBe(true)
+  })
+
+  it("narrows to guest activity, which so far there is none of", async () => {
+    const res = await request(server)
+      .get("/audit-logs?limit=50&actorType=public")
+      .set("Authorization", `Bearer ${token}`)
+    expectStatus(res, 200)
+    expect((res.body as SerializedPage).entries).toEqual([])
+  })
+
+  it("rejects an unknown actorType", async () => {
+    const res = await request(server)
+      .get("/audit-logs?actorType=admin")
+      .set("Authorization", `Bearer ${token}`)
+    expectStatus(res, 400)
+  })
+
+  it("narrows to a date range", async () => {
+    const future = await request(server)
+      .get(`/audit-logs?limit=50&from=${new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString()}`)
+      .set("Authorization", `Bearer ${token}`)
+    expectStatus(future, 200)
+    expect((future.body as SerializedPage).entries).toEqual([])
+
+    const past = await request(server)
+      .get("/audit-logs?limit=50&to=2020-01-01T00:00:00.000Z")
+      .set("Authorization", `Bearer ${token}`)
+    expectStatus(past, 200)
+    expect((past.body as SerializedPage).entries).toEqual([])
+  })
+
+  it("rejects an unparseable date", async () => {
+    const res = await request(server)
+      .get("/audit-logs?from=not-a-date")
+      .set("Authorization", `Bearer ${token}`)
+    expectStatus(res, 400)
   })
 
   it("refuses a dentist, who may not read the clinic's audit log", async () => {

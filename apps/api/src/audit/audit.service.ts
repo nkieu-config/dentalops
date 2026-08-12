@@ -56,6 +56,7 @@ export class AuditService implements OnModuleInit, OnModuleDestroy {
     const collection = this.collection
     if (!collection) return
     try {
+      await collection.createIndex({ tenantId: 1, _id: -1 })
       await collection.createIndex({ tenantId: 1, at: -1 })
       await collection.createIndex({ at: 1 }, { expireAfterSeconds: RETENTION_SECONDS })
     } catch (error) {
@@ -78,13 +79,43 @@ export class AuditService implements OnModuleInit, OnModuleDestroy {
       .catch((error: unknown) => Sentry.captureException(error))
   }
 
-  async list(input: { cursor?: string; limit: number }): Promise<AuditPage> {
+  async recordMany(entries: AuditEntry[]): Promise<void> {
+    if (entries.length === 0) return
+    const collection = this.collection
+    if (!collection) return
+    try {
+      await collection.insertMany(entries as StoredEntry[], { ordered: false })
+    } catch (error) {
+      Sentry.captureException(error)
+    }
+  }
+
+  async list(input: {
+    cursor?: string
+    limit: number
+    entityTypes?: string[]
+    actorId?: string
+    actorType?: "staff" | "public"
+    from?: Date
+    to?: Date
+  }): Promise<AuditPage> {
     const collection = this.collection
     const tenant = currentTenant()
     if (!collection || !tenant) return { entries: [], nextCursor: null }
 
     const filter: Record<string, unknown> = { tenantId: tenant.tenantId }
     if (input.cursor) filter._id = { $lt: new ObjectId(input.cursor) }
+    if (input.entityTypes && input.entityTypes.length > 0) {
+      filter["entity.type"] = { $in: input.entityTypes }
+    }
+    if (input.actorId) filter["actor.id"] = input.actorId
+    if (input.actorType) filter["actor.type"] = input.actorType
+    if (input.from || input.to) {
+      filter.at = {
+        ...(input.from ? { $gte: input.from } : {}),
+        ...(input.to ? { $lte: input.to } : {})
+      }
+    }
 
     const rows = await collection
       .find(filter)

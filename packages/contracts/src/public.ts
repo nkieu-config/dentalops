@@ -1,11 +1,19 @@
 import { z } from "zod"
+import { openingHoursSchema } from "./directory"
 import { appointmentStatusSchema } from "./scheduling"
 
 export const publicClinicSchema = z.object({
   id: z.uuid(),
   name: z.string(),
   slug: z.string(),
-  branches: z.array(z.object({ id: z.uuid(), name: z.string() })),
+  branches: z.array(
+    z.object({
+      id: z.uuid(),
+      name: z.string(),
+      timezone: z.string(),
+      openingHours: openingHoursSchema
+    })
+  ),
   services: z.array(
     z.object({
       id: z.uuid(),

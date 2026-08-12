@@ -1,5 +1,6 @@
 import { Injectable } from "@nestjs/common"
 import { Prisma } from "@prisma/client"
+import type { OpeningHours } from "@dentalops/contracts"
 import { AppointmentsService } from "../appointments/appointments.service"
 import { AvailabilityService } from "../availability/availability.service"
 import { AppException } from "../common/app.exception"
@@ -38,7 +39,7 @@ export interface PublicClinic {
   id: string
   name: string
   slug: string
-  branches: Array<{ id: string; name: string }>
+  branches: Array<{ id: string; name: string; timezone: string; openingHours: OpeningHours }>
   services: Array<{ id: string; name: string; durationMin: number; colorIndex: number }>
   dentists: Array<{ id: string; name: string }>
 }
@@ -99,7 +100,7 @@ export class PublicService {
       }),
       this.prisma.scoped.branch.findMany({
         where: { isActive: true },
-        select: { id: true, name: true },
+        select: { id: true, name: true, timezone: true, openingHours: true },
         orderBy: { name: "asc" }
       }),
       this.prisma.scoped.service.findMany({
@@ -115,7 +116,15 @@ export class PublicService {
     ])
     if (!tenant) throw new AppException(404, "CLINIC_NOT_FOUND", "Clinic not found")
 
-    return { ...tenant, branches, services, dentists }
+    return {
+      ...tenant,
+      branches: branches.map((branch) => ({
+        ...branch,
+        openingHours: branch.openingHours as OpeningHours
+      })),
+      services,
+      dentists
+    }
   }
 
   async availableSlots(query: QueryPublicAvailabilityDto) {

@@ -1,6 +1,6 @@
 import { Injectable, Logger, OnModuleDestroy, OnModuleInit } from "@nestjs/common"
 import { PrismaClient } from "@prisma/client"
-import { poolingAdvice, withPoolLimit } from "./database-url"
+import { clientUrl, poolingAdvice } from "./database-url"
 import { PRIVATE_COLUMNS } from "./private-columns"
 import { tenantExtension } from "./tenant.extension"
 
@@ -11,7 +11,7 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
   constructor() {
     const url = process.env.DATABASE_URL
     super({
-      ...(url ? { datasourceUrl: withPoolLimit(url) } : {}),
+      ...(url ? { datasourceUrl: clientUrl(url) } : {}),
       omit: PRIVATE_COLUMNS
     })
   }

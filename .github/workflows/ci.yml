@@ -241,6 +241,8 @@ jobs:
         uses: grafana/setup-k6-action@v1
       - name: Sixty patients race for one slot
         run: k6 run apps/api/scripts/load/booking-contention.js
+      - name: Availability reads stay fast warm and cold
+        run: k6 run apps/api/scripts/load/availability-read.js
       - name: Container logs
         if: failure()
         run: docker logs dentalops-api

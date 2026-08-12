@@ -9,10 +9,9 @@ instance with a tenth of a CPU in front of a Redis that is currently over its
 monthly command quota; a load test there would measure the host's throttling
 and a degraded code path, not the application.
 
-The contention run is a CI gate: the `docker` job builds the production image,
-starts it against real Postgres, Redis and MongoDB, and drives k6 through it,
-so the claim below fails the build if it stops being true. The read script
-stays manual — see why at the end.
+Both are CI gates: the `docker` job builds the production image, starts it
+against real Postgres, Redis and MongoDB, and drives k6 through it, so the
+claims below fail the build if they stop being true.
 
 ```bash
 docker compose up -d
@@ -45,29 +44,41 @@ less than two, so the test fails both if nobody books and if two people do.
 
 ## Sustained reads
 
-`availability-read.js` — a constant arrival rate against `GET /availability`
-for 30 seconds.
+`availability-read.js` — 40 requests a second against `GET /availability`, run
+twice: 30 seconds asking for the same day-aligned window, then 30 seconds each
+asking for a window nobody has asked for before.
 
-| Arrival rate | p50 | p95 | Failed |
-|---|---|---|---|
-| 40 /s | 10.5 ms | 14.5 ms | 0 |
-| 150 /s | 4.2 ms | 6.1 ms | 0 |
-| 400 /s | 3.6 ms | 6.4 ms | 0 |
+| Window | p50 | p95 | p99 | Failed |
+|---|---|---|---|---|
+| Warm — cache hit | 4.9 ms | 7.5 ms | 14.4 ms | 0 of 1201 |
+| Cold — cache miss | 6.3 ms | 9.0 ms | 20.7 ms | 0 of 1201 |
 
-**Latency falls as load rises**, which is the opposite of what a saturating
-system does, and the reason is worth stating plainly: the availability cache
-added in W8 warms up. At 40/s a larger share of requests arrive cold and pay
-for a live computation; at 400/s almost every one is a cache hit.
+The two scenarios exist because the earlier version of this script could not
+tell them apart, and its numbers were read the wrong way round. It built its
+window from `Date.now()`, and the cache entry key ends in the exact ISO
+timestamps of `from` and `to` — so every request asked for a window one
+millisecond off the last one and **every request missed**. Counting the keys
+the run leaves in Redis shows it plainly: 1201 iterations used to leave 1201
+entries behind. The rewritten warm scenario leaves one.
 
-That makes this a weaker test than intended. It was written to check whether
-capping the Prisma pool at 5 connections — the connection audit found Prisma
-sizing itself from the container's *host* cpu count, 21 connections for an
-instance allocated 0.1 of one — had turned thrift into a queue. It does not
-answer that, because at this rate the read path barely reaches Postgres at all.
+So the old reading — that latency fell at higher arrival rates because the
+cache was warming up — was not what happened. Rate cannot warm a cache whose
+key changes every millisecond; at 400/s the gain came from requests that
+happened to land in the same millisecond as another, plus the usual JIT and
+pool warm-up. The cache was doing nothing in that test at any rate.
 
-What does answer it is the contention test above: 60 simultaneous writes, each
-one a transaction taking row locks, through a pool of 5, with no failures. The
-pool is not the constraint at this scale.
+Measured properly, the cache is worth about 1.4 ms at p50 and 6 ms at p99 on
+demo-sized data — real, but small, because the cold path is already fast: the
+availability engine issues its five reads in one `Promise.all` and the demo
+tenant is small. The number to watch is the cold p99, since that is what a user
+sees on the first request after any booking invalidates the day.
+
+This still does not answer the question the script was originally written for —
+whether capping the Prisma pool at 5 connections turned thrift into a queue.
+The read path is too cheap to saturate a pool at this rate. What does answer it
+is the contention test above: 60 simultaneous writes, each a transaction taking
+row locks, through a pool of 5, with no failures. The pool is not the
+constraint at this scale.
 
 ## What the contention test then found
 

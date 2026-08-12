@@ -25,10 +25,11 @@ const LIST_OPS = new Set([
   "aggregate",
   "groupBy",
   "updateMany",
+  "updateManyAndReturn",
   "deleteMany"
 ])
 
-const UNIQUE_OPS = new Set(["findUnique", "findUniqueOrThrow", "update", "delete", "upsert"])
+const UNIQUE_OPS = new Set(["findUnique", "findUniqueOrThrow", "update", "delete"])
 
 export const tenantExtension = Prisma.defineExtension({
   name: "tenantScope",
@@ -58,11 +59,18 @@ export const tenantExtension = Prisma.defineExtension({
           a.where = { AND: [(a.where as object) ?? {}, { tenantId }] }
           return query(a)
         }
+        if (operation === "upsert") {
+          a.where = { ...(a.where as object), tenantId }
+          a.create = { ...(a.create as object), tenantId }
+          return query(a)
+        }
         if (UNIQUE_OPS.has(operation)) {
           a.where = { ...(a.where as object), tenantId }
           return query(a)
         }
-        return query(a)
+        throw new Error(
+          `No tenant scoping rule for ${model}.${operation}; refusing to run it unscoped`
+        )
       }
     }
   }

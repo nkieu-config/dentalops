@@ -4,6 +4,7 @@ import { Appointment, Prisma } from "@prisma/client"
 import { AvailabilityCache } from "../availability/availability.cache"
 import { AppException } from "../common/app.exception"
 import { PrismaService } from "../prisma/prisma.service"
+import { scoped } from "../prisma/scoped-input"
 import { APPOINTMENT_INCLUDE, AppointmentsService } from "./appointments.service"
 import { CreateSeriesDto } from "./dto/create-series.dto"
 import { EditSeriesDto } from "./dto/edit-series.dto"
@@ -87,12 +88,12 @@ export class SeriesService {
     const seriesId = await this.prisma.scoped.$transaction(async (tx) => {
       await this.appointments.lockDentist(tx, dto.dentistId)
       const series = await tx.appointmentSeries.create({
-        data: {
+        data: scoped<Prisma.AppointmentSeriesUncheckedCreateInput>({
           freq: dto.freq,
           interval: dto.interval,
           byWeekday: dto.byWeekday,
           count: dto.count
-        } as never
+        })
       })
       const plan: OccurrencePlan = {
         branchId: dto.branchId,
@@ -172,14 +173,14 @@ export class SeriesService {
       if (dto.scope === "following") {
         const source = await tx.appointmentSeries.findUniqueOrThrow({ where: { id: seriesId } })
         const next = await tx.appointmentSeries.create({
-          data: {
+          data: scoped<Prisma.AppointmentSeriesUncheckedCreateInput>({
             freq: source.freq,
             interval: source.interval,
             byWeekday: [
               ...new Set(targets.map((target) => bangkokWeekday(target.startsAt.getTime())))
             ].sort((a, b) => a - b),
             count: targets.length
-          } as never
+          })
         })
         nextSeriesId = next.id
       }
@@ -301,7 +302,7 @@ export class SeriesService {
     win: OccurrenceWindow
   ): Promise<void> {
     const appointment = await tx.appointment.create({
-      data: {
+      data: scoped<Prisma.AppointmentUncheckedCreateInput>({
         branchId: plan.branchId,
         serviceId: plan.serviceId,
         dentistId: plan.dentistId,
@@ -309,7 +310,7 @@ export class SeriesService {
         seriesId: plan.seriesId,
         startsAt: win.startsAt,
         endsAt: win.endsAt
-      } as never
+      })
     })
     await this.claim(tx, appointment.id, plan.branchId, plan.requirements, win)
   }
@@ -351,7 +352,9 @@ export class SeriesService {
   ): Promise<void> {
     const claims = await this.appointments.pickResources(tx, branchId, requirements, win)
     for (const claim of claims) {
-      await tx.resourceClaim.create({ data: { appointmentId, ...claim } as never })
+      await tx.resourceClaim.create({
+        data: scoped<Prisma.ResourceClaimUncheckedCreateInput>({ appointmentId, ...claim })
+      })
     }
   }
 }

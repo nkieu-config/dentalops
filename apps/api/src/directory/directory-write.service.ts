@@ -2,6 +2,7 @@ import { Injectable } from "@nestjs/common"
 import { Prisma } from "@prisma/client"
 import { AppException } from "../common/app.exception"
 import { PrismaService } from "../prisma/prisma.service"
+import { scoped } from "../prisma/scoped-input"
 import { CreateBranchDto } from "./dto/create-branch.dto"
 import { CreateResourceDto } from "./dto/create-resource.dto"
 import { CreateServiceDto } from "./dto/create-service.dto"
@@ -48,11 +49,11 @@ export class DirectoryWriteService {
 
   createBranch(dto: CreateBranchDto) {
     return this.prisma.scoped.branch.create({
-      data: {
+      data: scoped<Prisma.BranchUncheckedCreateInput>({
         name: dto.name,
         timezone: dto.timezone,
         openingHours: dto.openingHours as Prisma.InputJsonValue
-      } as never,
+      }),
       select: branchSelect
     })
   }
@@ -90,12 +91,12 @@ export class DirectoryWriteService {
 
   createService(dto: CreateServiceDto) {
     return this.prisma.scoped.service.create({
-      data: {
+      data: scoped<Prisma.ServiceUncheckedCreateInput>({
         name: dto.name,
         durationMin: dto.durationMin,
         bufferMin: dto.bufferMin ?? 0,
         colorIndex: dto.colorIndex ?? 0
-      } as never,
+      }),
       select: serviceSelect
     })
   }
@@ -127,12 +128,12 @@ export class DirectoryWriteService {
     if (dto.type === "equipment" && dto.equipmentTypeId === undefined) throw invalidResource()
     if (dto.equipmentTypeId) await this.requireEquipmentType(dto.equipmentTypeId)
     return this.prisma.scoped.resource.create({
-      data: {
+      data: scoped<Prisma.ResourceUncheckedCreateInput>({
         name: dto.name,
         branchId: dto.branchId,
         type: dto.type,
         equipmentTypeId: dto.equipmentTypeId ?? null
-      } as never,
+      }),
       select: resourceSelect
     })
   }

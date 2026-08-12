@@ -4,6 +4,7 @@ import { auditActor, AuditService } from "../audit/audit.service"
 import { AvailabilityCache } from "../availability/availability.cache"
 import { AppException } from "../common/app.exception"
 import { PrismaService } from "../prisma/prisma.service"
+import { scoped, scopedMany } from "../prisma/scoped-input"
 import { AppointmentAction } from "../realtime/realtime.events"
 import { RealtimeGateway } from "../realtime/realtime.gateway"
 import { currentTenant } from "../tenant/tenant-context"
@@ -173,18 +174,20 @@ export class AppointmentsService {
     return this.prisma.scoped.$transaction(async (tx) => {
       await this.lockDentist(tx, dto.dentistId)
       const appointment = await tx.appointment.create({
-        data: {
+        data: scoped<Prisma.AppointmentUncheckedCreateInput>({
           branchId: dto.branchId,
           serviceId: dto.serviceId,
           dentistId: dto.dentistId,
           patientId: dto.patientId,
           startsAt: win.startsAt,
           endsAt: win.endsAt
-        } as never
+        })
       })
       const claims = await this.pickResources(tx, dto.branchId, requirements, win)
       await tx.resourceClaim.createMany({
-        data: claims.map((claim) => ({ appointmentId: appointment.id, ...claim })) as never
+        data: scopedMany<Prisma.ResourceClaimCreateManyInput>(
+          claims.map((claim) => ({ appointmentId: appointment.id, ...claim }))
+        )
       })
       return tx.appointment.findUniqueOrThrow({
         where: { id: appointment.id },
@@ -346,7 +349,9 @@ export class AppointmentsService {
           win
         )
         await tx.resourceClaim.createMany({
-          data: claims.map((claim) => ({ appointmentId: id, ...claim })) as never
+          data: scopedMany<Prisma.ResourceClaimCreateManyInput>(
+            claims.map((claim) => ({ appointmentId: id, ...claim }))
+          )
         })
         return tx.appointment.findUniqueOrThrow({
           where: { id },

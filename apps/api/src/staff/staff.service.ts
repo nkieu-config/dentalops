@@ -3,6 +3,7 @@ import { Prisma } from "@prisma/client"
 import * as argon2 from "argon2"
 import { AppException } from "../common/app.exception"
 import { PrismaService } from "../prisma/prisma.service"
+import { scoped } from "../prisma/scoped-input"
 import { currentTenant } from "../tenant/tenant-context"
 import { CreateStaffDto } from "./dto/create-staff.dto"
 import { UpdateStaffDto } from "./dto/update-staff.dto"
@@ -27,7 +28,12 @@ export class StaffService {
         const existing = await tx.user.findFirst({ where: { email } })
         if (existing) throw emailTaken()
         return tx.user.create({
-          data: { email, passwordHash, name: dto.name, role: dto.role } as never,
+          data: scoped<Prisma.UserUncheckedCreateInput>({
+            email,
+            passwordHash,
+            name: dto.name,
+            role: dto.role
+          }),
           select: { id: true, name: true, role: true, isActive: true }
         })
       })

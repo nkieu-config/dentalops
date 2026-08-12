@@ -1,7 +1,9 @@
 import { Injectable } from "@nestjs/common"
 import { AvailabilityCache } from "../availability/availability.cache"
 import { AppException } from "../common/app.exception"
+import type { Prisma } from "@prisma/client"
 import { PrismaService } from "../prisma/prisma.service"
+import { scoped } from "../prisma/scoped-input"
 import { CreateShiftDto } from "./dto/create-shift.dto"
 import { UpdateShiftDto } from "./dto/update-shift.dto"
 import { QueryShiftsDto } from "./dto/query-shifts.dto"
@@ -39,12 +41,12 @@ export class ShiftsService {
     if (!branch) throw new AppException(404, "NOT_FOUND", "Branch not found")
 
     const shift = await this.prisma.scoped.shift.create({
-      data: {
+      data: scoped<Prisma.ShiftUncheckedCreateInput>({
         staffId: dto.staffId,
         branchId: dto.branchId,
         startsAt,
         endsAt
-      } as never
+      })
     })
     await this.cache.invalidateWindows(shift.tenantId, [shift])
     return shift

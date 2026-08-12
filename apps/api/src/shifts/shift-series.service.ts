@@ -1,9 +1,10 @@
 import { Injectable } from "@nestjs/common"
 import { expandRecurrence } from "@dentalops/availability"
-import { ShiftSeries } from "@prisma/client"
+import { Prisma, ShiftSeries } from "@prisma/client"
 import { AvailabilityCache, DatedWindow } from "../availability/availability.cache"
 import { AppException } from "../common/app.exception"
 import { PrismaService } from "../prisma/prisma.service"
+import { scoped } from "../prisma/scoped-input"
 import { CreateShiftSeriesDto } from "./dto/create-shift-series.dto"
 import { SeriesScope, UpdateShiftSeriesDto } from "./dto/update-shift-series.dto"
 
@@ -61,7 +62,7 @@ export class ShiftSeriesService {
     if (!branch) throw new AppException(404, "NOT_FOUND", "Branch not found")
 
     const series = await this.prisma.scoped.shiftSeries.create({
-      data: {
+      data: scoped<Prisma.ShiftSeriesUncheckedCreateInput>({
         staffId: dto.staffId,
         branchId: dto.branchId,
         freq: dto.freq,
@@ -71,7 +72,7 @@ export class ShiftSeriesService {
         durationMin: dto.durationMin,
         startsOn: dateColumn(dto.startsOn),
         endsOn: dto.endsOn ? dateColumn(dto.endsOn) : null
-      } as never
+      })
     })
 
     const result = await this.topUp(series, Date.now())
@@ -104,14 +105,14 @@ export class ShiftSeriesService {
       data: { endsOn: dateColumn(localDate(boundary - DAY)) }
     })
     const next = await this.prisma.scoped.shiftSeries.create({
-      data: {
+      data: scoped<Prisma.ShiftSeriesUncheckedCreateInput>({
         staffId: series.staffId,
         branchId: series.branchId,
         freq: series.freq,
         startsOn: dateColumn(localDate(boundary)),
         endsOn: series.endsOn,
         ...rule
-      } as never
+      })
     })
     await this.clearFrom(series.tenantId, id, boundary)
     const result = await this.materialize(next, boundary, this.horizonEnd(now))
@@ -214,13 +215,13 @@ export class ShiftSeriesService {
       }
       try {
         const shift = await this.prisma.scoped.shift.create({
-          data: {
+          data: scoped<Prisma.ShiftUncheckedCreateInput>({
             staffId: series.staffId,
             branchId: series.branchId,
             seriesId: series.id,
             startsAt: new Date(occurrence.start),
             endsAt: new Date(occurrence.end)
-          } as never
+          })
         })
         materialized.push(shift)
       } catch (error) {

@@ -1,7 +1,9 @@
 import { Injectable } from "@nestjs/common"
 import { AvailabilityCache } from "../availability/availability.cache"
 import { AppException } from "../common/app.exception"
+import type { Prisma } from "@prisma/client"
 import { PrismaService } from "../prisma/prisma.service"
+import { scoped } from "../prisma/scoped-input"
 import { CreateTimeBlockDto, QueryTimeBlocksDto } from "./dto/create-time-block.dto"
 
 @Injectable()
@@ -46,13 +48,13 @@ export class TimeBlocksService {
     }
 
     const block = await this.prisma.scoped.timeBlock.create({
-      data: {
+      data: scoped<Prisma.TimeBlockUncheckedCreateInput>({
         staffId: dto.staffId ?? null,
         branchId: dto.branchId ?? null,
         reason: dto.reason,
         startsAt,
         endsAt
-      } as never
+      })
     })
     await this.cache.invalidateWindows(block.tenantId, [block])
     return block

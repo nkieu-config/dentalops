@@ -1,4 +1,6 @@
+import type { Prisma } from "@prisma/client"
 import { PrismaService } from "../src/prisma/prisma.service"
+import { scoped } from "../src/prisma/scoped-input"
 import { tenantContext } from "../src/tenant/tenant-context"
 
 const prisma = new PrismaService()
@@ -38,9 +40,49 @@ describe("tenant extension", () => {
 
   it("injects tenantId on create", async () => {
     const created = await asTenant(tenantA, () =>
-      prisma.scoped.service.create({ data: { name: "A cleaning", durationMin: 30 } as never })
+      prisma.scoped.service.create({
+        data: scoped<Prisma.ServiceUncheckedCreateInput>({ name: "A cleaning", durationMin: 30 })
+      })
     )
     expect(created.tenantId).toBe(tenantA)
+  })
+
+  it("injects tenantId into the create branch of an upsert", async () => {
+    const created = await asTenant(tenantA, () =>
+      prisma.scoped.service.upsert({
+        where: { id: "00000000-0000-4000-8000-0000000000ff" },
+        create: scoped<Prisma.ServiceUncheckedCreateInput>({
+          name: "upserted cleaning",
+          durationMin: 45
+        }),
+        update: {}
+      })
+    )
+    expect(created.tenantId).toBe(tenantA)
+  })
+
+  it("scopes updateManyAndReturn instead of letting it cross tenants", async () => {
+    const marker = `scope-probe-${Date.now()}`
+    await prisma.service.createMany({
+      data: [
+        { tenantId: tenantA, name: marker, durationMin: 10 },
+        { tenantId: tenantB, name: marker, durationMin: 10 }
+      ]
+    })
+
+    const touched = await asTenant(tenantA, () =>
+      prisma.scoped.service.updateManyAndReturn({
+        where: { name: marker },
+        data: { colorIndex: 4 }
+      })
+    )
+    expect(touched).toHaveLength(1)
+    expect(touched[0]!.tenantId).toBe(tenantA)
+
+    const inB = await prisma.service.findFirstOrThrow({
+      where: { tenantId: tenantB, name: marker }
+    })
+    expect(inB.colorIndex).toBe(0)
   })
 
   it("filters findMany to the current tenant", async () => {

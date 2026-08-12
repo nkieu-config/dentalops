@@ -3,6 +3,7 @@ import { Prisma } from "@prisma/client"
 import { AppException } from "../common/app.exception"
 import { decodeCursor, toPage } from "../common/pagination"
 import { PrismaService } from "../prisma/prisma.service"
+import { scoped } from "../prisma/scoped-input"
 import { currentTenant } from "../tenant/tenant-context"
 import { CreatePatientDto } from "./dto/create-patient.dto"
 import { QueryPatientsDto } from "./dto/query-patients.dto"
@@ -20,7 +21,9 @@ export class PatientsService {
 
   async create(dto: CreatePatientDto) {
     try {
-      return await this.prisma.scoped.patient.create({ data: { ...dto } as never })
+      return await this.prisma.scoped.patient.create({
+        data: scoped<Prisma.PatientUncheckedCreateInput>({ ...dto })
+      })
     } catch (e) {
       if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === "P2002") {
         throw new AppException(

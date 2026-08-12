@@ -1,10 +1,10 @@
 import "./instrument"
-import { ValidationPipe } from "@nestjs/common"
 import { NestFactory } from "@nestjs/core"
+import type { NestExpressApplication } from "@nestjs/platform-express"
 import { DocumentBuilder, SwaggerModule } from "@nestjs/swagger"
-import cookieParser from "cookie-parser"
 import { AppModule } from "./app.module"
 import { requireSecret } from "./auth/token-secrets"
+import { configureApp } from "./common/configure-app"
 import { assertProductionEnv } from "./common/environment"
 
 async function bootstrap() {
@@ -12,11 +12,10 @@ async function bootstrap() {
   requireSecret("JWT_REFRESH_SECRET")
   assertProductionEnv()
 
-  const app = await NestFactory.create(AppModule)
+  const app = await NestFactory.create<NestExpressApplication>(AppModule)
   app.setGlobalPrefix("api/v1")
   app.enableCors({ origin: process.env.WEB_ORIGIN ?? "http://localhost:5173", credentials: true })
-  app.use(cookieParser())
-  app.useGlobalPipes(new ValidationPipe({ whitelist: true, transform: true }))
+  configureApp(app)
 
   const swaggerConfig = new DocumentBuilder()
     .setTitle("DentalOps API")

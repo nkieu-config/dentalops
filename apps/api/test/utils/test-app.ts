@@ -1,9 +1,10 @@
-import { INestApplication, ValidationPipe } from "@nestjs/common"
+import { INestApplication } from "@nestjs/common"
+import type { NestExpressApplication } from "@nestjs/platform-express"
 import { Test, TestingModuleBuilder } from "@nestjs/testing"
-import cookieParser from "cookie-parser"
 import type Redis from "ioredis"
 import type { Server } from "node:http"
 import { AppModule } from "../../src/app.module"
+import { configureApp } from "../../src/common/configure-app"
 import { REDIS } from "../../src/redis/redis.module"
 
 const THROTTLER_KEYS = "*:default}:*"
@@ -33,10 +34,11 @@ export const createTestApp = async (
   options: { globalPrefix?: string } = {}
 ): Promise<TestApp> => {
   const moduleRef = await builder.compile()
-  const app = moduleRef.createNestApplication({ forceCloseConnections: true })
+  const app = moduleRef.createNestApplication<NestExpressApplication>({
+    forceCloseConnections: true
+  })
   if (options.globalPrefix) app.setGlobalPrefix(options.globalPrefix)
-  app.use(cookieParser())
-  app.useGlobalPipes(new ValidationPipe({ whitelist: true, transform: true }))
+  configureApp(app)
   const server = await listen(app)
   await clearThrottlerState(app)
   return { app, server }

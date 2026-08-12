@@ -32,7 +32,7 @@ DentalOps treats tests as evidence for specific guarantees, not as a generic cov
 - **Shared packages and web UI:** Vitest validates availability rules, contracts, components, state transitions, and source-driven contrast checks.
 - **API:** Jest and Supertest use real Postgres, Redis, and MongoDB services rather than database mocks.
 - **Browser:** Playwright runs the user journeys below and an axe accessibility sweep.
-- **Production boundary:** Docker builds the API image, starts it against real dependencies, and k6 drives booking contention.
+- **Production boundary:** Docker builds the API image, starts it against real dependencies, and k6 drives booking contention and warm and cold availability reads.
 
 The repository deliberately avoids a README test-count claim because test totals change whenever behavior is added. The CI badge is the current quality signal; this document states what that quality gate proves.
 
@@ -46,12 +46,12 @@ The repository deliberately avoids a README test-count claim because test totals
 
 On pull requests and pushes to main, [CI](../.github/workflows/ci.yml) runs the README workflow check, Prisma generation and migrations, lint, typecheck, tests, build, seeded Playwright e2e, and uploads browser traces after a failure.
 
-A Docker job builds the production image, starts it with Postgres, Redis, and MongoDB, verifies health and audit connectivity, and runs the 60-patient k6 contention test.
+A Docker job builds the production image, starts it with Postgres, Redis, and MongoDB, verifies health and audit connectivity, and runs two k6 load gates: the 60-patient contention test and a sustained availability read that measures the cache warm and cold separately.
 
 Visual regression is intentionally conditional. The visual job starts only after Linux baseline snapshots exist; a [manual refresh workflow](../.github/workflows/visual-baseline.yml) creates a reviewable baseline-update pull request. Until Linux baselines are present, the preflight reports visual regression as unavailable rather than presenting a non-gate as a quality gate.
 
 ## Performance and accessibility
 
-[Availability benchmarks](benchmarks/README.md) record prediction, method, results, and caveats. The [load-test report](benchmarks/load.md) documents contention and sustained-read behavior.
+[Availability benchmarks](benchmarks/availability.md) record prediction, method, results, and caveats. The [load-test report](benchmarks/load.md) documents contention and sustained-read behavior.
 
 Lighthouse is measured rather than gated because scores vary by machine and load. Deterministic accessibility gates are axe at desktop and mobile widths, keyboard/focus checks axe cannot determine, and a source-driven contrast verifier. [Lighthouse notes](benchmarks/lighthouse.md) document the mobile booking-page measurements.

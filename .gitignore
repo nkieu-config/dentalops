@@ -2,6 +2,7 @@ node_modules/
 .pnpm-store/
 dist/
 .turbo/
+.superpowers/
 coverage/
 playwright-report/
 test-results/

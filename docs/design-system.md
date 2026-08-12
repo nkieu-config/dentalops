@@ -1,7 +1,7 @@
-# DentalOps Design System — Master
+# DentalOps Design System
 
-Source of truth for all UI work. Page-specific deviations live in `docs/design-system/pages/`.
-Implements the UX decisions in [../superpowers/specs/dentalops-design.md](../superpowers/specs/dentalops-design.md) §6.
+Source of truth for all UI work.
+Implements the UX decisions in [superpowers/specs/dentalops-design.md](superpowers/specs/dentalops-design.md) §6.
 
 Stack: React 19 + Tailwind CSS v4 + shadcn/ui. Light and dark are both first-class.
 

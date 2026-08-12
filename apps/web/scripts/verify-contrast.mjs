@@ -56,10 +56,13 @@ const PAIRS = [
   ["--warning-on-surface", "--warning-surface", TEXT_ON_SURFACE],
   ["--success-on-surface", "--success-surface", TEXT_ON_SURFACE],
   ["--decorative-on-surface", "--decorative-surface", TEXT_ON_SURFACE],
+  ["--warm-foreground", "--warm", TEXT_ON_SURFACE],
+  ["--warm-on-surface", "--warm-surface", TEXT_ON_SURFACE],
   ["--destructive", "--background", TEXT_ON_SURFACE],
   ["--warning", "--background", TEXT_ON_SURFACE],
   ["--success", "--background", TEXT_ON_SURFACE],
   ["--decorative", "--background", TEXT_ON_SURFACE],
+  ["--warm", "--background", TEXT_ON_SURFACE],
   ["--input", "--card", NON_TEXT],
   ["--input", "--background", NON_TEXT],
   ["--ring", "--background", NON_TEXT],
@@ -106,7 +109,7 @@ if (failures.length > 0) {
   console.error(`Contrast failures (${failures.length} of ${checked} pairs checked):`)
   for (const failure of failures) console.error(`  ${failure}`)
   console.error("")
-  console.error("See docs/design-system/MASTER.md section 2 for the verified token set.")
+  console.error("See docs/design-system.md section 2 for the verified token set.")
   process.exit(1)
 }
 

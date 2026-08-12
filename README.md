@@ -15,6 +15,38 @@
 
 **Live demo:** https://trydentalops.vercel.app · **API health:** https://dentalops-api.onrender.com/api/v1/health
 
+## Product tour
+
+DentalOps keeps the front desk schedule and patient booking flow in one calm command center. These screenshots come from the current UI build; all demo names and appointments are synthetic.
+
+<p align="center">
+  <img src="docs/assets/readme/timeline-desktop.png" alt="DentalOps timeline showing dentist columns, appointment cards, a branch selector, and the current schedule" width="100%" />
+</p>
+
+<p align="center"><em>Timeline — scan the day, move appointments, and see resource coverage at a glance.</em></p>
+
+<table>
+  <tr>
+    <td width="50%" valign="top"><img src="docs/assets/readme/public-booking-mobile.png" alt="DentalOps public mobile booking flow showing branch, service, and duration choices" width="100%" /></td>
+    <td width="50%" valign="top"><img src="docs/assets/readme/roster-desktop.png" alt="DentalOps roster showing dentists across a weekly schedule with shift controls" width="100%" /></td>
+  </tr>
+  <tr>
+    <td align="center"><em>Public booking — a focused, touch-friendly patient path.</em></td>
+    <td align="center"><em>Roster — plan dentist coverage with compact, repeatable shift controls.</em></td>
+  </tr>
+</table>
+
+```mermaid
+flowchart LR
+  Patient["Public booking"] --> API["NestJS API"]
+  Staff["Staff workspace"] --> API
+  API --> Rules["Shared availability rules"]
+  Rules --> Postgres[("PostgreSQL constraints")]
+  API --> Redis[("Redis cache")]
+  API --> Realtime["Socket.IO events"]
+  Realtime --> Staff
+```
+
 ## Try it in 60 seconds
 
 1. Open the [live demo](https://trydentalops.vercel.app) and select **Try as Owner** — no signup.
@@ -52,7 +84,7 @@ The complete [testing evidence matrix](docs/testing.md) covers every headline gu
 
 ## Measured, then optimised
 
-I predicted that caching availability would improve p50/p95 latency by 2.5–3× because database round trips dominated. The measured result was **2.6×**: p50 **3.84 ms → 1.47 ms** and p95 **4.99 ms → 1.94 ms**. [Method, caveats, and reproduction](docs/benchmarks/README.md).
+I predicted that caching availability would improve p50/p95 latency by 2.5–3× because database round trips dominated. The measured result was **2.6×**: p50 **3.84 ms → 1.47 ms** and p95 **4.99 ms → 1.94 ms**. [Method, caveats, and reproduction](docs/benchmarks/availability.md).
 
 ## Stack
 
@@ -82,7 +114,8 @@ The web app starts at http://localhost:5173, health is at http://localhost:3001/
 - [Testing](docs/testing.md) — full evidence matrix, browser journeys, and CI gates.
 - [Booking](docs/booking.md) — locking, holds, idempotency, and recovery.
 - [Security](docs/security.md) — authentication, token boundaries, protected fields, and tenant isolation.
-- [Benchmarks](docs/benchmarks/README.md) — availability and load-test method, results, and caveats.
+- [Rostering](docs/rostering.md) — shift validation rules, series edits, and the nightly horizon job.
+- [Benchmarks](docs/benchmarks/availability.md) — availability and load-test method, results, and caveats.
 
 ## Limitations
 

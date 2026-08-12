@@ -14,7 +14,12 @@ interface ClinicResponse {
   id: string
   name: string
   slug: string
-  branches: Array<{ id: string; name: string }>
+  branches: Array<{
+    id: string
+    name: string
+    timezone: string
+    openingHours: Record<string, Array<[string, string]>>
+  }>
   services: Array<{ id: string; name: string; durationMin: number; colorIndex: number }>
   dentists: Array<{ id: string; name: string }>
 }
@@ -91,6 +96,20 @@ describe("public clinic endpoint", () => {
     expect(body.slug).toBe("demo-clinic")
     expect(body.name).toBeTruthy()
     expect(body.branches.map((b) => b.name).sort()).toEqual(["Ladprao", "Sukhumvit"])
+    expect(body.branches).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          name: "Ladprao",
+          timezone: "Asia/Bangkok",
+          openingHours: expect.objectContaining({ mon: [["10:00", "19:00"]] })
+        }),
+        expect.objectContaining({
+          name: "Sukhumvit",
+          timezone: "Asia/Bangkok",
+          openingHours: expect.objectContaining({ mon: [["09:00", "20:00"]] })
+        })
+      ])
+    )
     expect(body.services.length).toBeGreaterThan(0)
     for (const service of body.services) {
       expect(typeof service.durationMin).toBe("number")

@@ -653,3 +653,41 @@ The cost is real and is recorded in the README's limitations: a fixed offset is 
 `expandRecurrence` already accepts `utcOffsetMin` as a parameter and every caller lets it default to
 420, so the seam for a per-tenant IANA zone exists — but until something widens it, the product is
 correct only where the clocks never move.
+
+---
+
+## 13. Demo schedule density (2026-08-11)
+
+### Problem
+
+The default Timeline opens the alphabetically first branch, Ladprao. Appointments and shifts are
+correctly filtered to that branch, but the dentist columns are populated from the clinic-wide staff
+directory. The seed assigns only two of six active dentists to Ladprao, so four empty columns appear
+before the two populated columns. This makes a busy demo look sparse and misrepresents the Timeline's
+intended role as the product's primary command center.
+
+### Decision
+
+Day Timeline in dentist mode will derive its columns from the selected branch's rostered dentists.
+The selected branch will therefore contain only relevant columns, while the drawer and appointment
+creation flow retain access to the complete clinic directory where needed.
+
+The demo seed will make Ladprao the flagship workspace: four active dentists, four active chairs, and
+20–28 confirmed appointments on a normal weekday. Each dentist receives five to seven appointments
+between 09:00 and 18:00 Bangkok time, using varied service durations and short, intentional gaps.
+Sukhumvit remains a distinct smaller branch with two dentists and two active chairs. Existing recurring
+appointments, the detached occurrence, the roster violation, time blocks, inactive entities, and the
+public-booking path remain part of the demo.
+
+One dentist per branch retains a two-hour bookable window within each shift. This prevents a dense
+demo schedule from exhausting public availability while preserving a realistic visual load on the
+remaining chairs.
+
+### Constraints and verification
+
+- Appointments and resource claims must remain valid under the existing PostgreSQL exclusion constraints.
+- The demo must remain deterministic when `DEMO_SEED_NOW` is pinned and must remain idempotent on reset.
+- An API seed test will prove Ladprao's normal weekday density and chair capacity.
+- The availability round-trip test must still find and successfully book public slots.
+- A Timeline component test will prove that the selected branch controls visible dentist columns.
+- The existing seed, API, web typecheck, and focused browser tests must continue to pass.

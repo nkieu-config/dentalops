@@ -1,4 +1,5 @@
 import { execSync } from "node:child_process"
+import { PATIENT_COUNT } from "../src/demo/demo-seed"
 import { PrismaClient } from "@prisma/client"
 
 const prisma = new PrismaClient()
@@ -42,9 +43,9 @@ describe("seed script", () => {
     const counts = await demoCounts()
     expect(counts.branches).toBe(2)
     expect(counts.services).toBe(6)
-    expect(counts.resources).toBe(8)
-    expect(counts.users).toBe(8)
-    expect(counts.patients).toBe(120)
+    expect(counts.resources).toBe(9)
+    expect(counts.users).toBe(9)
+    expect(counts.patients).toBe(PATIENT_COUNT)
     expect(counts.shifts).toBeGreaterThan(350)
     expect(counts.appointments).toBeGreaterThan(1200)
 

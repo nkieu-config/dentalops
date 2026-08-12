@@ -1,4 +1,5 @@
 import { INestApplication } from "@nestjs/common"
+import { PATIENT_COUNT } from "../src/demo/demo-seed"
 import type { Server } from "node:http"
 import request from "supertest"
 import { DemoResetService } from "../src/demo/demo-reset.service"
@@ -50,7 +51,7 @@ describe("demo reset", () => {
 
   it("rebuilds the demo tenant to its seeded shape", async () => {
     const counts = await demo.reset()
-    expect(counts.patients).toBe(120)
+    expect(counts.patients).toBe(PATIENT_COUNT)
     expect(counts.shifts).toBeGreaterThan(300)
     expect(counts.appointments).toBeGreaterThan(1000)
     expect(counts.appointmentSeries).toBeGreaterThan(0)

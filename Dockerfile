@@ -26,7 +26,7 @@ COPY packages/availability/package.json packages/availability/
 COPY packages/contracts/package.json packages/contracts/
 COPY packages/config/package.json packages/config/
 RUN --mount=type=cache,id=pnpm-store,target=/pnpm/store \
-    pnpm install --frozen-lockfile
+    pnpm install --frozen-lockfile --filter "@dentalops/api..."
 
 COPY packages/ packages/
 COPY apps/api/ apps/api/
@@ -66,5 +66,7 @@ RUN chmod +x /usr/local/bin/docker-entrypoint.sh
 
 USER node
 EXPOSE 3001
+HEALTHCHECK --interval=30s --timeout=5s --start-period=60s --retries=3 \
+    CMD ["node", "-e", "fetch('http://127.0.0.1:' + (process.env.PORT || 3001) + '/api/v1/health').then(r => process.exit(r.ok ? 0 : 1), () => process.exit(1))"]
 ENTRYPOINT ["/usr/local/bin/docker-entrypoint.sh"]
 CMD ["node", "apps/api/dist/main.js"]

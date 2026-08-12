@@ -8,6 +8,8 @@ dist
 **/.turbo
 coverage
 **/coverage
+.pnpm-store
+scratch
 
 # Secrets must never enter a layer.
 .env
@@ -19,6 +21,8 @@ playwright-report
 **/playwright-report
 test-results
 **/test-results
+apps/web/e2e
+apps/api/test
 .git
 .github
 docs

@@ -1,6 +1,6 @@
 # Load tests
 
-The benchmark in this directory measures one request at a time. These measure
+[latency.md](latency.md) measures one request at a time. These measure
 what happens when many arrive at once. Scripts live in
 `apps/api/scripts/load/`, run with [k6](https://grafana.com/docs/k6/latest/).
 

@@ -1,9 +1,9 @@
-# Availability benchmarks
+# Availability latency
 
 `GET /api/v1/availability` is the hot path of this product: the staff timeline calls it on every
-date change, and the public booking wizard calls it on every step. This directory holds the numbers,
-the method that produced them, and enough detail that someone else can get the same numbers on their
-own machine — a number without a method is an anecdote.
+date change, and the public booking wizard calls it on every step. This file holds the numbers for
+one request at a time, the method that produced them, and enough detail that someone else can get
+the same numbers on their own machine — a number without a method is an anecdote.
 
 ## What is measured
 
@@ -288,4 +288,4 @@ when sixty patients reach for the same slot at once, and how the read path
 behaves under a sustained arrival rate.
 
 What the browser downloads before it can paint is measured in
-[bundle.md](bundle.md).
+[lighthouse.md](lighthouse.md).

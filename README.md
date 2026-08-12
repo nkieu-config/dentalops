@@ -84,7 +84,7 @@ The complete [testing evidence matrix](docs/testing.md) covers every headline gu
 
 ## Measured, then optimised
 
-I predicted that caching availability would improve p50/p95 latency by 2.5–3× because database round trips dominated. The measured result was **2.6×**: p50 **3.84 ms → 1.47 ms** and p95 **4.99 ms → 1.94 ms**. [Method, caveats, and reproduction](docs/benchmarks/availability.md).
+I predicted that caching availability would improve p50/p95 latency by 2.5–3× because database round trips dominated. The measured result was **2.6×**: p50 **3.84 ms → 1.47 ms** and p95 **4.99 ms → 1.94 ms**. [Method, caveats, and reproduction](docs/benchmarks/latency.md).
 
 ## Stack
 
@@ -115,7 +115,7 @@ The web app starts at http://localhost:5173, health is at http://localhost:3001/
 - [Booking](docs/booking.md) — locking, holds, idempotency, and recovery.
 - [Security](docs/security.md) — authentication, token boundaries, protected fields, and tenant isolation.
 - [Rostering](docs/rostering.md) — shift validation rules, series edits, and the nightly horizon job.
-- [Benchmarks](docs/benchmarks/availability.md) — availability and load-test method, results, and caveats.
+- [Benchmarks](docs/benchmarks/latency.md) — availability and load-test method, results, and caveats.
 
 ## Limitations
 

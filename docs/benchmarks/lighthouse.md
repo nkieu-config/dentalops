@@ -47,6 +47,37 @@ gallery are no longer in the patient's critical path.
 This is the whole reason to measure rather than assume. "Code-splitting improves performance" is
 true in general and was false here, and only a number could tell the difference.
 
+## What the entry chunk actually costs
+
+Measured with `vite build`, raw bytes, on the production configuration.
+
+The asymmetric split is only half the story. `main.tsx` imported `@sentry/react` statically, and with
+no DSN configured that import is dead code Rollup removes entirely — which is why no local build ever
+showed a cost, and neither did any earlier measurement. Set the DSN, as a deployment does, and it is
+in the entry chunk blocking first paint.
+
+| `main.tsx` | Entry chunk | Total | Chunks |
+|---|---|---|---|
+| `import * as Sentry` | **991.2 kB** | 1,128 kB | 18 |
+| `await import("@sentry/react")` | **482.3 kB** | 1,524 kB | 19 |
+
+The entry halves. The total grows by 396 kB, and that is not an accounting error: once Sentry sits
+behind a dynamic boundary Rollup can no longer tree-shake it against what the app actually calls, so
+the separate chunk carries 904.6 kB where the fused one contributed about 509 kB. A trade, not a free
+win — 509 kB moved off the critical path at the cost of 396 kB more bytes overall, fetched after
+hydration. For a page whose first impression happens on a Thai mobile connection, the blocking bytes
+are the ones that count. With no DSN set both forms produce a byte-identical 904.3 kB entry and 18
+chunks, so the dynamic import is never the worse choice.
+
+`socket.io-client` was checked against the same split and is already correct: it is reached only
+through `lib/realtime.ts`, which only the timeline imports, so it lands in the timeline chunk rather
+than the entry.
+
+Still open, and not answerable from the repository: whether `VITE_SENTRY_DSN` is set on Vercel. If it
+is not, the browser has never had error reporting and the entry has always been 904 kB for other
+reasons. Worth weighing either way — the API reports to Sentry server-side, and that is where this
+project's real incidents have surfaced: a MongoDB TLS handshake failure, a Redis quota exhaustion.
+
 ## Why this is not a CI gate
 
 Lighthouse needs a real Chrome and its performance score is machine- and load-sensitive; the same

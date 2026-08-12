@@ -52,6 +52,6 @@ Visual regression is intentionally conditional. The visual job starts only after
 
 ## Performance and accessibility
 
-[Availability benchmarks](benchmarks/availability.md) record prediction, method, results, and caveats. The [load-test report](benchmarks/load.md) documents contention and sustained-read behavior.
+[Availability benchmarks](benchmarks/latency.md) record prediction, method, results, and caveats. The [load-test report](benchmarks/load.md) documents contention and sustained-read behavior.
 
 Lighthouse is measured rather than gated because scores vary by machine and load. Deterministic accessibility gates are axe at desktop and mobile widths, keyboard/focus checks axe cannot determine, and a source-driven contrast verifier. [Lighthouse notes](benchmarks/lighthouse.md) document the mobile booking-page measurements.

@@ -48,7 +48,9 @@ On pull requests and pushes to main, [CI](../.github/workflows/ci.yml) runs the 
 
 A Docker job builds the production image, starts it with Postgres, Redis, and MongoDB, verifies health and audit connectivity, and runs two k6 load gates: the 60-patient contention test and a sustained availability read that measures the cache warm and cold separately.
 
-Visual regression is intentionally conditional. The visual job starts only after Linux baseline snapshots exist; a [manual refresh workflow](../.github/workflows/visual-baseline.yml) creates a reviewable baseline-update pull request. Until Linux baselines are present, the preflight reports visual regression as unavailable rather than presenting a non-gate as a quality gate.
+Visual regression is intentionally conditional. The visual job starts only after Linux baseline snapshots exist; a [manual refresh workflow](../.github/workflows/visual-baseline.yml) pushes refreshed baselines to `chore/refresh-visual-baselines` for review. Until Linux baselines are present, the preflight reports visual regression as unavailable rather than presenting a non-gate as a quality gate.
+
+The portfolio screenshots in the README come from the same harness rather than from a person with a screenshot key. `pnpm --filter @dentalops/web e2e:readme` seeds the demo tenant at the pinned instant the visual suite uses, drives the real UI, and writes [docs/assets/readme/](assets/readme/). The conflict screenshot is a rejected drag, not a mock: the suite fails if the database accepts the move or the toast never names the blocking appointment. Run it after any UI change that the README shows.
 
 ## Performance and accessibility
 

@@ -17,22 +17,34 @@
 
 ## Product tour
 
-DentalOps keeps the front desk schedule and patient booking flow in one calm command center. These screenshots come from the current UI build; all demo names and appointments are synthetic.
+DentalOps keeps the front desk schedule and patient booking flow in one calm command center. Every screenshot below is regenerated from the running app by `pnpm --filter @dentalops/web e2e:readme` against a clock-pinned demo seed, so it cannot drift from the UI it documents. All names and appointments are synthetic.
 
 <p align="center">
-  <img src="docs/assets/readme/timeline-desktop.png" alt="DentalOps timeline showing dentist columns, appointment cards, a branch selector, and the current schedule" width="100%" />
+  <img src="docs/assets/readme/timeline-desktop.png" alt="DentalOps timeline showing four dentist columns of appointments for one branch on one day, each column headed by its booked and free hours" width="100%" />
 </p>
 
-<p align="center"><em>Timeline — scan the day, move appointments, and see resource coverage at a glance.</em></p>
+<p align="center"><em>Timeline — one branch, one day, four dentists. Each column header carries its own booked-versus-free load.</em></p>
+
+<p align="center">
+  <img src="docs/assets/readme/conflict-desktop.png" alt="The DentalOps timeline after an appointment was dragged onto a taken slot: a red toast names the appointment that blocked the move, and the dragged card has returned to its original time" width="100%" />
+</p>
+
+<p align="center"><em>The guarantee, on screen — a drag onto a taken slot is refused by the database, the optimistic move rolls back, and the toast names the appointment that blocked it.</em></p>
+
+<p align="center">
+  <img src="docs/assets/readme/roster-violations-desktop.png" alt="DentalOps roster for a week with a review queue panel listing one blocking coverage issue and one rest-period warning" width="100%" />
+</p>
+
+<p align="center"><em>Roster — the review queue separates coverage that blocks bookings from coverage that is merely worth checking.</em></p>
 
 <table>
   <tr>
-    <td width="50%" valign="top"><img src="docs/assets/readme/public-booking-mobile.png" alt="DentalOps public mobile booking flow showing branch, service, and duration choices" width="100%" /></td>
-    <td width="50%" valign="top"><img src="docs/assets/readme/roster-desktop.png" alt="DentalOps roster showing dentists across a weekly schedule with shift controls" width="100%" /></td>
+    <td width="60%" valign="top"><img src="docs/assets/readme/chairs-desktop-dark.png" alt="The same DentalOps day in dark theme, with columns grouped by chair instead of by dentist" width="100%" /></td>
+    <td width="40%" valign="top"><img src="docs/assets/readme/public-booking-mobile.png" alt="DentalOps public mobile booking flow showing branch and service choices with durations" width="100%" /></td>
   </tr>
   <tr>
-    <td align="center"><em>Public booking — a focused, touch-friendly patient path.</em></td>
-    <td align="center"><em>Roster — plan dentist coverage with compact, repeatable shift controls.</em></td>
+    <td align="center"><em>The same day by chair — the second resource axis, in the dark theme.</em></td>
+    <td align="center"><em>Public booking — the patient path, on a phone.</em></td>
   </tr>
 </table>
 

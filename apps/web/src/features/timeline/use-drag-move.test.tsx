@@ -102,6 +102,18 @@ describe("useDragMove", () => {
     expect(onOpen).toHaveBeenCalledWith(appointment)
   })
 
+  it("keeps touch input as a tap so the details drawer remains the mobile editing path", () => {
+    const { onDrop, onOpen, card } = mount()
+    fireEvent.pointerDown(card, { button: 0, pointerType: "touch", clientX: 10, clientY: 576 })
+    fireEvent.pointerMove(window, { pointerType: "touch", clientX: 10, clientY: 640 })
+    fireEvent.pointerUp(window, { pointerType: "touch" })
+    fireEvent.click(card)
+
+    expect(previewText()).toBe("none")
+    expect(onDrop).not.toHaveBeenCalled()
+    expect(onOpen).toHaveBeenCalledWith(appointment)
+  })
+
   it("drags the bottom edge and drops a duration without touching the start", () => {
     const { onDrop } = mount()
     fireEvent.pointerDown(screen.getByTestId(`resize-${apptId}`), {

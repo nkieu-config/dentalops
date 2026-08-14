@@ -1,17 +1,38 @@
 import type { Branch } from "@dentalops/contracts"
-import { CalendarDays, ChevronLeft, ChevronRight, Search } from "lucide-react"
+import { ChevronLeft, ChevronRight, Search } from "lucide-react"
 import type { ReactNode } from "react"
 import { Button } from "../../components/ui/button"
-import { NativeSelect } from "../../components/ui/native-select"
+import { PageTitle } from "../../components/ui/page-header"
+import { AppSelect } from "../../components/ui/app-select"
+import { DatePicker } from "../../components/ui/date-picker"
 import { SegmentedControl } from "../../components/ui/segmented-control"
-import { bkkShiftDate, bkkToday, bkkWeekStart, fmtDay } from "./lib/geometry"
+import { Tooltip } from "../../components/ui/tooltip"
+import { cn } from "../../lib/cn"
+import { searchShortcutLabel } from "../../lib/shortcut-label"
+import { bkkShiftDate, bkkToday, bkkWeekStart, fmtCompactDay, fmtScheduleDay } from "./lib/geometry"
 
 export type TimelineView = "day" | "week"
 
 const VIEW_OPTIONS = [
   { value: "day", label: "Day" },
-  { value: "week", label: "Week" }
+  { value: "week", label: "Week" },
 ]
+
+const SearchButton = ({ onSearch, shortcut }: { onSearch: () => void; shortcut: string }) => (
+  <Tooltip content={`Search this schedule (${shortcut})`}>
+    <Button
+      variant="secondary"
+      size="sm"
+      onClick={onSearch}
+      aria-label="Search this schedule"
+      aria-keyshortcuts="Meta+K Control+K"
+      className="min-w-11 shrink-0 border border-border bg-background px-0 text-muted-foreground hover:text-foreground sm:w-auto sm:px-3 lg:min-w-28"
+    >
+      <Search className="h-4 w-4" aria-hidden="true" />
+      <span className="hidden lg:inline">Search</span>
+    </Button>
+  </Tooltip>
+)
 
 interface ToolbarProps {
   date: string
@@ -34,57 +55,103 @@ export const TimelineToolbar = ({
   onSearch,
   showViewToggle = true,
   primaryAction,
-  children
+  children,
 }: ToolbarProps) => {
   const step = view === "week" ? 7 : 1
-  const label = view === "week" ? `Week of ${fmtDay(bkkWeekStart(date))}` : fmtDay(date)
+  const label =
+    view === "week" ? `Week of ${fmtScheduleDay(bkkWeekStart(date))}` : fmtScheduleDay(date)
+  const today = bkkToday()
+  const isToday = date === today
+  const searchShortcut = searchShortcutLabel()
 
   return (
-    <div className="flex flex-wrap items-center gap-4 border-b border-border bg-card px-4 py-2.5 md:px-6 md:py-3">
-      <div className="flex flex-wrap items-center gap-3">
-        <NativeSelect
-          aria-label="Branch"
-          className="w-auto"
-          value={branchId ?? ""}
-          onChange={(e) => onChange({ branchId: e.target.value })}
+    <header className="shrink-0 p-2 pb-0 sm:p-3 sm:pb-0">
+      <div
+        data-testid="timeline-command-surface"
+        className="overflow-hidden rounded-hero border border-border bg-card shadow-xs"
+      >
+        <div
+          data-testid="timeline-command-layout"
+          className="flex flex-col gap-2 px-3 py-2 sm:px-4 [@media(max-height:600px)]:gap-1 [@media(max-height:600px)]:py-1"
         >
-          {branches.map((b) => (
-            <option key={b.id} value={b.id}>
-              {b.name}
-            </option>
-          ))}
-        </NativeSelect>
-        <Button variant="ghost" size="sm" onClick={() => onChange({ date: bkkToday() })}>
-          <CalendarDays className="h-4 w-4" aria-hidden="true" />
-          Today
-        </Button>
-        <div className="flex items-center gap-1">
-          <Button
-            variant="ghost"
-            size="icon"
-            aria-label={view === "week" ? "Previous week" : "Previous day"}
-            onClick={() => onChange({ date: bkkShiftDate(date, -step) })}
+          <div
+            data-testid="timeline-command-context"
+            className="flex min-w-0 items-center gap-2 sm:gap-3"
           >
-            <ChevronLeft className="h-4 w-4" aria-hidden="true" />
-          </Button>
-          <span className="min-w-28 text-center text-sm font-medium tabular-nums sm:min-w-40">
-            {label}
-          </span>
-          <Button
-            variant="ghost"
-            size="icon"
-            aria-label={view === "week" ? "Next week" : "Next day"}
-            onClick={() => onChange({ date: bkkShiftDate(date, step) })}
-          >
-            <ChevronRight className="h-4 w-4" aria-hidden="true" />
-          </Button>
-        </div>
-      </div>
+            <PageTitle className="sr-only text-foreground sm:not-sr-only">Timeline</PageTitle>
+            <AppSelect
+              variant="toolbar"
+              aria-label="Branch"
+              prefix="Branch"
+              className="w-full min-w-0 sm:w-60 sm:max-w-72 lg:w-64"
+              value={branchId ?? ""}
+              onValueChange={(nextBranchId) => onChange({ branchId: nextBranchId })}
+              options={branches.map((branch) => ({ value: branch.id, label: branch.name }))}
+            />
+            {primaryAction ? (
+              <div data-testid="timeline-primary-action" className="ml-auto shrink-0">
+                {primaryAction}
+              </div>
+            ) : null}
+          </div>
 
-      {showViewToggle || children ? (
-        <>
-          <div className="h-6 w-px shrink-0 bg-border" aria-hidden="true" />
-          <div className="flex flex-wrap items-center gap-3">
+          <div
+            data-testid="timeline-schedule-row"
+            className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-2 border-t border-border/60 pt-2 lg:border-t-0 lg:pt-0"
+          >
+          <div
+            data-testid="timeline-date-controls"
+            className="grid min-w-0 flex-1 grid-cols-[auto_2.75rem_minmax(0,1fr)_2.75rem_auto] items-center gap-2 sm:min-w-76 lg:max-w-lg"
+          >
+            <Button
+              variant="secondary"
+              size="sm"
+              aria-current={isToday ? "date" : undefined}
+              className={cn(
+                "min-h-11",
+                isToday && "bg-primary-surface text-primary-on-surface hover:bg-accent",
+              )}
+              onClick={() => onChange({ date: today })}
+            >
+              Today
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              aria-label={view === "week" ? "Previous week" : "Previous day"}
+              className="min-w-11 shrink-0"
+              onClick={() => onChange({ date: bkkShiftDate(date, -step) })}
+            >
+              <ChevronLeft className="h-4 w-4" aria-hidden="true" />
+            </Button>
+            <DatePicker
+              date={date}
+              onChange={(nextDate) => onChange({ date: nextDate })}
+              label="Choose schedule date"
+              triggerLabel={label}
+              compactTriggerLabel={fmtCompactDay(date)}
+              className="min-w-0 max-sm:w-full max-sm:px-2"
+            />
+            <Button
+              variant="ghost"
+              size="icon"
+              aria-label={view === "week" ? "Next week" : "Next day"}
+              className="min-w-11 shrink-0"
+              onClick={() => onChange({ date: bkkShiftDate(date, step) })}
+            >
+              <ChevronRight className="h-4 w-4" aria-hidden="true" />
+            </Button>
+            {onSearch ? (
+              <div data-testid="timeline-search-action" className="justify-self-end">
+                <SearchButton onSearch={onSearch} shortcut={searchShortcut} />
+              </div>
+            ) : null}
+          </div>
+
+          <div
+            data-testid="timeline-mode-actions"
+            className="hidden min-w-0 flex-wrap items-center gap-2 md:flex xl:ml-auto"
+          >
             {showViewToggle ? (
               <SegmentedControl
                 ariaLabel="View"
@@ -95,29 +162,9 @@ export const TimelineToolbar = ({
             ) : null}
             {children}
           </div>
-        </>
-      ) : null}
-
-      {onSearch ? (
-        <>
-          <div className="hidden h-6 w-px shrink-0 bg-border sm:block" aria-hidden="true" />
-          <button
-            type="button"
-            onClick={onSearch}
-            aria-label="Find a patient"
-            className="flex min-h-9 items-center gap-2 rounded-control border border-border bg-background px-3 text-sm text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-          >
-            <Search className="h-4 w-4" aria-hidden="true" />
-            <span className="hidden sm:inline">Find a patient</span>
-            <kbd className="hidden rounded border border-border bg-card px-1.5 py-0.5 font-mono text-meta text-muted-foreground sm:inline">
-              ⌘K
-            </kbd>
-          </button>
-        </>
-      ) : null}
-
-      <div className="flex-1" />
-      {primaryAction}
-    </div>
+          </div>
+        </div>
+      </div>
+    </header>
   )
 }

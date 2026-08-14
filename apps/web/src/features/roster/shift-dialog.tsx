@@ -1,12 +1,14 @@
 import type { StaffMember, Violation } from "@dentalops/contracts"
 import { TriangleAlert } from "lucide-react"
+import { useEffect, useRef, useState } from "react"
 import { OFFLINE_MESSAGE } from "../../components/shell/offline-banner"
 import { Button } from "../../components/ui/button"
-import { Input } from "../../components/ui/input"
-import { Label } from "../../components/ui/label"
-import { NativeSelect } from "../../components/ui/native-select"
+import { AlertDialog } from "../../components/ui/alert-dialog"
+import { Field, FieldInput, FormError } from "../../components/ui/form-field"
+import { AppSelect } from "../../components/ui/app-select"
 import { Sheet } from "../../components/ui/sheet"
 import { StatusCallout } from "../../components/ui/status-callout"
+import { useDiscardGuard } from "../../lib/use-discard-guard"
 import { shiftFormInterval, type ShiftForm } from "./hooks"
 import { ViolationList, type ViolationLink } from "./violation-list"
 
@@ -25,7 +27,7 @@ interface ShiftDialogProps {
   linkFor: (violation: Violation) => ViolationLink | null
   onChange: (next: ShiftForm) => void
   onSave: () => void
-  onDelete: () => void
+  onDelete: () => Promise<void>
   onClose: () => void
 }
 
@@ -44,107 +46,143 @@ export const ShiftDialog = ({
   onSave,
   onDelete,
   onClose
-}: ShiftDialogProps) => (
-  <Sheet
-    open={value !== null}
-    onOpenChange={(open) => {
-      if (!open) onClose()
-    }}
-    title={value?.shiftId ? "Edit shift" : "New shift"}
+}: ShiftDialogProps) => {
+  const [confirmingDelete, setConfirmingDelete] = useState(false)
+  const initialValue = useRef<ShiftForm | null>(null)
+  const invalidInterval =
+    value !== null && value.start !== "" && value.end !== "" && shiftFormInterval(value) === null
+
+  useEffect(() => {
+    if (value === null) {
+      initialValue.current = null
+      setConfirmingDelete(false)
+      return
+    }
+    if (initialValue.current === null) initialValue.current = value
+  }, [value])
+
+  const close = () => {
+    setConfirmingDelete(false)
+    onClose()
+  }
+  const dirty = value !== null && JSON.stringify(value) !== JSON.stringify(initialValue.current)
+  const discardGuard = useDiscardGuard(dirty, close)
+
+  return (
+    <>
+    <Sheet
+      open={value !== null}
+      onOpenChange={discardGuard.requestClose}
+      title={value?.shiftId ? "Edit shift" : "New shift"}
+      footer={
+        value ? (
+          <div data-testid="shift-dialog-footer" className="flex flex-wrap items-center gap-2">
+            {value.shiftId ? (
+  <Button
+    variant="destructive"
+                    onClick={() => setConfirmingDelete(true)}
+    disabled={saving || offline}
+    title={offline ? OFFLINE_MESSAGE : undefined}
+    aria-describedby={offline ? OFFLINE_REASON_ID : undefined}
   >
-    {value ? (
-      <div className="space-y-4">
-        <div className="space-y-1">
-          <Label htmlFor="shift-staff">Dentist</Label>
-          <NativeSelect
-            id="shift-staff"
-            value={value.staffId}
-            disabled={value.shiftId !== undefined}
-            onChange={(e) => onChange({ ...value, staffId: e.target.value })}
-          >
-            <option value="">Choose a dentist</option>
-            {staff.map((member) => (
-              <option key={member.id} value={member.id}>
-                {member.name}
-              </option>
-            ))}
-          </NativeSelect>
-        </div>
-        <div className="space-y-1">
-          <Label htmlFor="shift-date">Date</Label>
-          <Input
-            id="shift-date"
-            type="date"
-            className="min-h-11 tabular-nums"
-            value={value.date}
-            onChange={(e) => onChange({ ...value, date: e.target.value })}
-          />
-        </div>
-        <div className="flex gap-3">
-          <div className="flex-1 space-y-1">
-            <Label htmlFor="shift-start">Starts</Label>
-            <Input
-              id="shift-start"
-              type="time"
-              className="min-h-11 tabular-nums"
-              value={value.start}
-              onChange={(e) => onChange({ ...value, start: e.target.value })}
-            />
-          </div>
-          <div className="flex-1 space-y-1">
-            <Label htmlFor="shift-end">Ends</Label>
-            <Input
-              id="shift-end"
-              type="time"
-              className="min-h-11 tabular-nums"
-              value={value.end}
-              onChange={(e) => onChange({ ...value, end: e.target.value })}
-            />
-          </div>
-        </div>
-        <section aria-label="Draft validation" className="rounded-md border border-border p-3">
-          {error ? (
-            <StatusCallout tone="warning" icon={TriangleAlert} title="Could not check this draft">
-              Scheduling conflicts could not be checked, so saving is paused until this succeeds
-              again.
-            </StatusCallout>
-          ) : (
-            <ViolationList violations={violations} staffName={staffName} linkFor={linkFor} />
-          )}
-        </section>
-        {offline ? (
-          <p id={OFFLINE_REASON_ID} className="text-xs font-medium text-destructive">
-            {OFFLINE_MESSAGE}
-          </p>
-        ) : null}
-        <div className="flex flex-wrap items-center gap-2">
-          {value.shiftId ? (
-            <Button
-              variant="destructive"
-              className="min-h-11"
-              onClick={onDelete}
-              disabled={saving || offline}
-              title={offline ? OFFLINE_MESSAGE : undefined}
-              aria-describedby={offline ? OFFLINE_REASON_ID : undefined}
-            >
-              Delete
+    Delete shift
+  </Button>
+            ) : null}
+            <div className="flex-1" />
+            <Button variant="secondary" onClick={() => discardGuard.requestClose(false)}>
+  Cancel
             </Button>
+            <Button
+                onClick={onSave}
+  disabled={blocked || settling || saving || offline || shiftFormInterval(value) === null}
+  title={offline ? OFFLINE_MESSAGE : undefined}
+  aria-describedby={offline ? OFFLINE_REASON_ID : undefined}
+            >
+  Save shift
+            </Button>
+          </div>
+        ) : null
+      }
+    >
+      {value ? (
+        <div className="space-y-4">
+          <Field id="shift-staff" label="Dentist">
+            {(aria) => (
+  <AppSelect
+    {...aria}
+    value={value.staffId}
+    disabled={value.shiftId !== undefined}
+    aria-label="Dentist"
+    placeholder="Choose a dentist"
+    onValueChange={(staffId) => onChange({ ...value, staffId })}
+    options={staff.map((member) => ({ value: member.id, label: member.name }))}
+  />
+            )}
+          </Field>
+          <Field id="shift-date" label="Date">
+            {(aria) => (
+  <FieldInput
+    {...aria}
+    type="date"
+    className="tabular-nums"
+    value={value.date}
+    onChange={(e) => onChange({ ...value, date: e.target.value })}
+  />
+            )}
+          </Field>
+          <div className="grid grid-cols-2 gap-3">
+            <Field id="shift-start" label="Starts">
+  {(aria) => (
+    <FieldInput
+      {...aria}
+      type="time"
+      className="tabular-nums"
+      value={value.start}
+      onChange={(e) => onChange({ ...value, start: e.target.value })}
+    />
+  )}
+            </Field>
+            <Field id="shift-end" label="Ends">
+  {(aria) => (
+    <FieldInput
+      {...aria}
+      type="time"
+      className="tabular-nums"
+      value={value.end}
+      onChange={(e) => onChange({ ...value, end: e.target.value })}
+    />
+  )}
+            </Field>
+          </div>
+          <FormError message={invalidInterval ? "End time must be later than start time." : null} />
+          <section aria-label="Draft validation" className="rounded-md border border-border p-3">
+            {error ? (
+  <StatusCallout tone="warning" icon={TriangleAlert} title="Could not check this draft">
+    Scheduling conflicts could not be checked, so saving is paused until this succeeds
+    again.
+  </StatusCallout>
+            ) : (
+  <ViolationList violations={violations} staffName={staffName} linkFor={linkFor} />
+            )}
+          </section>
+          {offline ? (
+            <p id={OFFLINE_REASON_ID} className="type-meta font-medium text-destructive">
+  {OFFLINE_MESSAGE}
+            </p>
           ) : null}
-          <div className="flex-1" />
-          <Button variant="secondary" className="min-h-11" onClick={onClose}>
-            Cancel
-          </Button>
-          <Button
-            className="min-h-11"
-            onClick={onSave}
-            disabled={blocked || settling || saving || offline || shiftFormInterval(value) === null}
-            title={offline ? OFFLINE_MESSAGE : undefined}
-            aria-describedby={offline ? OFFLINE_REASON_ID : undefined}
-          >
-            Save
-          </Button>
         </div>
-      </div>
-    ) : null}
-  </Sheet>
-)
+      ) : null}
+      <AlertDialog
+        open={confirmingDelete}
+        onOpenChange={setConfirmingDelete}
+        title="Delete shift?"
+        description="This permanently removes the shift from the roster."
+        confirmLabel="Delete permanently"
+        cancelLabel="Keep shift"
+        onConfirm={onDelete}
+      />
+    </Sheet>
+    {discardGuard.dialog}
+    </>
+  )
+}

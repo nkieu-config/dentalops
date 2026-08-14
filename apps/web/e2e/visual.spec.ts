@@ -86,6 +86,14 @@ for (const theme of THEMES) {
             `${screen.name} bounced to another route — the session dropped, and shooting now would ` +
               `record the wrong screen under the right filename`
           ).toHaveURL(new RegExp(`${targetPath}(\\?|$)`))
+          if (screen.name === "timeline") {
+            const grid = viewport.width >= 768
+            await expect(
+              page.getByTestId(grid ? "timeline-shell" : "agenda-filter-bar")
+            ).toBeVisible()
+            if (grid) await expect(page.getByTestId("timeline-canvas")).toBeVisible()
+            await expect(page.getByRole("heading", { name: "Timeline", level: 1 })).toBeAttached()
+          }
           await shoot(page, `${screen.name}-${viewport.name}-${theme}`)
         }
       })

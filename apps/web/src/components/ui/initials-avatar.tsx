@@ -16,9 +16,9 @@ const initialsFor = (name: string) =>
 
 export const InitialsAvatar = ({ name, className }: InitialsAvatarProps) => (
   <span
-    aria-label={name}
+    aria-hidden="true"
     className={cn(
-      "inline-flex size-9 shrink-0 items-center justify-center rounded-full bg-secondary text-meta font-bold text-secondary-foreground",
+      "inline-flex size-9 shrink-0 items-center justify-center rounded-full bg-secondary type-meta font-bold text-secondary-foreground",
       className
     )}
   >

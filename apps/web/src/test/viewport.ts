@@ -1,8 +1,8 @@
-export type Viewport = "sm" | "md" | "lg"
+export type Viewport = "sm" | "md" | "lg" | "xl"
 
-const WIDTHS: Record<Viewport, number> = { sm: 375, md: 768, lg: 1440 }
+const WIDTHS: Record<Viewport, number> = { sm: 375, md: 768, lg: 1024, xl: 1440 }
 
-const DEFAULT_VIEWPORT: Viewport = "lg"
+const DEFAULT_VIEWPORT: Viewport = "xl"
 
 const listeners = new Set<() => void>()
 

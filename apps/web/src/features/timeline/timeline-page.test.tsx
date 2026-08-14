@@ -1,6 +1,6 @@
 import type { UserRole } from "@dentalops/contracts"
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
-import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react"
+import { act, fireEvent, render, screen, waitFor, within } from "../../test/render"
 import userEvent from "@testing-library/user-event"
 import { MemoryRouter } from "react-router"
 import { Toaster, toast } from "sonner"
@@ -61,9 +61,32 @@ const appointment = (
   claims: []
 })
 
-const directory = (dentists: { id: string; name: string }[]) => [
+const closedAllWeek = {
+  mon: [],
+  tue: [],
+  wed: [],
+  thu: [],
+  fri: [],
+  sat: [],
+  sun: []
+}
+
+const directory = (
+  dentists: { id: string; name: string }[],
+  branchRows: { id: string; name: string; openingHours?: unknown }[] = [
+    { id: branchId, name: "Sukhumvit" }
+  ]
+) => [
   http.get(`${API}/branches`, () =>
-    HttpResponse.json([{ id: branchId, name: "Sukhumvit", openingHours: {} }])
+    HttpResponse.json(
+      branchRows.map((branch) => ({
+        id: branch.id,
+        name: branch.name,
+        openingHours: branch.openingHours ?? {},
+        timezone: "Asia/Bangkok",
+        isActive: true
+      }))
+    )
   ),
   http.get(`${API}/staff`, () =>
     HttpResponse.json(dentists.map((d) => ({ ...d, role: "dentist", isActive: true })))
@@ -99,10 +122,77 @@ afterEach(() => {
 })
 
 describe("TimelinePage", () => {
+  it("opens an appointment linked directly from a patient record", async () => {
+    const id = "a1000000-0000-4000-8000-000000000005"
+    server.use(
+      ...directory([{ id: dentistId, name: "Dr. Anong" }]),
+      http.get(`${API}/appointments`, () =>
+        HttpResponse.json([
+          appointment(id, dentistId, "2026-08-03T02:00:00.000Z", "2026-08-03T03:00:00.000Z", "Root canal")
+        ])
+      )
+    )
+
+    mount("receptionist", `/app/timeline?d=2026-08-03&a=${id}`)
+
+    const dialog = await screen.findByRole("dialog")
+    expect(dialog).toHaveTextContent("Root canal")
+    expect(dialog).toHaveTextContent("S. Chaiwat")
+  })
+
+  it("opens the booking flow requested from a patient record", async () => {
+    server.use(
+      ...directory([{ id: dentistId, name: "Dr. Anong" }]),
+      http.get(`${API}/appointments`, () => HttpResponse.json([])),
+      http.get(`${API}/services`, () => HttpResponse.json([])),
+      http.get(`${API}/patients`, () => HttpResponse.json({ items: [], nextCursor: null })),
+      http.get(`${API}/patients/${patientId}`, () =>
+        HttpResponse.json({
+          id: patientId,
+          name: "S. Chaiwat",
+          phone: "0812345678",
+          email: "chaiwat@example.com",
+          notes: null,
+          appointments: []
+        })
+      )
+    )
+
+    mount("receptionist", `/app/timeline?d=2026-08-03&new=appointment&p=${patientId}`)
+
+    const dialog = await screen.findByRole("dialog")
+    expect(dialog).toHaveTextContent("New appointment")
+    expect((await within(dialog).findAllByText("S. Chaiwat")).length).toBeGreaterThan(0)
+  })
+
+  it("lets the user retry after the clinic directory fails to load", async () => {
+    let branchRequests = 0
+    server.use(
+      http.get(`${API}/branches`, () => {
+        branchRequests += 1
+        return branchRequests === 1
+          ? HttpResponse.json({ message: "Unavailable" }, { status: 500 })
+          : HttpResponse.json([{ id: branchId, name: "Sukhumvit", openingHours: {}, timezone: "Asia/Bangkok", isActive: true }])
+      }),
+      http.get(`${API}/staff`, () =>
+        HttpResponse.json([{ id: dentistId, name: "Dr. Anong", role: "dentist", isActive: true }])
+      ),
+      http.get(`${API}/shifts`, () => HttpResponse.json([])),
+      http.get(`${API}/appointments`, () => HttpResponse.json([]))
+    )
+    mount()
+
+    expect(await screen.findByText("Could not load the clinic")).toBeInTheDocument()
+    await userEvent.click(screen.getByRole("button", { name: "Retry" }))
+
+    expect(await screen.findByTestId("timeline-page")).toBeInTheDocument()
+    expect(branchRequests).toBe(2)
+  })
+
   it("renders the grid for the branch and day in the url", async () => {
     server.use(
       http.get(`${API}/branches`, () =>
-        HttpResponse.json([{ id: branchId, name: "Sukhumvit", openingHours: {} }])
+        HttpResponse.json([{ id: branchId, name: "Sukhumvit", openingHours: {}, timezone: "Asia/Bangkok", isActive: true }])
       ),
       http.get(`${API}/staff`, () =>
         HttpResponse.json([{ id: dentistId, name: "Dr. Anong", role: "dentist", isActive: true }])
@@ -132,10 +222,61 @@ describe("TimelinePage", () => {
     mount()
     expect(await screen.findByText("Dr. Anong")).toBeInTheDocument()
     expect(await screen.findByText("Cleaning")).toBeInTheDocument()
-    expect(screen.getByText("Mon, 3 Aug 2026")).toBeInTheDocument()
+    expect(screen.getByText("Mon 3 Aug")).toBeInTheDocument()
     const blocks = screen.getAllByTestId("offshift")
     expect(blocks).toHaveLength(2)
-    expect(blocks[0]).toHaveStyle({ top: "0px", height: "576px" })
+    expect(blocks[0]).toHaveStyle({ top: "0px", height: "64px" })
+  })
+
+  it("shows only dentists rostered for the selected branch when the day has schedule data", async () => {
+    server.use(
+      ...directory([
+        { id: dentistId, name: "Dr. Anong" },
+        { id: otherDentistId, name: "Dr. Boon" }
+      ]),
+      http.get(`${API}/shifts`, () =>
+        HttpResponse.json([
+          {
+            id: "3f9619ff-8b86-4d01-b42d-00cf4fc964ff",
+            staffId: dentistId,
+            branchId,
+            startsAt: "2026-08-03T02:00:00.000Z",
+            endsAt: "2026-08-03T10:00:00.000Z"
+          }
+        ])
+      ),
+      http.get(`${API}/appointments`, () =>
+        HttpResponse.json([
+          appointment(
+            "4f9619ff-8b86-4d01-b42d-00cf4fc964ff",
+            dentistId,
+            "2026-08-03T02:00:00.000Z",
+            "2026-08-03T03:00:00.000Z"
+          )
+        ])
+      )
+    )
+    mount()
+
+    expect(await screen.findByText("Dr. Anong")).toBeInTheDocument()
+    await waitFor(() => expect(screen.queryByText("Dr. Boon")).not.toBeInTheDocument())
+  })
+
+  it("anchors the schedule in a visible page heading and calendar date control", async () => {
+    server.use(
+      ...directory([{ id: dentistId, name: "Dr. Anong" }]),
+      http.get(`${API}/appointments`, () => HttpResponse.json([]))
+    )
+    mount()
+
+    expect(await screen.findByRole("heading", { name: "Timeline" })).toBeVisible()
+    expect(screen.getByRole("button", { name: "Choose schedule date" })).toHaveTextContent(
+      "Mon 3 Aug"
+    )
+    expect(screen.queryByText("SCHEDULE")).not.toBeInTheDocument()
+    expect(screen.getByRole("combobox", { name: "Branch" })).toHaveTextContent(
+      "Branch·Sukhumvit"
+    )
   })
 
   it("keeps the grid usable and offers a retry when only appointments fail to load", async () => {
@@ -148,8 +289,119 @@ describe("TimelinePage", () => {
     mount()
 
     expect(await screen.findByText("Dr. Anong")).toBeInTheDocument()
-    expect(await screen.findByText("Appointments could not be loaded")).toBeInTheDocument()
+    expect(await screen.findByText("This schedule may be incomplete")).toBeInTheDocument()
     expect(screen.getByRole("button", { name: "Retry" })).toBeInTheDocument()
+  })
+
+  it("says nobody is rostered instead of leaving the day a blank grey canvas", async () => {
+    server.use(
+      ...directory([{ id: dentistId, name: "Dr. Anong" }]),
+      http.get(`${API}/appointments`, () => HttpResponse.json([]))
+    )
+    mount()
+
+    expect(await screen.findByTestId("nobody-rostered")).toHaveTextContent(
+      "Nobody is on shift on Mon 3 Aug"
+    )
+    expect(screen.getByRole("button", { name: "Open Roster" })).toBeInTheDocument()
+    expect(screen.getByTestId(`col-${dentistId}`)).toBeInTheDocument()
+    expect(screen.getByTestId(`overlay-${dentistId}`)).toBeInTheDocument()
+  })
+
+  it("separates an open but unbooked day from a day with no cover", async () => {
+    server.use(
+      http.get(`${API}/branches`, () =>
+        HttpResponse.json([{ id: branchId, name: "Sukhumvit", openingHours: {}, timezone: "Asia/Bangkok", isActive: true }])
+      ),
+      http.get(`${API}/staff`, () =>
+        HttpResponse.json([{ id: dentistId, name: "Dr. Anong", role: "dentist", isActive: true }])
+      ),
+      http.get(`${API}/shifts`, () =>
+        HttpResponse.json([
+          {
+            id: "3f9619ff-8b86-4d01-b42d-00cf4fc964ff",
+            staffId: dentistId,
+            branchId,
+            startsAt: "2026-08-03T02:00:00.000Z",
+            endsAt: "2026-08-03T10:00:00.000Z"
+          }
+        ])
+      ),
+      http.get(`${API}/availability`, () => HttpResponse.json({ slots: [] })),
+      http.get(`${API}/appointments`, () => HttpResponse.json([]))
+    )
+    mount()
+
+    expect(await screen.findByTestId("nothing-booked")).toHaveTextContent("Nothing booked yet")
+    expect(screen.queryByTestId("nobody-rostered")).not.toBeInTheDocument()
+  })
+
+  it("claims neither empty nor closed while the day's data is missing", async () => {
+    server.use(
+      ...directory([{ id: dentistId, name: "Dr. Anong" }]),
+      http.get(`${API}/appointments`, () =>
+        HttpResponse.json({ statusCode: 500, errorCode: "INTERNAL", message: "boom", requestId: "r" }, { status: 500 })
+      )
+    )
+    mount()
+
+    expect(await screen.findByText("This schedule may be incomplete")).toBeInTheDocument()
+    expect(screen.queryByTestId("nobody-rostered")).not.toBeInTheDocument()
+    expect(screen.queryByTestId("nothing-booked")).not.toBeInTheDocument()
+  })
+
+  it("does not mark staff as off shift when shifts cannot be loaded", async () => {
+    server.use(
+      http.get(`${API}/branches`, () =>
+        HttpResponse.json([{ id: branchId, name: "Sukhumvit", openingHours: {}, timezone: "Asia/Bangkok", isActive: true }])
+      ),
+      http.get(`${API}/staff`, () =>
+        HttpResponse.json([{ id: dentistId, name: "Dr. Anong", role: "dentist", isActive: true }])
+      ),
+      http.get(`${API}/shifts`, () =>
+        HttpResponse.json({ statusCode: 500, errorCode: "INTERNAL", message: "boom", requestId: "r" }, { status: 500 })
+      ),
+      http.get(`${API}/appointments`, () => HttpResponse.json([]))
+    )
+    mount()
+
+    expect(await screen.findByText("Dr. Anong")).toBeInTheDocument()
+    expect(await screen.findByText("Shift shading is unavailable")).toBeInTheDocument()
+    await waitFor(() => expect(screen.queryAllByTestId("offshift")).toHaveLength(0))
+  })
+
+  it("keeps the command surface visible while appointments are still loading", async () => {
+    let releaseAppointments = () => {}
+    const appointmentsArrived = new Promise<void>((resolve) => {
+      releaseAppointments = resolve
+    })
+    server.use(
+      ...directory([{ id: dentistId, name: "Dr. Anong" }]),
+      http.get(`${API}/appointments`, async () => {
+        await appointmentsArrived
+        return HttpResponse.json([])
+      })
+    )
+    mount()
+
+    expect(await screen.findByRole("heading", { name: "Timeline" })).toBeVisible()
+    expect(await screen.findByTestId("appointments-loading")).toBeInTheDocument()
+    expect(screen.queryByText("Nothing scheduled")).not.toBeInTheDocument()
+
+    releaseAppointments()
+    expect(await screen.findByTestId("timegrid-scroll")).toBeInTheDocument()
+  })
+
+  it("explains when chair day view has no chairs at the selected branch", async () => {
+    server.use(
+      ...directory([{ id: dentistId, name: "Dr. Anong" }]),
+      http.get(`${API}/resources`, () => HttpResponse.json([])),
+      http.get(`${API}/appointments`, () => HttpResponse.json([]))
+    )
+    mount("receptionist", "/app/timeline?d=2026-08-03&c=chair")
+
+    expect(await screen.findByText("No chairs at this branch")).toBeInTheDocument()
+    expect(screen.queryByTestId("timegrid-scroll")).not.toBeInTheDocument()
   })
 
   it("lays lanes out per dentist so one column never narrows another", async () => {
@@ -215,18 +467,18 @@ describe("TimelinePage", () => {
     mount()
     const overlay = await screen.findByTestId(`overlay-${dentistId}`)
 
-    fireEvent.pointerDown(overlay, { clientY: 576, button: 0 })
-    fireEvent.pointerMove(overlay, { clientY: 640 })
-    expect(screen.getByTestId("ghost")).toHaveStyle({ top: "576px", height: "64px" })
+    fireEvent.pointerDown(overlay, { clientY: 64, button: 0 })
+    fireEvent.pointerMove(overlay, { clientY: 128 })
+    expect(screen.getByTestId("ghost")).toHaveStyle({ top: "64px", height: "64px" })
 
     fireEvent.pointerUp(overlay)
     const dialog = await screen.findByRole("dialog")
     expect(dialog).toHaveTextContent("New appointment")
-    expect(within(dialog).getByLabelText("Dentist")).toHaveValue(dentistId)
+    expect(within(dialog).getByLabelText("Dentist")).toHaveTextContent("Dr. Anong")
     expect(within(dialog).getByLabelText("Starts")).toHaveValue("09:00")
   })
 
-  it("opens a prefilled booking drawer from the toolbar button, with no pointer gesture at all", async () => {
+  it("requires the receptionist to choose the dentist and time when booking from the toolbar", async () => {
     server.use(
       ...directory([{ id: dentistId, name: "Dr. Anong" }]),
       http.get(`${API}/appointments`, () => HttpResponse.json([])),
@@ -240,8 +492,9 @@ describe("TimelinePage", () => {
 
     const dialog = await screen.findByRole("dialog")
     expect(dialog).toHaveTextContent("New appointment")
-    expect(within(dialog).getByLabelText("Dentist")).toHaveValue(dentistId)
-    expect(within(dialog).getByLabelText("Starts")).toHaveValue("09:00")
+    expect(within(dialog).getByLabelText("Dentist")).toHaveTextContent("Choose a dentist")
+    expect(within(dialog).getByLabelText("Starts")).toHaveValue("")
+    expect(within(dialog).getByRole("button", { name: "Book appointment" })).toBeDisabled()
   })
 
   it("disables the toolbar's New appointment button for roles the api won't let create appointments", async () => {
@@ -281,8 +534,8 @@ describe("TimelinePage", () => {
     expect(card.className).toContain("z-5")
     expect(overlay.className).not.toMatch(/(^|\s)z-/)
 
-    fireEvent.pointerDown(card, { clientY: 576, button: 0 })
-    fireEvent.pointerMove(card, { clientY: 578 })
+    fireEvent.pointerDown(card, { clientY: 0, button: 0 })
+    fireEvent.pointerMove(card, { clientY: 2 })
     expect(screen.queryByTestId("ghost")).not.toBeInTheDocument()
 
     fireEvent.pointerUp(card)
@@ -315,7 +568,7 @@ describe("TimelinePage", () => {
     fireEvent.pointerMove(window, { clientX: 10, clientY: 640 })
 
     const preview = screen.getByTestId("drag-preview")
-    expect(preview).toHaveStyle({ top: "640px", height: "64px" })
+    expect(preview).toHaveStyle({ top: "64px", height: "64px" })
     expect(preview.className).toContain("shadow-lg")
     expect(card.className).toContain("opacity-40")
     const grid = screen.getByTestId("timegrid-scroll")
@@ -327,12 +580,12 @@ describe("TimelinePage", () => {
       expect(bodies).toEqual([{ version: 1, startsAt: "2026-08-03T03:00:00.000Z" }])
     )
     await waitFor(() =>
-      expect(screen.getByTestId(`appt-${id}`)).toHaveStyle({ top: "640px", height: "64px" })
+      expect(screen.getByTestId(`appt-${id}`)).toHaveStyle({ top: "64px", height: "64px" })
     )
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument()
   })
 
-  it("snaps a rejected drag back and rings the appointment it collided with", async () => {
+  it("snaps a rejected drag back and marks the appointment it collided with", async () => {
     const moving = "a1000000-0000-4000-8000-000000000008"
     const blocker = "a1000000-0000-4000-8000-000000000009"
     server.use(
@@ -364,10 +617,10 @@ describe("TimelinePage", () => {
     fireEvent.pointerUp(window)
 
     expect(await screen.findByText("Conflicts with S. Chaiwat at 10:00")).toBeInTheDocument()
-    expect(screen.getByTestId(`appt-${moving}`)).toHaveStyle({ top: "576px" })
+    expect(screen.getByTestId(`appt-${moving}`)).toHaveStyle({ top: "0px" })
     const blocked = screen.getByTestId(`appt-${blocker}`)
-    expect(blocked.className).toContain("ring-2")
-    expect(blocked.className).toContain("ring-destructive")
+    expect(blocked.style.borderLeftColor).toBe("var(--hue0-border)")
+    expect(blocked.className).not.toContain("ring-destructive")
     expect(screen.getByLabelText("Conflict")).toBeInTheDocument()
     expect(screen.getByRole("status")).toHaveTextContent("Conflict — reverted")
   })
@@ -400,7 +653,7 @@ describe("TimelinePage", () => {
       expect(bodies).toEqual([{ version: 1, startsAt: "2026-08-03T02:15:00.000Z" }])
     )
     await waitFor(() => expect(screen.getByRole("status")).toHaveTextContent("Moved to 09:15"))
-    await waitFor(() => expect(screen.getByTestId(`appt-${id}`)).toHaveStyle({ top: "592px" }))
+    await waitFor(() => expect(screen.getByTestId(`appt-${id}`)).toHaveStyle({ top: "16px" }))
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument()
   })
 
@@ -435,13 +688,16 @@ describe("TimelinePage", () => {
     )
     mount()
     await userEvent.click(await screen.findByTestId(`appt-${id}`))
+    await userEvent.click(screen.getByRole("button", { name: "Reschedule" }))
     await userEvent.click(await screen.findByRole("button", { name: "12:00" }))
+    expect(bodies).toEqual([])
+    await userEvent.click(screen.getByRole("button", { name: "Confirm new time" }))
 
     await waitFor(() =>
       expect(bodies).toEqual([{ version: 1, startsAt: "2026-08-03T05:00:00.000Z" }])
     )
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument()
-    await waitFor(() => expect(screen.getByTestId(`appt-${id}`)).toHaveStyle({ top: "768px" }))
+    await waitFor(() => expect(screen.getByTestId(`appt-${id}`)).toHaveStyle({ top: "192px" }))
     await waitFor(() => expect(screen.getByRole("status")).toHaveTextContent("Moved to 12:00"))
   })
 
@@ -483,6 +739,40 @@ describe("TimelinePage", () => {
 
     mount("receptionist")
     expect(await screen.findByTestId(`overlay-${dentistId}`)).toBeInTheDocument()
+    expect(screen.getByText("Press question mark for keyboard shortcuts.")).toHaveClass("sr-only")
+  })
+
+  it("keeps branch, dentist, and chair context in the inspector from dentist view", async () => {
+    const id = "a1000000-0000-4000-8000-000000000088"
+    server.use(
+      ...directory([{ id: dentistId, name: "Dr. Anong" }]),
+      chairs(),
+      http.get(`${API}/appointments`, () =>
+        HttpResponse.json([
+          {
+            ...appointment(
+              id,
+              dentistId,
+              "2026-08-03T02:00:00.000Z",
+              "2026-08-03T03:00:00.000Z"
+            ),
+            claims: [claim(chairOneId)]
+          }
+        ])
+      )
+    )
+    mount()
+
+    const card = await screen.findByTestId(`appt-${id}`)
+    expect(card).toHaveAccessibleName(
+      "09:00–10:00, S. Chaiwat, Dr. Anong, Cleaning, Confirmed"
+    )
+    await userEvent.click(card)
+
+    const meta = await screen.findByTestId("appointment-meta")
+    expect(meta).toHaveTextContent("Sukhumvit")
+    expect(meta).toHaveTextContent("Dr. Anong")
+    await waitFor(() => expect(meta).toHaveTextContent("Chair 1"))
   })
 
   it("blocks a keyboard reschedule for roles the api won't let move appointments", async () => {
@@ -591,6 +881,7 @@ describe("TimelinePage", () => {
 
     expect(await screen.findByText("Chair 1")).toBeInTheDocument()
     expect(screen.getByText("Chair 2")).toBeInTheDocument()
+    expect(screen.getAllByText("Sukhumvit")).toHaveLength(1)
     expect(screen.queryByText("Dr. Anong")).not.toBeInTheDocument()
     expect(screen.getByTestId(`col-${chairOneId}`)).toContainElement(
       screen.getByTestId(`appt-${inChairOne}`)
@@ -625,6 +916,16 @@ describe("TimelinePage", () => {
     mount("receptionist", "/app/timeline?d=2026-08-03&c=chair")
 
     const card = await screen.findByTestId(`appt-${id}`)
+    const readOnly = screen.getByTestId("chair-read-only")
+    expect(readOnly).toBeVisible()
+    expect(screen.getByRole("radio", { name: "Chairs" })).toContainElement(readOnly)
+    expect(screen.getByRole("radiogroup", { name: "Column grouping" })).toHaveAttribute(
+      "aria-describedby",
+      "chair-layout-description"
+    )
+    expect(
+      screen.getByText("Chair layout is read-only. Open an appointment to move it.")
+    ).toHaveClass("sr-only")
     expect(screen.queryByTestId(`resize-${id}`)).not.toBeInTheDocument()
     expect(screen.queryByTestId(`overlay-${chairOneId}`)).not.toBeInTheDocument()
     expect(screen.queryByTestId(`overlay-${dentistId}`)).not.toBeInTheDocument()
@@ -648,7 +949,7 @@ describe("TimelinePage", () => {
     )
   })
 
-  it("says an appointment is missing rather than letting a released chair swallow it", async () => {
+  it("drops a cancelled appointment from chair view without calling its freed chair a problem", async () => {
     const seated = "a1000000-0000-4000-8000-000000000054"
     const cancelled = "a1000000-0000-4000-8000-000000000055"
     server.use(
@@ -677,9 +978,213 @@ describe("TimelinePage", () => {
 
     expect(await screen.findByTestId(`appt-${seated}`)).toBeInTheDocument()
     expect(screen.queryByTestId(`appt-${cancelled}`)).not.toBeInTheDocument()
-    const notice = screen.getByTestId("unseated-notice")
-    expect(notice).toHaveTextContent("1 appointment is hidden here")
-    expect(notice).toHaveTextContent("Switch to dentist columns to see it")
+    expect(screen.queryByTestId("unseated-notice")).not.toBeInTheDocument()
+  })
+
+  it("counts an appointment the chair layout cannot draw instead of dropping it in silence", async () => {
+    const seated = "a1000000-0000-4000-8000-000000000056"
+    const chairless = "a1000000-0000-4000-8000-000000000057"
+    server.use(
+      ...directory([{ id: dentistId, name: "Dr. Anong" }]),
+      chairs(),
+      http.get(`${API}/appointments`, () =>
+        HttpResponse.json([
+          {
+            ...appointment(seated, dentistId, "2026-08-03T02:00:00.000Z", "2026-08-03T03:00:00.000Z"),
+            claims: [claim(chairOneId)]
+          },
+          appointment(chairless, dentistId, "2026-08-03T04:00:00.000Z", "2026-08-03T05:00:00.000Z")
+        ])
+      )
+    )
+    mount("receptionist", "/app/timeline?d=2026-08-03&c=chair")
+
+    expect(await screen.findByTestId(`appt-${seated}`)).toBeInTheDocument()
+    expect(screen.queryByTestId(`appt-${chairless}`)).not.toBeInTheDocument()
+
+    expect(screen.getByTestId("unseated-notice")).toHaveTextContent(
+      "1 appointment has no chair — hidden from this view."
+    )
+  })
+
+  it("returns a hidden appointment to the canvas by grouping the day back by dentist", async () => {
+    const chairless = "a1000000-0000-4000-8000-000000000058"
+    server.use(
+      ...directory([{ id: dentistId, name: "Dr. Anong" }]),
+      chairs(),
+      http.get(`${API}/appointments`, () =>
+        HttpResponse.json([
+          appointment(chairless, dentistId, "2026-08-03T04:00:00.000Z", "2026-08-03T05:00:00.000Z")
+        ])
+      )
+    )
+    mount("receptionist", "/app/timeline?d=2026-08-03&c=chair")
+
+    const notice = await screen.findByTestId("unseated-notice")
+    await userEvent.click(within(notice).getByRole("button", { name: "Group by dentist" }))
+
+    expect(await screen.findByTestId(`appt-${chairless}`)).toBeInTheDocument()
+    expect(screen.queryByTestId("unseated-notice")).not.toBeInTheDocument()
+  })
+
+  it("shades a chair column outside the branch's opening hours instead of reading as open all day", async () => {
+    const early = "a1000000-0000-4000-8000-000000000059"
+    const inHours = "a1000000-0000-4000-8000-000000000061"
+    server.use(
+      ...directory([{ id: dentistId, name: "Dr. Anong" }], [
+        {
+          id: branchId,
+          name: "Sukhumvit",
+          openingHours: { ...closedAllWeek, mon: [["10:00", "16:00"]] }
+        }
+      ]),
+      chairs(),
+      http.get(`${API}/appointments`, () =>
+        HttpResponse.json([
+          {
+            ...appointment(early, dentistId, "2026-08-03T02:00:00.000Z", "2026-08-03T03:00:00.000Z"),
+            claims: [claim(chairOneId)]
+          },
+          {
+            ...appointment(
+              inHours,
+              dentistId,
+              "2026-08-03T04:00:00.000Z",
+              "2026-08-03T05:00:00.000Z"
+            ),
+            claims: [claim(chairOneId)]
+          }
+        ])
+      )
+    )
+    mount("receptionist", "/app/timeline?d=2026-08-03&c=chair")
+
+    const column = await screen.findByTestId(`col-${chairOneId}`)
+    const closed = within(column).getAllByTestId("offshift")
+    expect(closed).toHaveLength(2)
+    expect(closed[0]).toHaveStyle({ top: "0px", height: "64px" })
+    expect(closed[1]).toHaveStyle({ top: "448px", height: "64px" })
+    expect(screen.getByTestId(`resource-load-${chairOneId}`)).toHaveTextContent(
+      "2 booked · 5h free"
+    )
+  })
+
+  it("leaves chair columns unshaded rather than guessing when the branch has no usable hours", async () => {
+    const id = "a1000000-0000-4000-8000-000000000060"
+    server.use(
+      ...directory([{ id: dentistId, name: "Dr. Anong" }]),
+      chairs(),
+      http.get(`${API}/appointments`, () =>
+        HttpResponse.json([
+          {
+            ...appointment(id, dentistId, "2026-08-03T02:00:00.000Z", "2026-08-03T03:00:00.000Z"),
+            claims: [claim(chairOneId)]
+          }
+        ])
+      )
+    )
+    mount("receptionist", "/app/timeline?d=2026-08-03&c=chair")
+
+    const column = await screen.findByTestId(`col-${chairOneId}`)
+    expect(within(column).queryByTestId("offshift")).not.toBeInTheDocument()
+    expect(screen.getByTestId(`resource-load-${chairOneId}`)).toHaveTextContent(
+      "Closed · 1 booked"
+    )
+  })
+
+  it("names the keys that move a booking when the user asks for help", async () => {
+    server.use(
+      ...directory([{ id: dentistId, name: "Dr. Anong" }]),
+      http.get(`${API}/appointments`, () => HttpResponse.json([]))
+    )
+    mount()
+
+    expect(await screen.findByTestId("timeline-page")).toBeInTheDocument()
+    await userEvent.keyboard("?")
+
+    const panel = await screen.findByTestId("keyboard-shortcuts")
+    expect(within(panel).getByText("Start 15 min earlier")).toBeInTheDocument()
+    expect(within(panel).getByText("15 min longer")).toBeInTheDocument()
+    expect(within(panel).getByText("Search this schedule")).toBeInTheDocument()
+
+    await userEvent.keyboard("{Escape}")
+    await waitFor(() => expect(screen.queryByTestId("keyboard-shortcuts")).not.toBeInTheDocument())
+  })
+
+  it("leaves an open panel alone rather than stacking the shortcut list on top of it", async () => {
+    const id = "a1000000-0000-4000-8000-000000000062"
+    server.use(
+      ...directory([{ id: dentistId, name: "Dr. Anong" }]),
+      http.get(`${API}/appointments`, () =>
+        HttpResponse.json([
+          appointment(id, dentistId, "2026-08-03T02:00:00.000Z", "2026-08-03T03:00:00.000Z")
+        ])
+      )
+    )
+    mount("receptionist", `/app/timeline?d=2026-08-03&a=${id}`)
+
+    expect(await screen.findByRole("dialog")).toBeInTheDocument()
+    await userEvent.keyboard("?")
+
+    expect(screen.queryByTestId("keyboard-shortcuts")).not.toBeInTheDocument()
+    expect(screen.getAllByRole("dialog")).toHaveLength(1)
+  })
+
+  it("lets a typed question mark stay in the search box instead of opening the shortcut list", async () => {
+    server.use(
+      ...directory([{ id: dentistId, name: "Dr. Anong" }]),
+      http.get(`${API}/appointments`, () => HttpResponse.json([]))
+    )
+    mount()
+
+    await userEvent.click(await screen.findByRole("button", { name: "Search this schedule" }))
+    const search = await screen.findByRole("combobox", { name: "Search this schedule" })
+    await userEvent.type(search, "?")
+
+    expect(search).toHaveValue("?")
+    expect(screen.queryByTestId("keyboard-shortcuts")).not.toBeInTheDocument()
+  })
+
+  it("opens the shortcut list from the search panel for anyone who never guesses the key", async () => {
+    server.use(
+      ...directory([{ id: dentistId, name: "Dr. Anong" }]),
+      http.get(`${API}/appointments`, () => HttpResponse.json([]))
+    )
+    mount()
+
+    await userEvent.click(await screen.findByRole("button", { name: "Search this schedule" }))
+    await userEvent.click(await screen.findByTestId("palette-shortcuts"))
+
+    expect(await screen.findByTestId("keyboard-shortcuts")).toBeInTheDocument()
+    expect(screen.queryByRole("combobox", { name: "Search this schedule" })).not.toBeInTheDocument()
+  })
+
+  it("falls back to a real branch and says so when the link names one that is not there", async () => {
+    const missingBranchId = "b1000000-0000-4000-8000-000000000009"
+    const requests: string[] = []
+    server.use(
+      ...directory([{ id: dentistId, name: "Dr. Anong" }]),
+      http.get(`${API}/appointments`, ({ request }) => {
+        requests.push(new URL(request.url).searchParams.get("branchId") ?? "")
+        return HttpResponse.json([])
+      })
+    )
+    mount("receptionist", `/app/timeline?d=2026-08-03&b=${missingBranchId}`)
+
+    expect(await screen.findByText("That branch is not available")).toBeInTheDocument()
+    expect(screen.getByText(/Showing Sukhumvit instead/)).toBeInTheDocument()
+    await waitFor(() => expect(requests.at(-1)).toBe(branchId))
+  })
+
+  it("says nothing about the branch when the link names one the clinic really has", async () => {
+    server.use(
+      ...directory([{ id: dentistId, name: "Dr. Anong" }]),
+      http.get(`${API}/appointments`, () => HttpResponse.json([]))
+    )
+    mount("receptionist", `/app/timeline?d=2026-08-03&b=${branchId}`)
+
+    expect(await screen.findByTestId("timeline-page")).toBeInTheDocument()
+    expect(screen.queryByText("That branch is not available")).not.toBeInTheDocument()
   })
 
   it("switches the columns back and forth from the toolbar and keeps it in the url", async () => {
@@ -722,16 +1227,33 @@ describe("TimelinePage", () => {
     const card = await screen.findByTestId(`appt-${id}`)
     expect(card.className).toContain("appointment-arrive")
     expect(screen.getByText("A new booking just arrived on this day")).toBeInTheDocument()
+    expect(screen.getByRole("status", { name: "Live schedule update" })).toHaveTextContent(
+      "1 new appointment"
+    )
+    expect(screen.getByRole("status", { name: "Live schedule update" })).toHaveTextContent(
+      "Mon 3 Aug"
+    )
+    expect(screen.getByRole("button", { name: "Review updates" }).className).toContain("focus-visible:ring-2")
+    await userEvent.click(screen.getByRole("button", { name: "Review updates" }))
+    expect(screen.queryByRole("status", { name: "Live schedule update" })).not.toBeInTheDocument()
   })
 
-  it("switches to a week view showing every day, and hides the day-only column controls", async () => {
+  it("switches to a week agenda showing every day without the draggable day grid", async () => {
     const requests: { from: string | null; to: string | null }[] = []
+    const weekAppointmentId = "a1000000-0000-4000-8000-000000000041"
     server.use(
       ...directory([{ id: dentistId, name: "Dr. Anong" }]),
       http.get(`${API}/appointments`, ({ request }) => {
         const url = new URL(request.url)
         requests.push({ from: url.searchParams.get("from"), to: url.searchParams.get("to") })
-        return HttpResponse.json([])
+        return HttpResponse.json([
+          appointment(
+            weekAppointmentId,
+            dentistId,
+            "2026-08-03T02:00:00.000Z",
+            "2026-08-03T03:00:00.000Z"
+          )
+        ])
       })
     )
     mount()
@@ -739,9 +1261,14 @@ describe("TimelinePage", () => {
 
     await userEvent.click(screen.getByRole("radio", { name: "Week" }))
 
-    expect(await screen.findByTestId("col-2026-08-03")).toBeInTheDocument()
-    expect(screen.getByTestId("col-2026-08-09")).toBeInTheDocument()
-    expect(screen.getByText("Week of Mon, 3 Aug 2026")).toBeInTheDocument()
+    expect(await screen.findByTestId("weekly-agenda-board")).toBeInTheDocument()
+    expect(screen.getByTestId("week-day-2026-08-03")).toBeInTheDocument()
+    expect(screen.getByTestId("week-day-2026-08-09")).toBeInTheDocument()
+    expect(screen.getByTestId(`week-appt-${weekAppointmentId}`)).toHaveTextContent("S. Chaiwat")
+    expect(screen.queryByTestId("timegrid-scroll")).not.toBeInTheDocument()
+    expect(screen.queryByTestId(`overlay-${dentistId}`)).not.toBeInTheDocument()
+    expect(screen.queryByTestId(`resize-${weekAppointmentId}`)).not.toBeInTheDocument()
+    expect(screen.getByText("Week of Mon 3 Aug")).toBeInTheDocument()
     expect(screen.queryByRole("radio", { name: "Dentists" })).not.toBeInTheDocument()
 
     await waitFor(() =>
@@ -767,7 +1294,7 @@ describe("TimelinePage", () => {
     expect(await screen.findByTestId(`appt-${id}`)).toBeInTheDocument()
 
     await userEvent.keyboard("{Meta>}k{/Meta}")
-    expect(await screen.findByPlaceholderText("Search by patient name or phone…")).toBeInTheDocument()
+    expect(await screen.findByPlaceholderText("Search by name, phone, dentist, or chair…")).toBeInTheDocument()
 
     const results = screen.getByRole("listbox", { name: "Matching appointments" })
     await userEvent.click(within(results).getByText("S. Chaiwat"))
@@ -785,14 +1312,14 @@ describe("TimelinePage", () => {
     mount()
     expect(await screen.findByText("Dr. Anong")).toBeInTheDocument()
 
-    await userEvent.click(screen.getByRole("button", { name: /Find a patient/ }))
-    expect(await screen.findByPlaceholderText("Search by patient name or phone…")).toBeInTheDocument()
+    await userEvent.click(screen.getByRole("button", { name: "Search this schedule" }))
+    expect(await screen.findByPlaceholderText("Search by name, phone, dentist, or chair…")).toBeInTheDocument()
   })
 
   describe("a clinic with no dentists yet", () => {
     const emptyClinic = (staff: () => unknown[]) => [
       http.get(`${API}/branches`, () =>
-        HttpResponse.json([{ id: branchId, name: "Sukhumvit", openingHours: {} }])
+        HttpResponse.json([{ id: branchId, name: "Sukhumvit", openingHours: {}, timezone: "Asia/Bangkok", isActive: true }])
       ),
       http.get(`${API}/staff`, () => HttpResponse.json(staff())),
       http.get(`${API}/shifts`, () => HttpResponse.json([])),
@@ -806,7 +1333,7 @@ describe("TimelinePage", () => {
       })
       server.use(
         http.get(`${API}/branches`, () =>
-          HttpResponse.json([{ id: branchId, name: "Sukhumvit", openingHours: {} }])
+          HttpResponse.json([{ id: branchId, name: "Sukhumvit", openingHours: {}, timezone: "Asia/Bangkok", isActive: true }])
         ),
         http.get(`${API}/shifts`, () => HttpResponse.json([])),
         http.get(`${API}/availability`, () => HttpResponse.json({ slots: [] })),
@@ -818,8 +1345,12 @@ describe("TimelinePage", () => {
       )
       mount("owner")
 
-      await new Promise((resolve) => setTimeout(resolve, 150))
-      expect(document.querySelectorAll(".animate-pulse").length).toBeGreaterThan(0)
+      expect(await screen.findByTestId("timeline-loading")).toContainElement(
+        screen.getByTestId("timeline-toolbar-skeleton")
+      )
+      expect(screen.getByTestId("timeline-loading")).toContainElement(
+        screen.getByTestId("timeline-grid-skeleton")
+      )
       expect(screen.queryByText("No dentists yet")).not.toBeInTheDocument()
 
       releaseStaff()

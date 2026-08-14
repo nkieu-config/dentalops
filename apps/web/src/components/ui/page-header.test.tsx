@@ -15,5 +15,9 @@ describe("PageHeader", () => {
     expect(header).toHaveTextContent("Clinic settings")
     expect(header).toHaveTextContent("Manage how patients find and book your clinic.")
     expect(screen.getByRole("button", { name: "Save changes" })).toBeInTheDocument()
+    expect(screen.getByRole("heading", { level: 1 })).toHaveClass("type-page-title")
+    expect(screen.getByText("Manage how patients find and book your clinic.")).toHaveClass(
+      "type-supporting"
+    )
   })
 })

@@ -20,26 +20,51 @@ const contrast = (a, b) => {
   return (lighter + 0.05) / (darker + 0.05)
 }
 
+const HEX = /^#[0-9a-fA-F]{6}$/
+const ALIAS = /^var\(\s*(--[\w-]+)\s*\)$/
+
 const collectBlocks = (css, selector) => {
   const pattern = new RegExp(`${selector}\\s*\\{([^}]*)\\}`, "g")
-  const tokens = {}
+  const declarations = {}
   for (const match of css.matchAll(pattern)) {
     for (const declaration of match[1].matchAll(/(--[\w-]+)\s*:\s*([^;]+);/g)) {
-      const value = declaration[2].trim()
-      if (/^#[0-9a-fA-F]{6}$/.test(value)) tokens[declaration[1]] = value.toLowerCase()
+      declarations[declaration[1]] = declaration[2].trim()
     }
+  }
+  return declarations
+}
+
+const resolveAliases = (declarations) => {
+  const tokens = {}
+  for (const [name, declared] of Object.entries(declarations)) {
+    let value = declared
+    const visited = new Set([name])
+    while (ALIAS.test(value)) {
+      const target = value.match(ALIAS)[1]
+      if (visited.has(target)) {
+        value = undefined
+        break
+      }
+      visited.add(target)
+      value = declarations[target]
+      if (value === undefined) break
+    }
+    if (value !== undefined && HEX.test(value)) tokens[name] = value.toLowerCase()
   }
   return tokens
 }
 
 const css = readFileSync(CSS_PATH, "utf8")
 const themes = {
-  light: collectBlocks(css, ":root"),
-  dark: { ...collectBlocks(css, ":root"), ...collectBlocks(css, "\\.dark") }
+  light: resolveAliases(collectBlocks(css, ":root")),
+  dark: resolveAliases({ ...collectBlocks(css, ":root"), ...collectBlocks(css, "\\.dark") })
 }
 
 const TEXT_ON_SURFACE = 4.5
 const NON_TEXT = 3
+const SURFACE_SEPARATION = 1.05
+const SURFACE_INVERSION = 1.15
+const HUE_OFF_CHROME = 1.15
 
 const SURFACES = ["--background", "--card", "--muted", "--secondary", "--accent"]
 
@@ -52,22 +77,41 @@ const PAIRS = [
   ["--destructive-foreground", "--destructive", TEXT_ON_SURFACE],
   ["--warning-foreground", "--warning", TEXT_ON_SURFACE],
   ["--success-foreground", "--success", TEXT_ON_SURFACE],
+  ["--primary-on-surface", "--primary-surface", TEXT_ON_SURFACE],
   ["--destructive-on-surface", "--destructive-surface", TEXT_ON_SURFACE],
   ["--warning-on-surface", "--warning-surface", TEXT_ON_SURFACE],
   ["--success-on-surface", "--success-surface", TEXT_ON_SURFACE],
   ["--decorative-on-surface", "--decorative-surface", TEXT_ON_SURFACE],
-  ["--warm-foreground", "--warm", TEXT_ON_SURFACE],
-  ["--warm-on-surface", "--warm-surface", TEXT_ON_SURFACE],
+  ["--foreground", "--selection", TEXT_ON_SURFACE],
+  ["--primary-on-surface", "--background", TEXT_ON_SURFACE],
   ["--destructive", "--background", TEXT_ON_SURFACE],
   ["--warning", "--background", TEXT_ON_SURFACE],
   ["--success", "--background", TEXT_ON_SURFACE],
   ["--decorative", "--background", TEXT_ON_SURFACE],
-  ["--warm", "--background", TEXT_ON_SURFACE],
   ["--input", "--card", NON_TEXT],
   ["--input", "--background", NON_TEXT],
   ["--ring", "--background", NON_TEXT],
   ["--ring", "--card", NON_TEXT],
-  ["--destructive", "--card", NON_TEXT]
+  ["--destructive", "--card", NON_TEXT],
+  ["--destructive", "--destructive-surface", NON_TEXT],
+  ["--surface-inverse-foreground", "--surface-inverse", TEXT_ON_SURFACE],
+  ["--surface-inverse-border", "--surface-inverse", SURFACE_SEPARATION],
+  ["--surface-subtle", "--card", SURFACE_SEPARATION],
+  ["--surface-band", "--background", SURFACE_SEPARATION],
+  ["--card", "--surface-band", SURFACE_SEPARATION],
+  ["--decorative-surface", "--background", SURFACE_SEPARATION],
+  ["--spotlight", "--background", SURFACE_SEPARATION],
+  ["--secondary", "--spotlight", SURFACE_SEPARATION],
+  ["--primary", "--spotlight", NON_TEXT],
+  ["--foreground", "--spotlight", TEXT_ON_SURFACE],
+  ["--surface-inverse", "--background", SURFACE_INVERSION],
+  ["--timeline-header", "--timeline-canvas", SURFACE_SEPARATION],
+  ["--timeline-offshift", "--timeline-canvas", SURFACE_SEPARATION],
+  ["--timeline-resource-line", "--timeline-canvas", SURFACE_SEPARATION],
+  ["--timeline-hour-line", "--timeline-canvas", SURFACE_SEPARATION],
+  ["--timeline-current-time", "--timeline-canvas", NON_TEXT],
+  ["--timeline-current-time-foreground", "--timeline-current-time", TEXT_ON_SURFACE],
+  ["--hue0-border", "--primary", HUE_OFF_CHROME]
 ]
 
 for (let hue = 0; hue <= 5; hue += 1) {
@@ -109,7 +153,7 @@ if (failures.length > 0) {
   console.error(`Contrast failures (${failures.length} of ${checked} pairs checked):`)
   for (const failure of failures) console.error(`  ${failure}`)
   console.error("")
-  console.error("See docs/design-system.md section 2 for the verified token set.")
+  console.error("See docs/design-system.md section 2 for the rules these pairs enforce.")
   process.exit(1)
 }
 

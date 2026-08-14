@@ -14,6 +14,7 @@ import { Button } from "./ui/button"
 import { DatePicker } from "./ui/date-picker"
 import { EmptyState } from "./ui/empty-state"
 import { Skeleton } from "./ui/skeleton"
+import { queryKeys } from "../lib/query-keys"
 
 export type SlotPickerState =
   | { status: "loading" }
@@ -34,6 +35,9 @@ interface SlotPickerViewProps {
   state: SlotPickerState
   onPick: (startsAtIso: string) => void
   onDateChange: (isoDate: string) => void
+  minDate?: string
+  disabled?: boolean
+  onRetry?: () => void
 }
 
 interface SlotGroup {
@@ -56,7 +60,7 @@ export const SlotPicker = ({
 }: SlotPickerProps) => {
   const dayStart = bkkDayStart(date)
   const availability = useQuery({
-    queryKey: ["availability", serviceId, branchId, dentistId, date],
+    queryKey: queryKeys.availability(serviceId, branchId, dentistId, date),
     queryFn: () =>
       api("/availability", availabilityResponseSchema, {
         query: {
@@ -83,7 +87,15 @@ export const SlotPicker = ({
   return <SlotPickerView date={date} state={state} onPick={onPick} onDateChange={onDateChange} />
 }
 
-export const SlotPickerView = ({ date, state, onPick, onDateChange }: SlotPickerViewProps) => {
+export const SlotPickerView = ({
+  date,
+  state,
+  onPick,
+  onDateChange,
+  minDate,
+  disabled = false,
+  onRetry
+}: SlotPickerViewProps) => {
   const groups = useMemo<SlotGroup[]>(() => {
     const slots = (state.status === "ready" ? state.slots : [])
       .slice()
@@ -106,15 +118,24 @@ export const SlotPickerView = ({ date, state, onPick, onDateChange }: SlotPicker
           variant="ghost"
           size="icon"
           aria-label="Previous day of slots"
+          disabled={disabled || (minDate !== undefined && date <= minDate)}
           onClick={() => onDateChange(bkkShiftDate(date, -1))}
         >
           <ChevronLeft className="h-4 w-4" aria-hidden="true" />
         </Button>
-        <DatePicker date={date} onChange={onDateChange} label="Choose a date" triggerLabel={fmtDay(date)} />
+        <DatePicker
+          date={date}
+          onChange={onDateChange}
+          label="Choose a date"
+          triggerLabel={fmtDay(date)}
+          fromDate={minDate}
+          disabled={disabled}
+        />
         <Button
           variant="ghost"
           size="icon"
           aria-label="Next day of slots"
+          disabled={disabled}
           onClick={() => onDateChange(bkkShiftDate(date, 1))}
         >
           <ChevronRight className="h-4 w-4" aria-hidden="true" />
@@ -128,14 +149,25 @@ export const SlotPickerView = ({ date, state, onPick, onDateChange }: SlotPicker
         </div>
       ) : null}
       {state.status === "error" ? (
-        <EmptyState icon={CalendarX} title="Could not load free slots" hint="Retry shortly" />
+        <EmptyState
+          icon={CalendarX}
+          title="Could not load free slots"
+          hint="Check your connection and try again."
+          action={
+            onRetry ? (
+              <Button variant="secondary" onClick={onRetry}>
+                Retry
+              </Button>
+            ) : null
+          }
+        />
       ) : null}
       {state.status === "ready" && groups.length === 0 ? (
         <EmptyState icon={CalendarX} title="No free slots this day" hint="Try another day" />
       ) : null}
       {groups.map((group) => (
         <div key={group.key} data-testid={`group-${group.key}`} className="space-y-1.5">
-          <p className="text-base font-medium text-muted-foreground">{group.label}</p>
+          <p className="type-body font-medium text-muted-foreground">{group.label}</p>
           <div className="flex flex-wrap gap-2">
             {group.slots.map((s) => (
               <button
@@ -143,7 +175,8 @@ export const SlotPickerView = ({ date, state, onPick, onDateChange }: SlotPicker
                 type="button"
                 data-testid="slot"
                 onClick={() => onPick(s.startsAt)}
-                className="min-h-11 min-w-20 cursor-pointer rounded-md border border-border px-3 text-base tabular-nums hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                disabled={disabled}
+                className="min-h-11 min-w-20 cursor-pointer rounded-control border border-border px-3 type-body tabular-nums hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               >
                 {fmtTime(Date.parse(s.startsAt))}
               </button>

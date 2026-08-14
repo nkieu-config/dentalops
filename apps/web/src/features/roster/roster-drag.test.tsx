@@ -1,6 +1,6 @@
 import type { Shift, Violation } from "@dentalops/contracts"
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
-import { fireEvent, render, screen, waitFor, within } from "@testing-library/react"
+import { fireEvent, render, screen, waitFor, within } from "../../test/render"
 import userEvent from "@testing-library/user-event"
 import { MemoryRouter, Route, Routes } from "react-router"
 import { Toaster } from "sonner"
@@ -99,7 +99,7 @@ const freshState = (): RosterState => ({
 const useHandlers = (state: RosterState) => {
   server.use(
     http.get(`${API}/branches`, () =>
-      HttpResponse.json([{ id: branchId, name: "Sukhumvit", openingHours: {} }])
+      HttpResponse.json([{ id: branchId, name: "Sukhumvit", openingHours: {}, timezone: "Asia/Bangkok", isActive: true }])
     ),
     http.get(`${API}/staff`, () =>
       HttpResponse.json([
@@ -137,7 +137,7 @@ const useHandlers = (state: RosterState) => {
   )
 }
 
-const mount = (viewport: Viewport = "lg") => {
+const mount = (viewport: Viewport = "xl") => {
   setViewport(viewport)
   setSession({ accessToken: "t1", user: { id: ownerId, tenantId, name: "Owner", role: "owner" } })
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
@@ -176,7 +176,7 @@ const layoutColumns = () => {
 
 const midColumn = (index: number) => FIRST_COLUMN_LEFT + index * COLUMN_WIDTH + COLUMN_WIDTH / 2
 
-const openGrid = async (viewport: Viewport = "lg") => {
+const openGrid = async (viewport: Viewport = "xl") => {
   mount(viewport)
   const block = await screen.findByTestId(`shift-${monShiftId}`)
   if (viewport !== "sm") layoutColumns()
@@ -184,7 +184,11 @@ const openGrid = async (viewport: Viewport = "lg") => {
 }
 
 const dragTo = (block: HTMLElement, fromColumn: number, toColumn: number) => {
-  fireEvent.pointerDown(block, { button: 0, clientX: midColumn(fromColumn), clientY: 40 })
+  fireEvent.pointerDown(within(block).getByRole("button", { name: /Move/ }), {
+    button: 0,
+    clientX: midColumn(fromColumn),
+    clientY: 40
+  })
   fireEvent.pointerMove(window, { clientX: midColumn(toColumn), clientY: 40 })
 }
 
@@ -193,6 +197,14 @@ const cell = (staffId: string, date: string) => screen.getByTestId(`cell-${staff
 const lastBody = (state: RosterState) => state.bodies[state.bodies.length - 1]
 
 describe("roster drag", () => {
+  it("starts a move only from the dedicated shift drag handle", async () => {
+    const state = freshState()
+    useHandlers(state)
+    await openGrid()
+
+    expect(screen.getByTestId(`shift-drag-${monShiftId}`)).toBeInTheDocument()
+  })
+
   it("previews the shift on the day it is dragged to and validates that draft", async () => {
     const state = freshState()
     useHandlers(state)
@@ -235,7 +247,8 @@ describe("roster drag", () => {
     })
     expect(state.deleted).toEqual([])
     expect(state.created).toEqual([])
-    expect(await screen.findByText("Shift moved")).toBeVisible()
+    expect(await screen.findByText("Moved to Thu 6")).toBeVisible()
+    expect(screen.getByRole("button", { name: "Undo" })).toBeVisible()
   })
 
   it("refuses a drop that leaves a confirmed appointment outside the shift", async () => {
@@ -279,10 +292,14 @@ describe("roster drag", () => {
     useHandlers(state)
     const block = await openGrid()
 
-    fireEvent.pointerDown(block, { button: 0, clientX: midColumn(0), clientY: 40 })
+    fireEvent.pointerDown(within(block).getByRole("button", { name: /Move/ }), {
+      button: 0,
+      clientX: midColumn(0),
+      clientY: 40
+    })
     fireEvent.pointerMove(window, { clientX: midColumn(0) + 2, clientY: 40 })
     fireEvent.pointerUp(window)
-    await userEvent.click(block)
+    await userEvent.click(within(block).getByRole("button", { name: /Edit/ }))
 
     expect(await screen.findByRole("dialog")).toBeInTheDocument()
     expect(state.patched).toEqual([])
@@ -293,7 +310,7 @@ describe("roster drag", () => {
     useHandlers(state)
     const block = await openGrid("sm")
 
-    fireEvent.pointerDown(block, { button: 0, clientX: 20, clientY: 40 })
+    expect(within(block).queryByRole("button", { name: /Move/ })).toBeNull()
     fireEvent.pointerMove(window, { clientX: 320, clientY: 40 })
 
     expect(block).not.toHaveAttribute("data-dragging")

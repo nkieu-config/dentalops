@@ -13,11 +13,11 @@ export const CardHeader = ({ className, ...props }: HTMLAttributes<HTMLDivElemen
 )
 
 export const CardTitle = ({ className, ...props }: HTMLAttributes<HTMLHeadingElement>) => (
-  <h2 className={cn("text-card-title font-bold", className)} {...props} />
+  <h2 className={cn("type-card-title font-semibold", className)} {...props} />
 )
 
 export const CardDescription = ({ className, ...props }: HTMLAttributes<HTMLParagraphElement>) => (
-  <p className={cn("text-supporting text-muted-foreground", className)} {...props} />
+  <p className={cn("type-supporting text-muted-foreground", className)} {...props} />
 )
 
 export const CardBody = ({ className, ...props }: HTMLAttributes<HTMLDivElement>) => (

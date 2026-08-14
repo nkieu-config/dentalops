@@ -10,11 +10,12 @@ interface AlertDialogProps {
   title: string
   description: string
   confirmLabel: string
+  confirmVariant?: "default" | "secondary" | "destructive"
   cancelLabel?: string
   onConfirm: () => void | Promise<void>
 }
 
-export const AlertDialog = ({ open, onOpenChange, title, description, confirmLabel, cancelLabel, onConfirm }: AlertDialogProps) => {
+export const AlertDialog = ({ open, onOpenChange, title, description, confirmLabel, confirmVariant = "destructive", cancelLabel, onConfirm }: AlertDialogProps) => {
   const [pending, setPending] = useState(false)
 
   const handleConfirm = async (event: { preventDefault: () => void }) => {
@@ -34,15 +35,15 @@ export const AlertDialog = ({ open, onOpenChange, title, description, confirmLab
     <AlertDialogPrimitive.Root open={open} onOpenChange={onOpenChange}>
       <AlertDialogPrimitive.Portal>
         <AlertDialogPrimitive.Overlay className="fixed inset-0 z-40 bg-overlay" />
-        <AlertDialogPrimitive.Content className="fixed left-1/2 top-1/2 z-50 w-[calc(100%-2rem)] max-w-md -translate-x-1/2 -translate-y-1/2 rounded-card border border-border bg-card p-5 shadow-md focus:outline-none">
-          <AlertDialogPrimitive.Title className="text-card-title font-bold">{title}</AlertDialogPrimitive.Title>
-          <AlertDialogPrimitive.Description className="mt-2 text-supporting text-muted-foreground">{description}</AlertDialogPrimitive.Description>
-          <div className="mt-5 flex justify-end gap-2">
+        <AlertDialogPrimitive.Content className="fixed left-1/2 top-1/2 z-50 max-h-[calc(100dvh-2rem)] w-[calc(100%-2rem)] max-w-md -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-card border border-border bg-card p-5 shadow-md focus:outline-none overscroll-contain">
+          <AlertDialogPrimitive.Title className="type-dialog-title font-semibold">{title}</AlertDialogPrimitive.Title>
+          <AlertDialogPrimitive.Description className="mt-2 break-words type-supporting text-muted-foreground">{description}</AlertDialogPrimitive.Description>
+          <div className="mt-5 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
             <AlertDialogPrimitive.Cancel asChild>
               <Button variant="secondary" disabled={pending}>{cancelLabel ?? "Cancel"}</Button>
             </AlertDialogPrimitive.Cancel>
             <AlertDialogPrimitive.Action asChild onClick={handleConfirm}>
-              <Button variant="destructive" disabled={pending}>{pending ? "Working…" : confirmLabel}</Button>
+              <Button variant={confirmVariant} disabled={pending}>{pending ? "Working…" : confirmLabel}</Button>
             </AlertDialogPrimitive.Action>
           </div>
         </AlertDialogPrimitive.Content>

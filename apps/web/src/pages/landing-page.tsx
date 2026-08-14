@@ -3,6 +3,7 @@ import { useMutation } from "@tanstack/react-query"
 import {
   ArrowRight,
   CalendarDays,
+  Check,
   ClipboardList,
   Clock,
   ShieldCheck,
@@ -11,22 +12,30 @@ import {
 } from "lucide-react"
 import { useState } from "react"
 import { Link, useNavigate } from "react-router"
-import { toast } from "sonner"
+import { SchedulePreview } from "../components/schedule-preview"
+import { PublicNav } from "../components/shell/public-nav"
+import { BrandMark } from "../components/ui/brand-mark"
 import { Button, buttonVariants } from "../components/ui/button"
-import { api, ApiError } from "../lib/api"
+import { api } from "../lib/api"
 import { setSession } from "../lib/session"
 
 const roles = [
-  { role: "owner", label: "Try as Owner", hint: "Full control — roster, settings, reports" },
+  { role: "owner", label: "Try as Owner", hint: "Full control: timeline, roster, settings and activity" },
   {
     role: "receptionist",
     label: "Try as Receptionist",
-    hint: "The booking desk — timeline and patients"
+    hint: "The booking desk: timeline and patients"
   },
   { role: "dentist", label: "Try as Dentist", hint: "Your own schedule" }
 ] as const
 
 type DemoRole = (typeof roles)[number]["role"]
+
+const outcomes = [
+  "Nobody double-books a chair",
+  "Patients book themselves in, day or night",
+  "Every change shows up for the whole team at once"
+]
 
 const dayStory = [
   {
@@ -34,7 +43,7 @@ const dayStory = [
     icon: Smartphone,
     title: "A patient books online",
     description:
-      "Real availability, grouped by time of day, held for a few minutes while they fill in their details — no phone call needed."
+      "Real availability, grouped by time of day, held for a few minutes while they fill in their details. No phone call needed."
   },
   {
     time: "Midday",
@@ -47,8 +56,7 @@ const dayStory = [
     time: "Afternoon",
     icon: CalendarDays,
     title: "The whole team shares one schedule",
-    description:
-      "Dentists, receptionists and the owner watch the same timeline update in real time, from any chair."
+    description: "The same timeline updates live for everyone watching it, from any chair."
   }
 ]
 
@@ -56,12 +64,12 @@ const capabilities = [
   {
     icon: CalendarDays,
     title: "Team Availability & Rostering",
-    description: "Drag-and-drop staff scheduling with built-in coverage validation and shift conflicts prevention."
+    description: "Drag-and-drop staff scheduling, with coverage validation and shift-conflict checks built in."
   },
   {
     icon: Clock,
-    title: "Real-time Booking Engine",
-    description: "Double-booking protection enforced directly by database constraints and automatic slot holding."
+    title: "Real-Time Booking",
+    description: "Double-booking blocked at the database, with every slot held automatically."
   },
   {
     icon: Users,
@@ -71,9 +79,16 @@ const capabilities = [
   {
     icon: ShieldCheck,
     title: "Role-Based Access",
-    description: "Granular tenant boundary safety so receptionists, dentists, and owners see only what they need."
+    description: "Everyone sees exactly what their role needs, and nothing more."
   }
 ]
+
+const BAND = "py-16 sm:py-24"
+const SHELL = "mx-auto max-w-6xl px-4 sm:px-6"
+const BAND_TITLE = "type-page-title font-semibold tracking-tight lg:type-display"
+const ICON_TILE = "flex size-10 shrink-0 items-center justify-center rounded-control bg-accent text-primary"
+const FOOTER_LINK =
+  "rounded-sm hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-surface-inverse-foreground focus-visible:ring-offset-2 focus-visible:ring-offset-surface-inverse"
 
 export const LandingPage = () => {
   const navigate = useNavigate()
@@ -85,283 +100,271 @@ export const LandingPage = () => {
       setSession(session, { demo: true })
       void navigate("/app/timeline")
     },
-    onError: (error, role) => {
-      const asleep = !(error instanceof ApiError) || error.status >= 500
-      if (asleep) {
-        setUnavailableRole(role)
-        return
-      }
-      toast.error(error.message)
+    onError: (_error, role) => {
+      setUnavailableRole(role)
     }
   })
 
   return (
-    <div className="min-h-dvh bg-background text-foreground flex flex-col selection:bg-selection">
-      {/* Public Navigation Bar */}
-      <div className="sticky top-0 z-40 border-b border-border bg-background/80 backdrop-blur-md">
-        <div className="mx-auto flex min-h-16 max-w-6xl flex-wrap items-center justify-between gap-y-2 px-4 py-2 sm:px-6">
-          <Link
-            to="/"
-            className="flex items-center gap-2.5 rounded-sm font-bold text-lg tracking-tight focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
-          >
-            <span className="flex size-9 items-center justify-center rounded-control bg-decorative text-primary-foreground font-bold shadow-xs">
-              D
-            </span>
-            <span>DentalOps</span>
-          </Link>
-          <nav className="flex flex-wrap items-center gap-x-3 gap-y-1 sm:gap-x-4">
-            <a
-              href="#explore-demo"
-              className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors hidden sm:inline-block"
-            >
-              Explore demo
-            </a>
-            <Link
-              to="/login"
-              className="rounded-sm text-sm font-semibold text-foreground hover:text-primary transition-colors px-3 py-1.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
-            >
-              Sign in
-            </Link>
-            <Link to="/signup" className={buttonVariants({ size: "sm" })}>
-              Create a clinic
-            </Link>
-          </nav>
-        </div>
-      </div>
+    <div className="flex min-h-dvh flex-col bg-background text-foreground selection:bg-selection">
+      <a href="#main" className="sr-only rounded-control bg-primary px-4 py-2 text-primary-foreground focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-50">Skip to main content</a>
+      <PublicNav current="home" />
 
-      {/* Hero Canvas */}
-      <main className="flex-1">
-        <section className="relative overflow-hidden py-12 sm:py-20 lg:py-24">
-          <div className="mx-auto max-w-6xl px-4 sm:px-6">
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 items-center">
-              <div className="lg:col-span-7 flex flex-col gap-6">
-                <h1 className="text-display font-bold tracking-tight text-balance text-3xl sm:text-4xl lg:text-5xl">
-                  Every chair, every dentist, one day at a glance.
+      <main id="main" className="flex-1">
+        <section className={BAND}>
+          <div className={SHELL}>
+            <div className="grid grid-cols-1 items-start gap-10 lg:grid-cols-12 lg:gap-12">
+              <div className="hero-enter flex flex-col gap-6 lg:col-span-7">
+                <h1 className="type-display font-semibold tracking-tight text-balance lg:type-display-lg">
+                  One shared schedule, so nobody's guessing what's next.
                 </h1>
-                <p className="text-body text-muted-foreground text-base sm:text-lg leading-relaxed max-w-2xl">
-                  Appointment and roster scheduling for dental clinics — live availability, double-booking
-                  caught by the database, and a public booking page per clinic.
+                <p className="max-w-xl type-body text-muted-foreground sm:type-subsection-title">
+                  The whole clinic works off one schedule that's always up to date — the front desk, every
+                  chair, and the patient booking online.
                 </p>
 
                 <div className="flex flex-wrap items-center gap-3">
-                  <Link to="/signup" className={buttonVariants({ className: "px-6" })}>
+                  <Link to="/signup" className={buttonVariants({ className: "px-6 sm:h-10" })}>
                     Create your clinic
-                    <ArrowRight className="h-4 w-4" aria-hidden="true" />
+                    <ArrowRight className="size-4" aria-hidden="true" />
                   </Link>
-                  <a href="#explore-demo" className={buttonVariants({ variant: "ghost" })}>
-                    Explore the demo first
+                  <a
+                    href="#explore-demo"
+                    className={buttonVariants({
+                      variant: "secondary",
+                      className: "border border-border px-6 sm:h-10"
+                    })}
+                  >
+                    Explore the demo
                   </a>
                 </div>
 
-                {/* Role Exploration Module */}
-                <div id="explore-demo" className="mt-4 flex flex-col gap-3 rounded-card border border-border bg-card p-6 shadow-xs">
-                  <div className="flex flex-col gap-1 mb-2">
-                    <h2 className="text-card-title font-bold">Step into a clinic day</h2>
-                    <p className="text-supporting text-muted-foreground">Explore pre-seeded clinic data with role-specific views.</p>
-                  </div>
+                <ul className="flex flex-col gap-2.5 border-t border-border pt-6">
+                  {outcomes.map((outcome) => (
+                    <li key={outcome} className="flex items-start gap-2.5 type-body text-muted-foreground">
+                      <Check className="mt-1 size-4 shrink-0 text-primary" aria-hidden="true" />
+                      {outcome}
+                    </li>
+                  ))}
+                </ul>
+
+                <p className="type-ui text-muted-foreground">
+                  Already have a clinic?{" "}
+                  <Link
+                    className="font-medium text-foreground underline underline-offset-4 transition-colors hover:text-primary"
+                    to="/login"
+                  >
+                    Sign in
+                  </Link>
+                </p>
+              </div>
+
+              <section
+                id="explore-demo"
+                aria-label="Try the demo"
+                style={{ animationDelay: "80ms" }}
+                className="hero-enter overflow-hidden rounded-hero border border-border bg-card p-6 shadow-md lg:col-span-5"
+              >
+                <div>
+                  <p className="type-meta font-semibold uppercase tracking-wider text-muted-foreground">
+                    Bangkok Central Branch
+                  </p>
+                  <p className="type-card-title font-semibold">A Tuesday, three chairs</p>
+                </div>
+
+                <SchedulePreview className="mt-5" />
+
+                <p className="mt-4 type-supporting text-muted-foreground">
+                  Each color is a booked service. Empty space is open.
+                </p>
+
+                <div className="mt-6 border-t border-border pt-5">
+                  <p className="type-card-title font-semibold">Step into this clinic</p>
+                  <p className="mt-1 type-supporting text-muted-foreground">
+                    Pick a role and look around with sample data.
+                  </p>
 
                   {unavailableRole ? (
-                    <section
-                      aria-live="polite"
-                      className="rounded-control border border-warning bg-warning-surface p-4 text-warning-on-surface"
+                    <div
+                      role="alert"
+                      className="mt-4 rounded-control border border-warning bg-warning-surface p-4 text-warning-on-surface"
                     >
-                      <h3 className="text-base font-semibold">Interactive demo is temporarily unavailable</h3>
-                      <p className="mt-2 text-sm leading-relaxed">
-                        The hosted demo is unavailable right now. Try again shortly, or run the project locally
-                        with <code className="font-semibold">pnpm dev</code>.
-                      </p>
+                      <p className="type-ui font-semibold">Interactive demo is temporarily unavailable</p>
+                      <p className="mt-1 type-ui leading-relaxed">We could not open the demo right now.</p>
                       <Button
-                        className="mt-4"
+                        className="mt-3"
                         variant="secondary"
                         disabled={demoLogin.isPending}
                         onClick={() => demoLogin.mutate(unavailableRole)}
                       >
                         Try demo again
                       </Button>
-                    </section>
+                    </div>
                   ) : (
-                    <div className="flex flex-col gap-3">
-                      {roles.map(({ role, label, hint }) => {
-                        const isSigningIn = demoLogin.isPending && demoLogin.variables === role
-                        return (
+                    <div className="mt-4 flex flex-col gap-2.5">
+                      {roles.map(({ role, label, hint }) => (
                         <Button
                           key={role}
-                          className="h-auto w-full justify-between gap-4 px-4 py-3.5 text-left sm:h-auto"
+                          className="h-auto w-full justify-between gap-4 px-4 py-3 text-left sm:h-auto"
                           variant={role === "owner" ? "default" : "secondary"}
                           disabled={demoLogin.isPending}
                           onClick={() => demoLogin.mutate(role)}
                         >
                           <span className="flex min-w-0 flex-col gap-0.5">
-                            <span className="text-base font-semibold">
-                              {isSigningIn ? "Signing in…" : label}
+                            <span className="type-ui font-semibold">
+                              {demoLogin.isPending && demoLogin.variables === role ? "Signing in…" : label}
                             </span>
                             <span
                               className={
                                 role === "owner"
-                                  ? "text-sm font-normal text-primary-foreground"
-                                  : "text-sm font-normal opacity-80"
+                                  ? "type-meta font-normal text-primary-foreground"
+                                  : "type-meta font-normal opacity-80"
                               }
                             >
                               {hint}
                             </span>
                           </span>
-                          <ArrowRight className="h-4 w-4 shrink-0 opacity-60" aria-hidden="true" />
+                          <ArrowRight className="size-4 shrink-0 opacity-60" aria-hidden="true" />
                         </Button>
-                        )
-                      })}
+                      ))}
                     </div>
                   )}
-                </div>
 
-                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-t border-border pt-4 text-sm text-muted-foreground">
-                  <p>A demo clinic with seeded appointments. Data resets periodically.</p>
-                  <p className="text-base shrink-0">
-                    Already have a clinic?{" "}
-                    <Link
-                      className="font-medium underline underline-offset-4 hover:text-foreground transition-colors"
-                      to="/login"
-                    >
-                      Sign in
-                    </Link>{" "}
-                    ·{" "}
-                    <Link
-                      className="font-medium underline underline-offset-4 hover:text-foreground transition-colors"
-                      to="/signup"
-                    >
-                      Create a clinic
-                    </Link>
+                  <p className="mt-4 type-meta text-muted-foreground">
+                    Sample clinic data. Resets periodically.
                   </p>
                 </div>
-              </div>
-
-              {/* Calm Schedule Illustration Surface */}
-              <div className="lg:col-span-5">
-                <div className="relative rounded-hero border border-border bg-card p-6 shadow-md overflow-hidden">
-                  <div className="absolute -top-12 -right-12 size-48 rounded-full bg-accent/50 blur-2xl pointer-events-none" />
-                  <div className="flex items-center justify-between border-b border-border pb-4 mb-4">
-                    <div>
-                      <div className="text-meta font-bold text-muted-foreground uppercase tracking-wider">Today's Schedule</div>
-                      <div className="text-card-title font-bold">Bangkok Central Branch</div>
-                    </div>
-                    <span className="inline-flex items-center gap-1.5 rounded-full bg-success-surface px-2.5 py-1 text-xs font-semibold text-success-on-surface">
-                      <span className="size-2 rounded-full bg-success animate-pulse" />
-                      Live Roster
-                    </span>
-                  </div>
-
-                  <div className="space-y-3">
-                    <div className="rounded-card border border-border bg-surface-subtle p-3.5 flex items-start gap-3">
-                      <div className="size-8 rounded-full bg-primary/10 text-foreground font-bold flex items-center justify-center text-xs shrink-0">
-                        DR
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <div className="flex items-center justify-between text-xs font-semibold">
-                          <span>Dr. Somchai (Chair 1)</span>
-                          <span className="text-muted-foreground">09:00 - 10:00</span>
-                        </div>
-                        <p className="text-xs text-muted-foreground mt-0.5">Scaling & Polishing — Patient: Jane Doe</p>
-                      </div>
-                    </div>
-
-                    <div className="rounded-card border border-border bg-selection p-3.5 flex items-start gap-3">
-                      <div className="size-8 rounded-full bg-primary text-primary-foreground font-bold flex items-center justify-center text-xs shrink-0">
-                        DR
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <div className="flex items-center justify-between text-xs font-semibold">
-                          <span>Dr. Kanya (Chair 2)</span>
-                          <span className="text-foreground font-bold">10:30 - 11:30</span>
-                        </div>
-                        <p className="text-xs text-muted-foreground mt-0.5">Root Canal Treatment — Reserved</p>
-                      </div>
-                    </div>
-
-                    <div className="rounded-card border border-dashed border-border bg-card p-3.5 flex items-center justify-between text-xs text-muted-foreground">
-                      <span>11:30 - 12:30 Slot Available</span>
-                      <span className="font-semibold text-primary">Bookable</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
+              </section>
             </div>
           </div>
         </section>
 
-        {/* Capability Proof Section */}
-        <section className="border-t border-border bg-surface-subtle py-16">
-          <div className="mx-auto max-w-6xl px-4 sm:px-6">
-            <div className="text-center max-w-2xl mx-auto mb-12">
-              <h2 className="text-section-title font-bold">Built for real clinic operations</h2>
-              <p className="text-supporting text-muted-foreground mt-2">
-                Designed to simplify daily workflows for receptionists, dentists, and clinic owners.
+        <section className={`border-t border-border bg-surface-band ${BAND}`}>
+          <div className={SHELL}>
+            <div className="mx-auto mb-12 max-w-2xl text-center">
+              <h2 className={BAND_TITLE}>Built for real clinic operations</h2>
+              <p className="mt-3 type-body text-muted-foreground">
+                What keeps a full schedule from turning into chaos.
               </p>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-4">
               {capabilities.map(({ icon: Icon, title, description }) => (
-                <div key={title} className="rounded-card border border-border bg-card p-6 shadow-xs flex flex-col gap-3">
-                  <div className="size-10 rounded-control bg-accent flex items-center justify-center text-primary">
+                <div
+                  key={title}
+                  className="flex flex-col gap-3 rounded-card border border-border bg-card p-6 shadow-xs"
+                >
+                  <span className={ICON_TILE}>
                     <Icon className="size-5" aria-hidden="true" />
-                  </div>
-                  <h3 className="text-card-title font-bold">{title}</h3>
-                  <p className="text-supporting text-muted-foreground leading-relaxed">{description}</p>
+                  </span>
+                  <h3 className="type-card-title font-semibold">{title}</h3>
+                  <p className="type-supporting leading-relaxed text-muted-foreground">{description}</p>
                 </div>
               ))}
             </div>
           </div>
         </section>
 
-        {/* Clinic-day Story Section */}
-        <section className="border-t border-border py-16">
-          <div className="mx-auto max-w-6xl px-4 sm:px-6">
-            <div className="text-center max-w-2xl mx-auto mb-12">
-              <h2 className="text-section-title font-bold">One clinic day, three moments</h2>
-              <p className="text-supporting text-muted-foreground mt-2">
-                The same schedule, seen from a patient, the front desk and the team.
+        <section className={`border-t border-border ${BAND}`}>
+          <div className={SHELL}>
+            <div className="mx-auto mb-12 max-w-2xl text-center">
+              <h2 className={BAND_TITLE}>One clinic day, three moments</h2>
+              <p className="mt-3 type-body text-muted-foreground">
+                The same schedule, three points of view.
               </p>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <ol className="grid grid-cols-1 gap-10 md:grid-cols-3 md:gap-8">
               {dayStory.map(({ time, icon: Icon, title, description }) => (
-                <div key={title} className="rounded-card border border-border bg-card p-6 shadow-xs flex flex-col gap-3">
-                  <div className="flex items-center gap-2">
-                    <span className="flex size-10 shrink-0 items-center justify-center rounded-control bg-accent text-primary">
-                      <Icon className="size-5" aria-hidden="true" />
-                    </span>
-                    <span className="text-meta font-bold uppercase tracking-wider text-muted-foreground">
-                      {time}
-                    </span>
-                  </div>
-                  <h3 className="text-card-title font-bold">{title}</h3>
-                  <p className="text-supporting text-muted-foreground leading-relaxed">{description}</p>
-                </div>
+                <li key={title} className="flex flex-col gap-3">
+                  <span className={ICON_TILE}>
+                    <Icon className="size-5" aria-hidden="true" />
+                  </span>
+                  <span className="type-meta font-semibold uppercase tracking-wider text-muted-foreground">
+                    {time}
+                  </span>
+                  <h3 className="type-card-title font-semibold">{title}</h3>
+                  <p className="type-supporting leading-relaxed text-muted-foreground">{description}</p>
+                </li>
               ))}
+            </ol>
+          </div>
+        </section>
+
+        <section className={`border-t border-border bg-surface-band ${BAND}`}>
+          <div className={`${SHELL} flex flex-col items-center gap-6 text-center`}>
+            <h2 className={`${BAND_TITLE} max-w-2xl text-balance`}>
+              Put your whole clinic on one schedule.
+            </h2>
+            <p className="max-w-2xl type-body text-balance text-muted-foreground">
+              Create a clinic in a minute, or look around the demo first — no sign-up needed.
+            </p>
+            <div className="flex flex-wrap justify-center gap-3">
+              <Link to="/signup" className={buttonVariants({ className: "px-6 sm:h-10" })}>
+                Create your clinic
+                <ArrowRight className="size-4" aria-hidden="true" />
+              </Link>
+              <a
+                href="#explore-demo"
+                className={buttonVariants({
+                  variant: "secondary",
+                  className: "border border-border px-6 sm:h-10"
+                })}
+              >
+                Explore the demo
+              </a>
             </div>
           </div>
         </section>
       </main>
 
-      {/* Footer */}
-      <footer className="border-t border-border bg-background py-8 text-center text-xs text-muted-foreground">
-        <div className="mx-auto max-w-6xl px-4 sm:px-6 flex flex-col sm:flex-row items-center justify-between gap-4">
-          <p>© 2026 DentalOps. All rights reserved.</p>
-          <div className="flex items-center gap-4">
-            <Link
-              to="/login"
-              className="rounded-sm hover:text-foreground transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
-            >
-              Sign in
-            </Link>
-            <Link
-              to="/signup"
-              className="rounded-sm hover:text-foreground transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
-            >
-              Create clinic
-            </Link>
+      <footer className="bg-surface-inverse py-12 text-surface-inverse-foreground sm:py-16">
+        <div className={SHELL}>
+          <div className="flex flex-col gap-10 sm:flex-row sm:justify-between">
+            <div className="flex flex-col gap-3">
+              <Link to="/" className={`flex w-fit items-center gap-2.5 type-subsection-title font-semibold tracking-tight ${FOOTER_LINK}`}>
+                <BrandMark className="size-9" />
+                <span>DentalOps</span>
+              </Link>
+              <p className="max-w-xs type-ui">
+                One shared schedule for the front desk, every chair, and the patient booking online.
+              </p>
+            </div>
+
+            <div className="grid grid-cols-2 gap-x-12 gap-y-8 sm:gap-x-16">
+              <nav aria-label="Product">
+                <p className="type-meta font-semibold uppercase tracking-wider">Product</p>
+                <ul className="mt-3 flex flex-col gap-2 type-ui">
+                  <li>
+                    <a href="#explore-demo" className={FOOTER_LINK}>
+                      Explore the demo
+                    </a>
+                  </li>
+                  <li>
+                    <Link to="/signup" className={FOOTER_LINK}>
+                      Create a clinic
+                    </Link>
+                  </li>
+                </ul>
+              </nav>
+              <nav aria-label="Account">
+                <p className="type-meta font-semibold uppercase tracking-wider">Account</p>
+                <ul className="mt-3 flex flex-col gap-2 type-ui">
+                  <li>
+                    <Link to="/login" className={FOOTER_LINK}>
+                      Sign in
+                    </Link>
+                  </li>
+                </ul>
+              </nav>
+            </div>
           </div>
+
+          <p className="mt-10 border-t border-surface-inverse-border pt-6 type-meta">
+            © 2026 DentalOps. All rights reserved.
+          </p>
         </div>
       </footer>
     </div>
   )
 }
-

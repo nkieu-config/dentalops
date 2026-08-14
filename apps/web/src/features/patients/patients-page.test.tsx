@@ -14,7 +14,12 @@ const third = "3f9619ff-8b86-4d01-b42d-00cf4fc964ff"
 
 const requests: { q: string | null; cursor: string | null }[] = []
 
-const patient = (id: string, name: string, phone: string) => ({ id, name, phone })
+const patient = (id: string, name: string, phone: string, nextAppointmentAt: string | null = null) => ({
+  id,
+  name,
+  phone,
+  nextAppointmentAt
+})
 
 const ShowLocation = () => {
   const location = useLocation()
@@ -81,6 +86,26 @@ describe("PatientsPage", () => {
     )
   })
 
+  it("shows a patient's next booked visit in the row, and omits it when there isn't one", async () => {
+    server.use(
+      listing({
+        "|": {
+          items: [
+            patient(first, "Kanya Wongchai", "0812345678", "2026-08-18T04:15:00.000Z"),
+            patient(second, "Somchai Detchat", "0823456789", null)
+          ],
+          nextCursor: null
+        }
+      })
+    )
+    mount()
+
+    const rows = await screen.findAllByRole("listitem")
+    expect(rows[0]).toHaveTextContent("Next visit")
+    expect(rows[0]).toHaveTextContent("11:15")
+    expect(rows[1]).not.toHaveTextContent("Next visit")
+  })
+
   it("labels the search box visibly rather than leaning on a placeholder", async () => {
     server.use(listing({ "|": { items: [patient(first, "Kanya", "081")], nextCursor: null } }))
     mount()
@@ -88,6 +113,85 @@ describe("PatientsPage", () => {
     const box = await screen.findByLabelText("Search patients")
     expect(box.tagName).toBe("INPUT")
     expect(box).toHaveAttribute("type", "search")
+    expect(box).toHaveAttribute("name", "patient-search")
+    expect(box).toHaveAttribute("placeholder", "e.g. Anong or 081…")
+    expect(await screen.findByRole("heading", { name: "Recently added" })).toBeVisible()
+    expect(screen.queryByText("Look up anyone who has ever been seen or booked here.")).not.toBeInTheDocument()
+  })
+
+  it("uses a layered patient command surface with a visible result count and create action", async () => {
+    server.use(
+      listing({
+        "|": {
+          items: [
+            patient(first, "Kanya Wongchai", "0812345678"),
+            patient(second, "Somchai Detchat", "0823456789")
+          ],
+          nextCursor: null
+        }
+      })
+    )
+    mount()
+
+    expect(await screen.findByTestId("patients-command-surface")).toBeInTheDocument()
+    expect(await screen.findByTestId("patient-directory-canvas")).toBeInTheDocument()
+    expect(await screen.findByText("2 patients shown")).toBeVisible()
+    expect(screen.getByRole("button", { name: "New patient" })).toBeInTheDocument()
+  })
+
+  it("reserves the directory canvas while the patient list is loading", () => {
+    server.use(http.get(`${API}/patients`, async () => new Promise<never>(() => {})))
+    mount()
+
+    const loading = screen.getByTestId("patient-directory-loading")
+    expect(within(loading).getAllByTestId("patient-row-skeleton")).toHaveLength(6)
+    expect(loading).toHaveAttribute("aria-busy", "true")
+  })
+
+  it("labels filtered rows as search results and offers an immediate clear action", async () => {
+    server.use(
+      listing({
+        "kanya|": { items: [patient(first, "Kanya Wongchai", "0812345678")], nextCursor: null }
+      })
+    )
+    const user = mount("/app/patients?q=kanya")
+
+    expect(await screen.findByRole("heading", { name: "Search results" })).toBeVisible()
+    await user.click(screen.getByRole("button", { name: "Clear search" }))
+    expect(screen.getByLabelText("Search patients")).toHaveValue("")
+    expect(screen.getByTestId("url")).toHaveTextContent("/app/patients")
+  })
+
+  it("creates a patient from the directory command surface", async () => {
+    let posted: unknown
+    server.use(
+      listing({ "|": { items: [], nextCursor: null } }),
+      http.post(`${API}/patients`, async ({ request }) => {
+        posted = await request.json()
+        return HttpResponse.json({
+          id: first,
+          name: "Kanya Wongchai",
+          phone: "0812345678",
+          email: "kanya@example.com",
+          notes: "Call before visit"
+        })
+      })
+    )
+    const user = mount()
+    await user.click(await screen.findByRole("button", { name: "New patient" }))
+    await user.type(screen.getByLabelText("Patient name"), "Kanya Wongchai")
+    await user.type(screen.getByLabelText("Phone"), "0812345678")
+    await user.type(screen.getByLabelText("Email (optional)"), "kanya@example.com")
+    await user.type(screen.getByLabelText("Front-desk note (optional)"), "Call before visit")
+    await user.click(screen.getByRole("button", { name: "Save patient" }))
+
+    expect(posted).toEqual({
+      name: "Kanya Wongchai",
+      phone: "0812345678",
+      email: "kanya@example.com",
+      notes: "Call before visit"
+    })
+    await waitFor(() => expect(screen.getByTestId("url")).toHaveTextContent(`/app/patients/${first}`))
   })
 
   it("debounces the search, puts it in the url and asks the api for it", async () => {
@@ -150,6 +254,40 @@ describe("PatientsPage", () => {
     )
   })
 
+  it("keeps loaded patients visible when loading the next page fails", async () => {
+    let nextAttempts = 0
+    server.use(
+      http.get(`${API}/patients`, ({ request }) => {
+        const cursor = new URL(request.url).searchParams.get("cursor")
+        if (!cursor) {
+          return HttpResponse.json({ items: [patient(first, "Kanya Wongchai", "081")], nextCursor: "cur-2" })
+        }
+        nextAttempts += 1
+        return nextAttempts === 1
+          ? HttpResponse.error()
+          : HttpResponse.json({ items: [patient(second, "Somchai Detchat", "082")], nextCursor: null })
+      })
+    )
+    const user = mount()
+    await user.click(await screen.findByRole("button", { name: "Load more" }))
+
+    expect(await screen.findByText("Could not load more patients")).toBeInTheDocument()
+    expect(screen.getByText("Kanya Wongchai")).toBeInTheDocument()
+    await user.click(within(screen.getByRole("alert")).getByRole("button", { name: "Retry" }))
+    expect(await screen.findByText("Somchai Detchat")).toBeInTheDocument()
+  })
+
+  it("lines the directory up with the search card it sits under", async () => {
+    server.use(listing({ "|": { items: [patient(first, "Kanya", "081")], nextCursor: null } }))
+    mount()
+    await screen.findByTestId("patient-directory-canvas")
+
+    const command = screen.getByTestId("patients-command-surface")
+    const list = screen.getByTestId("patient-directory-canvas").parentElement!
+    expect(command.parentElement!.className).toContain("p-2")
+    expect(list.className).not.toContain("px-2")
+  })
+
   it("says a search found nobody and offers to clear it", async () => {
     server.use(
       listing({
@@ -202,6 +340,32 @@ describe("PatientsPage", () => {
     await user.type(await screen.findByLabelText("Search patients"), "kanya")
 
     await waitFor(() => expect(liveRegion()).toHaveTextContent("1 patient found for “kanya”"))
+  })
+
+  it("announces that more patients are available without claiming a partial count is the total", async () => {
+    server.use(
+      listing({
+        "|": { items: [patient(first, "Kanya Wongchai", "0812345678")], nextCursor: "cur-2" }
+      })
+    )
+    mount()
+
+    const liveRegion = () => document.querySelector('[aria-live="polite"]')
+    await waitFor(() =>
+      expect(liveRegion()).toHaveTextContent("1 patient shown, more available")
+    )
+    expect(screen.getByText("1 patient shown · More available")).toBeVisible()
+  })
+
+  it("keeps the create action available in the first-use empty state", async () => {
+    server.use(listing({ "|": { items: [], nextCursor: null } }))
+    const user = mount()
+
+    await screen.findByText("No patients yet")
+    const createActions = screen.getAllByRole("button", { name: "New patient" })
+    expect(createActions).toHaveLength(2)
+    await user.click(createActions[1]!)
+    expect(screen.getByRole("dialog", { name: "New patient" })).toBeVisible()
   })
 
   it("says so when the list cannot be loaded, and a retry actually recovers it", async () => {

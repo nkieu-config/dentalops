@@ -5,12 +5,13 @@ import { useEffect, useMemo, useReducer, useRef } from "react"
 import { useParams } from "react-router"
 import { toast } from "sonner"
 import type { SlotPickerState } from "../../components/slot-picker"
+import { Button } from "../../components/ui/button"
 import { EmptyState } from "../../components/ui/empty-state"
 import { Skeleton } from "../../components/ui/skeleton"
 import { ApiError } from "../../lib/api"
+import { normalizePhone } from "../../lib/phone"
 import { bkkToday } from "../timeline/lib/geometry"
 import {
-  AVAILABILITY_KEY,
   useClinic,
   useConfirmBooking,
   useCreateHold,
@@ -29,6 +30,7 @@ import {
   type RecoveryReason,
   type WizardStep
 } from "./wizard-reducer"
+import { queryKeys } from "../../lib/query-keys"
 
 const STEP_LABELS: Record<WizardStep, string> = {
   service: "Service",
@@ -113,6 +115,15 @@ export const BookingPage = () => {
     }
   }, [clinic.data, state.serviceId, state.branchId, state.hold])
 
+  const selection = useMemo(() => {
+    const branchName = clinic.data?.branches.find((branch) => branch.id === state.branchId)?.name
+    const serviceName = clinic.data?.services.find((service) => service.id === state.serviceId)?.name
+    const dentistName = state.dentistId
+      ? clinic.data?.dentists.find((dentist) => dentist.id === state.dentistId)?.name
+      : "First available dentist"
+    return [branchName, serviceName, dentistName].filter(Boolean).join(" · ")
+  }, [clinic.data, state.branchId, state.serviceId, state.dentistId])
+
   const nearestFree = useMemo(() => {
     if (!state.recovery) return null
     const lost = Date.parse(state.recovery.startsAt)
@@ -123,7 +134,7 @@ export const BookingPage = () => {
   }, [state.recovery, slotsByStart])
 
   const refreshSlots = () => {
-    void queryClient.invalidateQueries({ queryKey: [AVAILABILITY_KEY] })
+    void queryClient.invalidateQueries({ queryKey: queryKeys.publicAvailability.root() })
   }
 
   const loseHold = (reason: RecoveryReason) => {
@@ -174,7 +185,7 @@ export const BookingPage = () => {
       {
         holdId: state.hold.holdId,
         name: state.details.name.trim(),
-        phone: state.details.phone.trim(),
+        phone: normalizePhone(state.details.phone),
         ...(email ? { email } : {})
       },
       {
@@ -200,7 +211,7 @@ export const BookingPage = () => {
 
   if (clinic.isError) {
     return (
-      <main className="mx-auto flex min-h-dvh max-w-md flex-col justify-center p-4 text-base">
+      <main className="mx-auto flex min-h-dvh max-w-md flex-col justify-center px-4 lg:max-w-xl pb-[calc(1rem+env(safe-area-inset-bottom))] pt-[calc(1rem+env(safe-area-inset-top))] type-body">
         <EmptyState
           icon={ShieldOff}
           title="Clinic not found"
@@ -211,20 +222,21 @@ export const BookingPage = () => {
   }
 
   return (
-    <main className="mx-auto flex min-h-dvh max-w-md flex-col gap-4 p-4 text-base">
+    <main className="mx-auto flex min-h-dvh max-w-md flex-col gap-4 px-4 lg:max-w-xl pb-[calc(1rem+env(safe-area-inset-bottom))] pt-[calc(1rem+env(safe-area-inset-top))] type-body">
       <header className="-mx-4 -mt-4 space-y-3 border-b border-border bg-card px-4 pb-3 pt-4">
         <div className="flex min-h-11 items-center gap-2">
           {stepIndex > 0 ? (
-            <button
-              type="button"
+            <Button
+              variant="ghost"
+              size="icon"
               aria-label="Back"
               onClick={goBack}
-              className="-ml-2 flex h-11 w-11 shrink-0 cursor-pointer items-center justify-center rounded-md hover:bg-accent"
+              className="-ml-2 shrink-0"
             >
               <ChevronLeft className="h-5 w-5" aria-hidden />
-            </button>
+            </Button>
           ) : null}
-          <h1 className="min-w-0 flex-1 truncate text-section-title font-bold">
+          <h1 className="min-w-0 flex-1 truncate type-page-title font-semibold">
             {clinic.isPending ? <Skeleton className="h-6 w-40" /> : clinic.data?.name}
           </h1>
         </div>
@@ -285,13 +297,16 @@ export const BookingPage = () => {
       {state.step === "slot" ? (
         <SlotStep
           date={state.date}
+          minDate={bkkToday()}
           state={pickerState}
           recovery={state.recovery}
           nearestFree={nearestFree}
           holding={createHold.isPending}
+          selection={selection}
           onPick={pickSlot}
           onDateChange={(date) => dispatch({ type: "choose-date", date })}
           onPickAnother={() => dispatch({ type: "dismiss-recovery" })}
+          onRetry={refreshSlots}
         />
       ) : null}
 
@@ -308,7 +323,11 @@ export const BookingPage = () => {
       ) : null}
 
       {state.step === "confirmed" && state.booking ? (
-        <ConfirmedStep booking={state.booking} clinicName={clinic.data?.name ?? ""} />
+        <ConfirmedStep
+          booking={state.booking}
+          clinicName={clinic.data?.name ?? ""}
+          emailProvided={state.details.email.trim().length > 0}
+        />
       ) : null}
     </main>
   )

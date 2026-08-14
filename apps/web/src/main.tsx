@@ -1,4 +1,5 @@
 import "@fontsource-variable/plus-jakarta-sans"
+import "@fontsource-variable/noto-sans-thai"
 import "./app.css"
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 import { StrictMode } from "react"
@@ -8,6 +9,7 @@ import { Toaster } from "sonner"
 import { initTheme } from "./lib/theme"
 import { router } from "./routes"
 import { MotionProvider } from "./components/ui/motion-provider"
+import { TooltipProvider } from "./components/ui/tooltip"
 
 initTheme()
 
@@ -38,8 +40,10 @@ createRoot(document.getElementById("root")!).render(
   <StrictMode>
     <QueryClientProvider client={client}>
       <MotionProvider>
-        <RouterProvider router={router} />
-        <Toaster position="top-center" richColors />
+        <TooltipProvider>
+          <RouterProvider router={router} />
+          <Toaster position="top-center" richColors />
+        </TooltipProvider>
       </MotionProvider>
     </QueryClientProvider>
   </StrictMode>

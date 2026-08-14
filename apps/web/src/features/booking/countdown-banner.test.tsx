@@ -77,8 +77,23 @@ describe("CountdownBanner", () => {
     mountAt(240_000)
 
     const banner = screen.getByTestId("hold-countdown")
-    expect(banner.className).toContain("text-base")
+    expect(banner.className).toContain("type-body")
     expect(screen.getByText("4:00").className).toContain("tabular-nums")
+  })
+
+  it("does not announce every second of an active hold", () => {
+    mountAt(240_000)
+
+    expect(screen.getByTestId("hold-countdown")).toHaveAttribute("aria-hidden", "true")
+    expect(screen.getByRole("status")).toHaveTextContent("")
+  })
+
+  it("warns once when the hold is about to run out, not only after it is gone", () => {
+    mountAt(30_000)
+
+    expect(screen.getByRole("status")).toHaveTextContent(
+      "Less than a minute left to confirm this booking."
+    )
   })
 })
 

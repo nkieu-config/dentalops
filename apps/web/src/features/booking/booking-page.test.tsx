@@ -3,6 +3,7 @@ import { act, render, screen, waitFor, within } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { MemoryRouter, Route, Routes } from "react-router"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
+import { PHONE_ERROR } from "../../lib/phone"
 import { API, delay, http, HttpResponse, server } from "../../test/msw"
 import { BookingPage } from "./booking-page"
 
@@ -23,7 +24,22 @@ const clinic = {
   id: "9f9619ff-8b86-4d01-b42d-00cf4fc964ff",
   name: "Bright Smile Dental",
   slug: clinicSlug,
-  branches: [{ id: branchId, name: "Sukhumvit" }],
+  branches: [
+    {
+      id: branchId,
+      name: "Sukhumvit",
+      timezone: "Asia/Bangkok",
+      openingHours: {
+        mon: [["09:00", "18:00"]],
+        tue: [["09:00", "18:00"]],
+        wed: [["09:00", "18:00"]],
+        thu: [["09:00", "18:00"]],
+        fri: [["09:00", "18:00"]],
+        sat: [],
+        sun: []
+      }
+    }
+  ],
   services: [
     { id: serviceId, name: "Cleaning", durationMin: 45, colorIndex: 0 },
     { id: "7f9619ff-8b86-4d01-b42d-00cf4fc964ff", name: "Whitening", durationMin: 60, colorIndex: 1 }
@@ -76,6 +92,8 @@ const tenThirtyGoneOnceHeld = () =>
 interface HandlerOptions {
   slots?: () => { dentistId: string; startsAt: string; endsAt: string }[]
   availabilityDelayMs?: number
+  availabilityError?: boolean
+  holdDelayMs?: number
   holdTtlMs?: number
   holdResponse?: () => Response
   confirmResponse?: () => Response
@@ -86,10 +104,12 @@ const handlers = (options: HandlerOptions = {}) => [
   http.get(`${API}/public/${clinicSlug}/availability`, async ({ request }) => {
     recorded.availability.push(Object.fromEntries(new URL(request.url).searchParams))
     if (options.availabilityDelayMs) await delay(options.availabilityDelayMs)
+    if (options.availabilityError) return apiError(503, "AVAILABILITY_UNAVAILABLE", "Service unavailable")
     return HttpResponse.json({ slots: options.slots?.() ?? [TEN_THIRTY, TEN_FORTY_FIVE] })
   }),
   http.post(`${API}/public/${clinicSlug}/holds`, async ({ request }) => {
     recorded.holds.push((await request.json()) as Record<string, unknown>)
+    if (options.holdDelayMs) await delay(options.holdDelayMs)
     if (options.holdResponse) return options.holdResponse()
     return HttpResponse.json(
       {
@@ -140,13 +160,24 @@ const fillDetails = async (user: User) => {
 
 const sizeClass = (element: Element): string | null => {
   for (let node: Element | null = element; node; node = node.parentElement) {
-    const found = /(?:^|\s)(text-(?:xs|sm|base|lg|xl|2xl|3xl))(?:\s|$)/.exec(node.className)
+    const className = typeof node.className === "string" ? node.className : ""
+    const found = /(?:^|\s)(type-(?:meta|dense|ui|supporting|body|card-title|subsection-title|section-title|page-title|display|display-lg))(?:\s|$)/.exec(className)
     if (found?.[1]) return found[1]
   }
   return null
 }
 
 describe("BookingPage", () => {
+  it("keeps the heading scale from inverting between the clinic name and a step", async () => {
+    server.use(...handlers())
+    mount()
+
+    const clinic = await screen.findByRole("heading", { level: 1 })
+    expect(clinic.className).toContain("type-page-title")
+    const step = screen.getByRole("heading", { level: 2, name: "What do you need?" })
+    expect(step.className).toContain("type-section-title")
+  })
+
   beforeEach(() => {
     vi.useFakeTimers({ shouldAdvanceTime: true })
     vi.setSystemTime(Date.parse(NOW))
@@ -165,7 +196,23 @@ describe("BookingPage", () => {
       http.get(`${API}/public/${clinicSlug}`, () =>
         HttpResponse.json({
           ...clinic,
-          branches: [...clinic.branches, { id: "af9619ff-8b86-4d01-b42d-00cf4fc964ff", name: "Ladprao" }]
+          branches: [
+            ...clinic.branches,
+            {
+              id: "af9619ff-8b86-4d01-b42d-00cf4fc964ff",
+              name: "Ladprao",
+              timezone: "Asia/Bangkok",
+              openingHours: {
+                mon: [["10:00", "16:00"]],
+                tue: [["10:00", "16:00"]],
+                wed: [["10:00", "16:00"]],
+                thu: [["10:00", "16:00"]],
+                fri: [["10:00", "16:00"]],
+                sat: [],
+                sun: []
+              }
+            }
+          ]
         })
       )
     )
@@ -174,6 +221,38 @@ describe("BookingPage", () => {
     expect(await screen.findByRole("button", { name: "Sukhumvit" })).toHaveClass(
       "text-secondary-foreground"
     )
+  })
+
+  it("grounds a multi-branch choice in the selected location's hours", async () => {
+    server.use(
+      http.get(`${API}/public/${clinicSlug}`, () =>
+        HttpResponse.json({
+          ...clinic,
+          branches: [
+            ...clinic.branches,
+            {
+              id: "af9619ff-8b86-4d01-b42d-00cf4fc964ff",
+              name: "Ladprao",
+              timezone: "Asia/Bangkok",
+              openingHours: {
+                mon: [["10:00", "16:00"]],
+                tue: [["10:00", "16:00"]],
+                wed: [["10:00", "16:00"]],
+                thu: [["10:00", "16:00"]],
+                fri: [["10:00", "16:00"]],
+                sat: [],
+                sun: []
+              }
+            }
+          ]
+        })
+      )
+    )
+    const user = mount()
+
+    expect(await screen.findByText("Open today 09:00–18:00")).toBeVisible()
+    await user.click(screen.getByRole("button", { name: "Ladprao" }))
+    expect(screen.getByText("Open today 10:00–16:00")).toBeVisible()
   })
 
   it("asks for one Bangkok day and omits dentistId when the patient takes any dentist", async () => {
@@ -203,10 +282,48 @@ describe("BookingPage", () => {
     const dentistList = await screen.findByRole("list", { name: "Dentists" })
     const options = within(dentistList).getAllByRole("listitem")
     expect(options.map((option) => option.textContent?.trim())).toEqual([
-      "Any available dentistSoonest booking",
+      "First available dentistShows the earliest available time",
       "ADr. Anong",
       "SDr. Somchai"
     ])
+  })
+
+  it("keeps the chosen branch, service and dentist visible while a patient picks a time", async () => {
+    server.use(...handlers())
+    const user = mount()
+    await walkToSlots(user)
+
+    expect(await screen.findByText("Sukhumvit · Cleaning · First available dentist")).toBeVisible()
+  })
+
+  it("does not offer a past day from the first availability screen", async () => {
+    server.use(...handlers())
+    const user = mount()
+    await walkToSlots(user)
+
+    expect(screen.getByRole("button", { name: "Previous day of slots" })).toBeDisabled()
+  })
+
+  it("locks the remaining times while it secures the selected slot", async () => {
+    server.use(...handlers({ holdDelayMs: 500 }))
+    const user = mount()
+    await walkToSlots(user)
+
+    const [firstSlot, secondSlot] = screen.getAllByTestId("slot")
+    await user.click(firstSlot!)
+
+    expect(secondSlot!).toBeDisabled()
+  })
+
+  it("offers a direct retry when availability cannot be loaded", async () => {
+    server.use(...handlers({ availabilityError: true }))
+    const user = mount()
+    await user.click(await screen.findByRole("button", { name: /Cleaning/ }))
+    await user.click(await screen.findByTestId("any-dentist-option"))
+
+    await screen.findByText("Could not load free slots")
+    await user.click(screen.getByRole("button", { name: "Retry" }))
+    await waitFor(() => expect(recorded.availability).toHaveLength(2))
   })
 
   it("names each step instead of leaving the progress bar unlabelled", async () => {
@@ -263,9 +380,9 @@ describe("BookingPage", () => {
 
     const recovery = await screen.findByTestId("hold-recovery")
     expect(within(recovery).getByText("Your hold expired")).toBeInTheDocument()
-    expect(within(recovery).getByText("10:30 was taken.")).toBeInTheDocument()
+    expect(within(recovery).getByText(/10:30 was taken\./)).toBeInTheDocument()
     expect(screen.queryByLabelText("Full name")).not.toBeInTheDocument()
-    await waitFor(() => expect(within(recovery).getByText("10:45")).toBeInTheDocument())
+    await waitFor(() => expect(within(recovery).getByText(/Nearest free: 10:45/)).toBeInTheDocument())
 
     await user.click(within(recovery).getByRole("button", { name: "Pick another time" }))
     expect(await screen.findByRole("button", { name: "10:45" })).toBeInTheDocument()
@@ -283,6 +400,20 @@ describe("BookingPage", () => {
     expect(screen.getByText("Dr. Anong")).toBeInTheDocument()
     expect(screen.getByText("Sukhumvit")).toBeInTheDocument()
     expect(screen.getByText("10:30")).toBeInTheDocument()
+  })
+
+  it("uses mobile-friendly semantic fields before confirmation", async () => {
+    server.use(...handlers())
+    const user = mount()
+    await walkToSlots(user)
+    await user.click(screen.getByRole("button", { name: "10:30" }))
+    await screen.findByTestId("hold-countdown")
+
+    expect(screen.getByLabelText("Full name")).toHaveAttribute("name", "name")
+    expect(screen.getByLabelText("Mobile number")).toHaveAttribute("name", "tel")
+    expect(screen.getByLabelText("Mobile number")).toHaveAttribute("type", "tel")
+    expect(screen.getByLabelText(/Email/)).toHaveAttribute("name", "email")
+    expect(screen.getByLabelText(/Email/)).toHaveAttribute("spellcheck", "false")
   })
 
   it("releases the hold when the patient goes back from the details step", async () => {
@@ -345,7 +476,7 @@ describe("BookingPage", () => {
     const recovery = await screen.findByTestId("hold-recovery")
     expect(within(recovery).getByText("That time was just booked")).toBeInTheDocument()
     expect(screen.queryByText("Dentist is already booked")).not.toBeInTheDocument()
-    await waitFor(() => expect(within(recovery).getByText("10:45")).toBeInTheDocument())
+    await waitFor(() => expect(within(recovery).getByText(/Nearest free: 10:45/)).toBeInTheDocument())
 
     await user.click(within(recovery).getByRole("button", { name: "Pick another time" }))
     await user.click(await screen.findByRole("button", { name: "10:45" }))
@@ -395,6 +526,20 @@ describe("BookingPage", () => {
       "/manage/header.payload.signature"
     )
     expect(screen.queryByTestId("hold-countdown")).not.toBeInTheDocument()
+  })
+
+  it("keeps a no-email booking manageable after the confirmation page is left", async () => {
+    server.use(...handlers())
+    const user = mount()
+    await walkToSlots(user)
+    await user.click(screen.getByRole("button", { name: "10:30" }))
+    await screen.findByTestId("hold-countdown")
+    await fillDetails(user)
+
+    await user.click(screen.getByRole("button", { name: "Confirm booking" }))
+
+    expect(await screen.findByRole("button", { name: "Copy manage link" })).toBeVisible()
+    expect(screen.getByText("No confirmation email was sent. Save this link to manage your booking.")).toBeVisible()
   })
 
   it("books on a signed hold exactly as it does on a redis one", async () => {
@@ -459,6 +604,21 @@ describe("BookingPage", () => {
     expect(confirm).toBeEnabled()
   })
 
+  it("takes a phone number written the way people write it down, exactly as staff can", async () => {
+    server.use(...handlers())
+    const user = mount()
+    await walkToSlots(user)
+    await user.click(screen.getByRole("button", { name: "10:30" }))
+    await screen.findByTestId("hold-countdown")
+    await user.type(screen.getByLabelText("Full name"), "Napat Chai")
+    await user.type(screen.getByLabelText("Mobile number"), "081-234 5678")
+
+    await user.click(screen.getByRole("button", { name: "Confirm booking" }))
+
+    expect(await screen.findByText("You are booked")).toBeInTheDocument()
+    expect(recorded.confirms).toEqual([{ holdId, name: "Napat Chai", phone: "0812345678" }])
+  })
+
   it("shows an inline error and marks the phone field invalid when the number doesn't parse, then clears it once corrected", async () => {
     server.use(...handlers())
     const user = mount()
@@ -470,7 +630,7 @@ describe("BookingPage", () => {
     await user.type(phone, "12345")
     await user.tab()
 
-    const error = await screen.findByText("Enter a valid mobile number, e.g. 0812345678")
+    const error = await screen.findByText(PHONE_ERROR)
     expect(error).toBeInTheDocument()
     expect(phone).toHaveAttribute("aria-invalid", "true")
     expect(phone).toHaveAttribute("aria-describedby", error.id)
@@ -479,7 +639,7 @@ describe("BookingPage", () => {
     await user.type(phone, "0812345678")
 
     await waitFor(() =>
-      expect(screen.queryByText("Enter a valid mobile number, e.g. 0812345678")).not.toBeInTheDocument()
+      expect(screen.queryByText(PHONE_ERROR)).not.toBeInTheDocument()
     )
     expect(phone).toHaveAttribute("aria-invalid", "false")
     expect(phone).not.toHaveAttribute("aria-describedby")
@@ -519,6 +679,7 @@ describe("BookingPage", () => {
 
     const main = screen.getByRole("main")
     expect(main.className).toContain("min-h-dvh")
+    expect(main.className).toContain("safe-area")
     expect(main.className).not.toContain("h-screen")
 
     const written = Array.from(main.querySelectorAll<HTMLElement>("*")).filter((element) =>
@@ -528,7 +689,7 @@ describe("BookingPage", () => {
     )
     expect(written.length).toBeGreaterThan(5)
     for (const element of written) {
-      expect(sizeClass(element)).not.toMatch(/text-(xs|sm)/)
+      expect(sizeClass(element)).not.toMatch(/type-(meta|dense)/)
     }
 
     for (const chip of screen.getAllByTestId("slot")) {
@@ -536,5 +697,13 @@ describe("BookingPage", () => {
       const height = /min-h-(\d+)/.exec(chip.className)
       expect(Number(height?.[1]) * 4).toBeGreaterThanOrEqual(44)
     }
+  })
+
+  it("keeps the back action keyboard-visible", async () => {
+    server.use(...handlers())
+    const user = mount()
+    await walkToSlots(user)
+
+    expect(screen.getByRole("button", { name: "Back" }).className).toContain("focus-visible:ring-2")
   })
 })

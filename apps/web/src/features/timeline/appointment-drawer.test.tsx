@@ -5,7 +5,7 @@ import { render, screen, waitFor } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { useState } from "react"
 import { Toaster, toast } from "sonner"
-import { afterEach, describe, expect, it } from "vitest"
+import { afterEach, describe, expect, it, vi } from "vitest"
 import { setSession } from "../../lib/session"
 import { API, http, HttpResponse, server } from "../../test/msw"
 import { goOffline, goOnline } from "../../test/network"
@@ -40,7 +40,14 @@ const seriesId = "c1000000-0000-4000-8000-000000000001"
 
 const Harness = ({ dentists }: { dentists?: StaffMember[] }) => {
   const [selected, setSelected] = useState<Appointment | null>(appointment)
-  return <AppointmentDrawer appointment={selected} dentists={dentists} onClose={() => setSelected(null)} />
+  return (
+    <AppointmentDrawer
+      appointment={selected}
+      dentists={dentists}
+      branchName="Ladprao"
+      onClose={() => setSelected(null)}
+    />
+  )
 }
 
 const mount = (dentists?: StaffMember[]) => {
@@ -129,9 +136,21 @@ describe("AppointmentDrawer", () => {
     mount()
     expect(screen.getByText("09:00–10:00 (1h)")).toBeInTheDocument()
     expect(screen.getByRole("heading", { name: "S. Chaiwat" })).toBeInTheDocument()
-    expect(screen.getByText("0812345678")).toBeInTheDocument()
+    expect(screen.getByRole("link", { name: "0812345678" })).toHaveAttribute(
+      "href",
+      "tel:0812345678"
+    )
+    expect(screen.getByRole("link", { name: "View patient" })).toHaveAttribute(
+      "href",
+      `/app/patients/${appointment.patientId}`
+    )
+    expect(screen.getByText("Date")).toBeInTheDocument()
+    expect(screen.getByText("Mon, 3 Aug 2026")).toBeInTheDocument()
+    expect(screen.getByText("Branch")).toBeInTheDocument()
+    expect(screen.getByText("Ladprao")).toBeInTheDocument()
 
     await userEvent.click(screen.getByRole("button", { name: "Complete" }))
+    await userEvent.click(screen.getByRole("button", { name: "Complete appointment" }))
 
     expect(await screen.findByText("Marked completed")).toBeInTheDocument()
     expect(bodies).toEqual([{ status: "completed" }])
@@ -146,10 +165,22 @@ describe("AppointmentDrawer", () => {
     expect(screen.getByText("Dr. Anong")).toBeInTheDocument()
   })
 
+  it("shows the chair assignment when the schedule view supplies it", () => {
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+    render(
+      <QueryClientProvider client={client}>
+        <AppointmentDrawer appointment={appointment} chairName="Chair 2" onClose={() => {}} />
+      </QueryClientProvider>
+    )
+
+    expect(screen.getByText("Chair")).toBeInTheDocument()
+    expect(screen.getByText("Chair 2")).toBeInTheDocument()
+  })
+
   it("shows a dash for the dentist when no roster was passed in", () => {
     mount()
     expect(screen.getByText("Dentist")).toBeInTheDocument()
-    expect(screen.getByText("—")).toBeInTheDocument()
+    expect(screen.getAllByText("—").length).toBeGreaterThan(0)
   })
 
   it("requires confirmation before cancelling, and lets the owner back out first", async () => {
@@ -195,9 +226,10 @@ describe("AppointmentDrawer", () => {
     mount()
 
     await userEvent.click(screen.getByRole("button", { name: "No-show" }))
+    await userEvent.click(screen.getByRole("button", { name: "Mark no-show" }))
 
     expect(await screen.findByText("Cannot no_show a cancelled appointment")).toBeInTheDocument()
-    expect(screen.getByRole("dialog")).toBeInTheDocument()
+    expect(screen.getByRole("alertdialog", { name: "Mark as no-show?" })).toBeInTheDocument()
   })
 
   it("offers no status actions once the appointment has left the confirmed state", () => {
@@ -211,7 +243,84 @@ describe("AppointmentDrawer", () => {
     expect(screen.queryByRole("button", { name: "Complete" })).not.toBeInTheDocument()
   })
 
-  it("moves the appointment to a picked slot with no gesture at all", async () => {
+  it("says why a closed appointment cannot change and offers the way forward", async () => {
+    const onBookFollowUp = vi.fn()
+    setSession({
+      accessToken: "t1",
+      user: {
+        id: "7f9619ff-8b86-4d01-b42d-00cf4fc964ff",
+        tenantId: "9f9619ff-8b86-4d01-b42d-00cf4fc964ff",
+        name: "Demo User",
+        role: "receptionist"
+      }
+    })
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+    const closed = { ...appointment, status: "no_show" as const }
+    render(
+      <QueryClientProvider client={client}>
+        <AppointmentDrawer
+          appointment={closed}
+          onClose={() => {}}
+          onBookFollowUp={onBookFollowUp}
+        />
+      </QueryClientProvider>
+    )
+
+    expect(screen.getByTestId("closed-appointment")).toHaveTextContent(
+      "A no-show cannot be undone."
+    )
+    await userEvent.click(screen.getByRole("button", { name: "Book a follow-up" }))
+    expect(onBookFollowUp).toHaveBeenCalledWith(closed)
+  })
+
+  it("leaves a confirmed appointment free of the closed-status note", () => {
+    mount()
+
+    expect(screen.queryByTestId("closed-appointment")).not.toBeInTheDocument()
+  })
+
+  it("uses a compact mobile detail surface for a completed appointment", () => {
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+    render(
+      <QueryClientProvider client={client}>
+        <AppointmentDrawer appointment={{ ...appointment, status: "completed" }} onClose={() => {}} />
+      </QueryClientProvider>
+    )
+
+    expect(screen.getByRole("dialog")).toHaveAttribute("data-sheet-layout", "adaptive")
+  })
+
+  it("keeps an actionable appointment in the full working sheet", () => {
+    mount()
+
+    expect(screen.getByRole("dialog")).toHaveAttribute("data-sheet-layout", "full")
+  })
+
+  it("wraps long appointment metadata inside its grid", () => {
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+    render(
+      <QueryClientProvider client={client}>
+        <AppointmentDrawer
+          appointment={appointment}
+          dentists={[
+            {
+              id: appointment.dentistId,
+              name: "Dr. A clinician with an unusually long name that needs to remain inside the detail sheet",
+              role: "dentist",
+              isActive: true
+            }
+          ]}
+          chairName="A chair assignment with a long descriptive label that must wrap safely"
+          onClose={() => {}}
+        />
+      </QueryClientProvider>
+    )
+
+    expect(screen.getByTestId("appointment-meta")).toHaveClass("min-w-0")
+    expect(screen.getByText(/unusually long name/)).toHaveClass("break-words")
+  })
+
+  it("reveals rescheduling only after the user asks to change the time", async () => {
     const bodies: unknown[] = []
     server.use(
       http.get(`${API}/availability`, () =>
@@ -229,8 +338,11 @@ describe("AppointmentDrawer", () => {
     )
     mountMove()
 
-    expect(await screen.findByText("Move")).toBeInTheDocument()
+    expect(screen.queryByText("Choose a new time")).not.toBeInTheDocument()
+    await userEvent.click(screen.getByRole("button", { name: "Reschedule" }))
+    expect(await screen.findByText("Choose a new time")).toBeInTheDocument()
     await userEvent.click(await screen.findByRole("button", { name: "11:00" }))
+    await userEvent.click(screen.getByRole("button", { name: "Confirm new time" }))
 
     await waitFor(() =>
       expect(bodies).toEqual([{ version: 1, startsAt: "2026-08-03T04:00:00.000Z" }])
@@ -248,7 +360,7 @@ describe("AppointmentDrawer", () => {
 
     const badge = await screen.findByTestId("series-badge")
     expect(badge).toHaveTextContent("Repeats")
-    expect(screen.queryByText("Move")).not.toBeInTheDocument()
+    expect(screen.queryByRole("button", { name: "Reschedule" })).not.toBeInTheDocument()
 
     await userEvent.click(badge)
 
@@ -266,14 +378,14 @@ describe("AppointmentDrawer", () => {
     )
     mountMove()
 
-    expect(await screen.findByText("Move")).toBeInTheDocument()
+    expect(await screen.findByRole("button", { name: "Reschedule" })).toBeInTheDocument()
     expect(screen.queryByTestId("series-badge")).not.toBeInTheDocument()
   })
 
   it("hides the move controls from a role the api will not let reschedule", async () => {
     mountMove("dentist")
     expect(await screen.findByRole("heading", { name: "S. Chaiwat" })).toBeInTheDocument()
-    expect(screen.queryByText("Move")).not.toBeInTheDocument()
+    expect(screen.queryByRole("button", { name: "Reschedule" })).not.toBeInTheDocument()
     expect(screen.queryAllByTestId("slot")).toHaveLength(0)
   })
 
@@ -292,6 +404,7 @@ describe("AppointmentDrawer", () => {
     server.use(http.get(`${API}/availability`, () => HttpResponse.json({ slots: withItself })))
     mountMove()
 
+    await userEvent.click(screen.getByRole("button", { name: "Reschedule" }))
     expect(await screen.findByRole("button", { name: "10:00" })).toBeInTheDocument()
     expect(screen.queryByRole("button", { name: "09:00" })).not.toBeInTheDocument()
     expect(screen.queryByRole("button", { name: "09:15" })).not.toBeInTheDocument()
@@ -324,8 +437,8 @@ describe("AppointmentDrawer", () => {
 
   it("hides the move affordance offline, since rescheduling is a mutation too", async () => {
     mountMove()
-    expect(await screen.findByText("Move")).toBeInTheDocument()
+    expect(await screen.findByRole("button", { name: "Reschedule" })).toBeInTheDocument()
     goOffline()
-    expect(screen.queryByText("Move")).not.toBeInTheDocument()
+    expect(screen.queryByRole("button", { name: "Reschedule" })).not.toBeInTheDocument()
   })
 })

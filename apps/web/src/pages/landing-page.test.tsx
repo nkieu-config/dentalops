@@ -28,19 +28,19 @@ describe("LandingPage", () => {
     expect(screen.getByText(/Already have a clinic\?/)).toBeInTheDocument()
   })
 
-  it("keeps the three demo buttons first in the accessibility tree", () => {
+  it("keeps the conversion path clear before offering role-specific demo entry", () => {
     mount()
 
-    const buttons = screen.getAllByRole("button")
-    expect(buttons.length).toBeGreaterThanOrEqual(DEMO_LABELS.length)
-    DEMO_LABELS.forEach((label, index) => expect(buttons[index]).toHaveTextContent(label))
+    expect(screen.getByRole("link", { name: "Skip to main content" })).toHaveAttribute("href", "#main")
+    expect(screen.getByRole("navigation", { name: "Public navigation" })).toBeInTheDocument()
+    expect(screen.getByRole("region", { name: "Try the demo" })).toBeInTheDocument()
+    DEMO_LABELS.forEach((label) => expect(screen.getByRole("button", { name: new RegExp(label) })).toBeInTheDocument())
   })
 
-  it("carries no chrome that would take the first tab stop from the demo buttons", () => {
+  it("keeps public navigation keyboard-visible", () => {
     mount()
 
-    expect(screen.queryByRole("button", { name: /theme/i })).not.toBeInTheDocument()
-    expect(screen.queryByRole("banner")).not.toBeInTheDocument()
+    expect(screen.getByRole("link", { name: "Explore demo" }).className).toContain("focus-visible:ring-2")
   })
 
   it("keeps the demo buttons primary alongside real create-a-clinic CTAs, with sign-in secondary", () => {
@@ -55,9 +55,10 @@ describe("LandingPage", () => {
     const navCreate = screen.getAllByRole("link", { name: "Create a clinic" })[0]
     expect(navCreate?.className).toContain("bg-primary")
 
-    const heroCreate = screen.getByRole("link", { name: /Create your clinic/ })
-    expect(heroCreate).toHaveAttribute("href", "/signup")
-    expect(heroCreate.className).toContain("bg-primary")
+    for (const create of screen.getAllByRole("link", { name: /Create your clinic/ })) {
+      expect(create).toHaveAttribute("href", "/signup")
+      expect(create.className).toContain("bg-primary")
+    }
 
     for (const link of screen.getAllByRole("link", { name: "Sign in" })) {
       expect(link.className).not.toContain("bg-primary")
@@ -68,7 +69,7 @@ describe("LandingPage", () => {
   it("keeps the owner demo hint fully legible on its primary surface", () => {
     mount()
 
-    const hint = screen.getByText("Full control — roster, settings, reports")
+    const hint = screen.getByText("Full control: timeline, roster, settings and activity")
     expect(hint).toHaveClass("text-primary-foreground")
     expect(hint).not.toHaveClass("opacity-80")
   })
@@ -96,13 +97,11 @@ describe("LandingPage", () => {
 
     await user.click(screen.getByRole("button", { name: /Try as Owner/ }))
 
-    expect(
-      await screen.findByRole("heading", { name: "Interactive demo is temporarily unavailable" })
-    ).toBeVisible()
+    const recovery = await screen.findByRole("alert")
+    expect(recovery).toHaveTextContent("Interactive demo is temporarily unavailable")
     expect(screen.queryByRole("button", { name: /Try as Owner/ })).not.toBeInTheDocument()
     expect(screen.getByRole("button", { name: "Try demo again" })).toBeVisible()
     expect(screen.getAllByRole("link", { name: "Sign in" })).not.toHaveLength(0)
     expect(screen.getAllByRole("link", { name: "Create a clinic" })).not.toHaveLength(0)
   })
 })
-

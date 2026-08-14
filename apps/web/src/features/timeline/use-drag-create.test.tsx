@@ -41,14 +41,11 @@ describe("useDragCreate", () => {
     expect(screen.queryByTestId("ghost")).not.toBeInTheDocument()
   })
 
-  it("treats a press with no movement as a single fifteen-minute slot", () => {
+  it("does not turn a press without a drag into a booking", () => {
     const { overlay, onSelect } = mount()
     fireEvent.pointerDown(overlay, { clientY: 576, button: 0 })
     fireEvent.pointerUp(overlay)
-    expect(onSelect).toHaveBeenCalledWith({
-      start: dayStart + 9 * HOUR,
-      end: dayStart + 9 * HOUR + 15 * 60_000
-    })
+    expect(onSelect).not.toHaveBeenCalled()
   })
 
   it("snaps a ragged upward drag outwards to whole quarter hours", () => {

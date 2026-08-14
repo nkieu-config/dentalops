@@ -1,8 +1,17 @@
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { AlertDialog } from "../components/ui/alert-dialog"
 
 export const useDiscardGuard = (dirty: boolean, onClose: () => void) => {
   const [confirming, setConfirming] = useState(false)
+  useEffect(() => {
+    if (!dirty) return
+    const warnBeforeUnload = (event: BeforeUnloadEvent) => {
+      event.preventDefault()
+      event.returnValue = ""
+    }
+    window.addEventListener("beforeunload", warnBeforeUnload)
+    return () => window.removeEventListener("beforeunload", warnBeforeUnload)
+  }, [dirty])
   const requestClose = (open: boolean) => {
     if (open) return
     if (dirty) {

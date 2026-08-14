@@ -1,4 +1,5 @@
-import { ChevronRight, Zap } from "lucide-react"
+import { Zap } from "lucide-react"
+import { OptionCard } from "../option-card"
 
 interface DentistOption {
   id: string
@@ -10,57 +11,42 @@ interface DentistStepProps {
   onChoose: (dentistId: string | null) => void
 }
 
-const card =
-  "flex min-h-16 w-full cursor-pointer items-center justify-between gap-3 rounded-card border border-border bg-card px-4 py-3 text-left transition-[background-color,border-color] duration-150 hover:border-input hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background active:scale-[0.99]"
-
 const initial = (name: string): string =>
   (name.replace(/^(dr|mr|mrs|ms)\.?\s+/i, "").trim().charAt(0) || "?").toUpperCase()
 
 export const DentistStep = ({ dentists, onChoose }: DentistStepProps) => (
   <div className="space-y-2">
-    <h2 className="text-section-title font-bold">Choose a dentist</h2>
+    <h2 className="type-section-title font-semibold">Choose a dentist</h2>
     <ul className="space-y-2" aria-label="Dentists">
       <li>
-        <button
-          type="button"
-          data-testid="any-dentist-option"
+        <OptionCard
+          testId="any-dentist-option"
+          title="First available dentist"
+          detail="Shows the earliest available time"
+          leading={<Zap className="h-5 w-5 shrink-0 text-primary" aria-hidden />}
           onClick={() => onChoose(null)}
-          className={card}
-        >
-          <span className="flex items-center gap-3">
-            <Zap className="h-5 w-5 shrink-0 text-primary" aria-hidden />
-            <span>
-              <span className="block text-card-title font-medium">Any available dentist</span>
-              <span className="block text-supporting text-muted-foreground">Soonest booking</span>
-            </span>
-          </span>
-          <ChevronRight className="h-5 w-5 shrink-0 text-muted-foreground" aria-hidden />
-        </button>
+        />
       </li>
       {dentists.map((dentist) => (
         <li key={dentist.id}>
-          <button
-            type="button"
-            data-testid="dentist-option"
-            data-dentist={dentist.id}
-            onClick={() => onChoose(dentist.id)}
-            className={card}
-          >
-            <span className="flex items-center gap-3">
+          <OptionCard
+            testId="dentist-option"
+            dataDentist={dentist.id}
+            title={dentist.name}
+            leading={
               <span
                 aria-hidden
-                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-secondary text-card-title font-medium text-secondary-foreground"
+                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-secondary type-card-title font-medium text-secondary-foreground"
               >
                 {initial(dentist.name)}
               </span>
-              <span className="block text-card-title font-medium">{dentist.name}</span>
-            </span>
-            <ChevronRight className="h-5 w-5 shrink-0 text-muted-foreground" aria-hidden />
-          </button>
+            }
+            onClick={() => onChoose(dentist.id)}
+          />
         </li>
       ))}
     </ul>
-    <p className="text-supporting text-muted-foreground">
+    <p className="type-supporting text-muted-foreground">
       Pick anyone, or let the clinic give you whichever dentist has the lightest day.
     </p>
   </div>

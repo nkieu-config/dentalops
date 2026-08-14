@@ -84,6 +84,7 @@ describe("SignupPage", () => {
     expect(email).toHaveAttribute("name", "email")
     expect(email).toHaveAttribute("type", "email")
     expect(email).toHaveAttribute("autocomplete", "email")
+    expect(email).toHaveAttribute("spellcheck", "false")
 
     const password = screen.getByLabelText("Password")
     expect(password).toHaveAttribute("name", "password")
@@ -134,7 +135,7 @@ describe("SignupPage", () => {
 
     const password = screen.getByLabelText("Password")
     expect(password).toHaveAttribute("aria-invalid", "true")
-    expect(password).toHaveAccessibleDescription("At least 8 characters")
+    expect(password).toHaveAccessibleDescription(/At least 8 characters/)
     expect(recorded.signups).toHaveLength(0)
     expect(screen.getByLabelText("Email")).toHaveAttribute("aria-invalid", "false")
   })
@@ -212,7 +213,7 @@ describe("SignupPage", () => {
     await waitFor(() => expect(slug).toHaveAttribute("aria-invalid", "true"))
     expect(slug).toHaveAccessibleDescription(/That clinic URL is already in use/)
     expect(slug).toHaveFocus()
-    expect(screen.queryByRole("alert")).not.toBeInTheDocument()
+    expect(screen.getByRole("alert")).toHaveTextContent("That clinic URL is already in use")
     expect(screen.getByLabelText("Clinic name")).toHaveValue("Bright Smile Dental")
   })
 
@@ -236,7 +237,7 @@ describe("SignupPage", () => {
 
     const pending = await screen.findByRole("button", { name: "Creating your clinic…" })
     expect(pending).toBeDisabled()
-    await screen.findByRole("heading", { name: "You're ready" })
+    await screen.findByRole("heading", { name: "Your clinic is created" })
   })
 
   it("stores a real session, not a demo one, and holds on the ready screen before entering the workspace", async () => {
@@ -246,12 +247,13 @@ describe("SignupPage", () => {
 
     await user.click(screen.getByRole("button", { name: "Create clinic" }))
 
-    expect(await screen.findByRole("heading", { name: "You're ready" })).toBeInTheDocument()
+    expect(await screen.findByRole("heading", { name: "Your clinic is created" })).toBeInTheDocument()
     expect(screen.queryByRole("heading", { name: "Timeline" })).not.toBeInTheDocument()
     expect(getSession()).toEqual(session)
     expect(isDemo()).toBe(false)
 
-    await user.click(screen.getByRole("button", { name: "Go to your clinic" }))
+    expect(screen.getByRole("button", { name: "Set branch hours" })).toBeInTheDocument()
+    await user.click(screen.getByRole("button", { name: "Go to schedule" }))
     expect(await screen.findByRole("heading", { name: "Timeline" })).toBeInTheDocument()
   })
 
@@ -262,11 +264,13 @@ describe("SignupPage", () => {
 
     await user.click(screen.getByRole("button", { name: "Create clinic" }))
 
-    await screen.findByRole("heading", { name: "You're ready" })
+    await screen.findByRole("heading", { name: "Your clinic is created" })
     expect(screen.getByText("Set your branch hours")).toBeInTheDocument()
     expect(screen.getByText("Add your first service")).toBeInTheDocument()
     expect(screen.getByText("Invite your team")).toBeInTheDocument()
-    expect(screen.getByText(/book\/bright-smile-dental/)).toBeInTheDocument()
+    const bookingLink = screen.getByRole("link", { name: "Open booking page" })
+    expect(bookingLink).toHaveAttribute("href", "http://localhost:3000/book/bright-smile-dental")
+    expect(screen.getByRole("button", { name: "Copy booking link" })).toBeInTheDocument()
   })
 
   it("remembers the clinic URL so the login screen can prefill it", async () => {
@@ -276,7 +280,7 @@ describe("SignupPage", () => {
 
     await user.click(screen.getByRole("button", { name: "Create clinic" }))
 
-    await screen.findByRole("heading", { name: "You're ready" })
+    await screen.findByRole("heading", { name: "Your clinic is created" })
     expect(localStorage.getItem(LAST_CLINIC_KEY)).toBe("bright-smile-dental")
     expect(LAST_CLINIC_KEY).toBe("dentalops.lastClinic")
   })
@@ -291,7 +295,7 @@ describe("SignupPage", () => {
 
     await user.click(screen.getByRole("button", { name: "Create clinic" }))
 
-    expect(await screen.findByRole("heading", { name: "You're ready" })).toBeInTheDocument()
+    expect(await screen.findByRole("heading", { name: "Your clinic is created" })).toBeInTheDocument()
     expect(getSession()).toEqual(session)
     setItem.mockRestore()
   })

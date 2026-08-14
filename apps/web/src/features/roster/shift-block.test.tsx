@@ -1,5 +1,5 @@
 import type { Shift } from "@dentalops/contracts"
-import { cleanup, fireEvent, render, screen } from "@testing-library/react"
+import { cleanup, fireEvent, render, screen } from "../../test/render"
 import userEvent from "@testing-library/user-event"
 import { describe, expect, it, vi } from "vitest"
 import { ShiftBlock } from "./shift-block"
@@ -22,14 +22,15 @@ const mount = (props: Partial<Parameters<typeof ShiftBlock>[0]> = {}) => {
 describe("ShiftBlock", () => {
   it("shows a saved shift as local times on a 44px target and opens the editor", async () => {
     const { onEdit, block } = mount()
+    const edit = screen.getByTestId(`shift-edit-${shift.id}`)
     expect(block).toHaveTextContent("09:00–17:00")
     expect(block.className).toContain("min-h-11")
     expect(screen.getByText("09:00–17:00").className).toContain("tabular-nums")
-    expect(block).toHaveAccessibleName("Edit Dr. Anong shift 09:00 to 17:00")
+    expect(edit).toHaveAccessibleName("Edit Dr. Anong shift 09:00 to 17:00")
     expect(screen.queryByLabelText("Recurring")).not.toBeInTheDocument()
     expect(screen.queryByLabelText("Blocking violation")).not.toBeInTheDocument()
 
-    await userEvent.click(block)
+    await userEvent.click(edit)
     expect(onEdit).toHaveBeenCalledWith(shift)
   })
 
@@ -58,10 +59,11 @@ describe("ShiftBlock", () => {
 
     cleanup()
     const onMoveStart = vi.fn()
-    const { block } = mount({ onMoveStart })
-    expect(block.className).toContain("cursor-grab")
+    mount({ onMoveStart })
+    const handle = screen.getByTestId(`shift-drag-${shift.id}`)
+    expect(handle.className).toContain("cursor-grab")
 
-    fireEvent.pointerDown(block, { button: 0, clientX: 10, clientY: 10 })
+    fireEvent.pointerDown(handle, { button: 0, clientX: 10, clientY: 10 })
     expect(onMoveStart).toHaveBeenCalled()
   })
 })

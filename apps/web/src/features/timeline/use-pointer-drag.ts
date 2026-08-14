@@ -28,7 +28,7 @@ export const usePointerDrag = <TDrag, TPreview>({
 
   const begin = (e: ReactPointerEvent<Element>, create: () => TDrag | null) => {
     dragged.current = false
-    if (e.button !== 0) return
+    if (e.button !== 0 || e.pointerType === "touch") return
     const drag = create()
     if (drag === null) return
     active.current = { drag, anchorX: e.clientX, anchorY: e.clientY, moved: false }

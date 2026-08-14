@@ -27,12 +27,12 @@ export const StatusCallout = ({
 }: StatusCalloutProps) => (
   <div
     role={tone === "destructive" ? "alert" : "status"}
-    className={cn("flex gap-3 rounded-lg border border-current/15 p-3 text-sm", toneClass[tone], className)}
+    className={cn("flex gap-3 rounded-card p-3 type-ui", toneClass[tone], className)}
   >
     <Icon data-testid="status-callout-icon" aria-hidden className="mt-0.5 h-4 w-4 shrink-0" />
     <div className="min-w-0 space-y-0.5">
       <p className="font-semibold">{title}</p>
-      {children ? <div className="text-supporting leading-5">{children}</div> : null}
+      {children ? <div className="leading-5">{children}</div> : null}
     </div>
   </div>
 )

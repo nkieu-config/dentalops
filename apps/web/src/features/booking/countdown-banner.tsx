@@ -54,24 +54,40 @@ export const CountdownBanner = ({ expiresAt, startsAt, onExpire }: CountdownBann
     if (expired) expire.current()
   }, [expired])
 
+  const [announcement, setAnnouncement] = useState("")
+  const announcedFor = useRef<CountdownUrgency | null>(null)
+
+  useEffect(() => {
+    if (announcedFor.current === urgency) return
+    announcedFor.current = urgency
+    if (urgency === "urgent") setAnnouncement("Less than a minute left to confirm this booking.")
+    else if (urgency === "expired") setAnnouncement("Your hold expired. Pick another time.")
+    else setAnnouncement("")
+  }, [urgency])
+
   const { className, icon: Icon } = tone[urgency]
 
   return (
-    <div
-      role="status"
-      data-testid="hold-countdown"
-      data-urgency={urgency}
-      className={`flex items-center gap-2 rounded-md border px-3 py-2 text-base ${className}`}
-    >
-      <Icon className="h-5 w-5 shrink-0" aria-hidden />
-      {expired ? (
-        <span>Your hold expired</span>
-      ) : (
-        <span>
-          Holding <span className="tabular-nums">{fmtTime(Date.parse(startsAt))}</span> for{" "}
-          <strong className="tabular-nums">{remainingLabel(remaining)}</strong>
-        </span>
-      )}
-    </div>
+    <>
+      <div
+        aria-hidden="true"
+        data-testid="hold-countdown"
+        data-urgency={urgency}
+        className={`flex items-center gap-2 rounded-card border px-3 py-2 type-body ${className}`}
+      >
+        <Icon className="h-5 w-5 shrink-0" aria-hidden />
+        {expired ? (
+          <span>Your hold expired</span>
+        ) : (
+          <span>
+            Holding <span className="tabular-nums">{fmtTime(Date.parse(startsAt))}</span> for{" "}
+            <strong className="tabular-nums">{remainingLabel(remaining)}</strong>
+          </span>
+        )}
+      </div>
+      <p role="status" aria-live="polite" className="sr-only">
+        {announcement}
+      </p>
+    </>
   )
 }

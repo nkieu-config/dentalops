@@ -1,23 +1,28 @@
 import {
   appointmentSchema,
   appointmentSeriesSchema,
+  patientDetailSchema,
   patientPageSchema,
   type SeriesConflict,
   type StaffMember
 } from "@dentalops/contracts"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
-import { FormEvent, useState } from "react"
+import { RefreshCw, Search, UserRound } from "lucide-react"
+import { FormEvent, useEffect, useRef, useState } from "react"
 import { toast } from "sonner"
 import { Button } from "../../components/ui/button"
+import { Checkbox } from "../../components/ui/checkbox"
+import { Field, FieldInput, FormError } from "../../components/ui/form-field"
 import { Input } from "../../components/ui/input"
-import { Label } from "../../components/ui/label"
-import { NativeSelect } from "../../components/ui/native-select"
+import { AppSelect } from "../../components/ui/app-select"
 import { Sheet } from "../../components/ui/sheet"
 import { api, ApiError } from "../../lib/api"
 import { cn } from "../../lib/cn"
+import { useDiscardGuard } from "../../lib/use-discard-guard"
 import { useServices } from "./hooks"
 import { bkkDate, fmtDay, fmtTime } from "./lib/geometry"
 import { SeriesConflictList, readSeriesConflicts } from "./series-dialog"
+import { queryKeys } from "../../lib/query-keys"
 
 const MINUTE = 60_000
 const BANGKOK_OFFSET_MIN = 420
@@ -44,8 +49,14 @@ const clampNumber = (value: number, min: number, max: number): number =>
   Number.isNaN(value) ? min : Math.min(Math.max(value, min), max)
 
 export interface CreateDraft {
-  dentist: StaffMember
   branchId: string
+  dentist?: StaffMember
+  startsAt?: number
+}
+
+interface ResolvedCreateDraft {
+  branchId: string
+  dentist: StaffMember
   startsAt: number
 }
 
@@ -53,6 +64,8 @@ interface CreateDrawerProps {
   draft: CreateDraft | null
   dentists: StaffMember[]
   dayStart: number
+  branchName?: string
+  initialPatientId?: string
   onClose: () => void
 }
 
@@ -63,46 +76,106 @@ const parseTimeOfDay = (dayStart: number, value: string): number | null => {
   return dayStart + Number(hh) * 60 * MINUTE + Number(mm) * MINUTE
 }
 
-export const CreateDrawer = ({ draft, dentists, dayStart, onClose }: CreateDrawerProps) => {
+export const CreateDrawer = ({
+  draft,
+  dentists,
+  dayStart,
+  branchName,
+  initialPatientId,
+  onClose
+}: CreateDrawerProps) => {
   const queryClient = useQueryClient()
   const services = useServices()
   const [serviceId, setServiceId] = useState("")
   const [patientId, setPatientId] = useState("")
   const [patientName, setPatientName] = useState("")
+  const [patientPhone, setPatientPhone] = useState("")
   const [search, setSearch] = useState("")
+  const [debouncedSearch, setDebouncedSearch] = useState("")
   const [repeats, setRepeats] = useState(false)
   const [interval, setInterval] = useState(1)
   const [count, setCount] = useState(DEFAULT_COUNT)
   const [weekdays, setWeekdays] = useState<number[] | null>(null)
   const [conflicts, setConflicts] = useState<SeriesConflict[]>([])
-  // CreateDrawer is only mounted while draft is non-null (see timeline-page.tsx), so these
-  // seed once per open and are never stale from a previous session.
-  const [dentistId, setDentistId] = useState(draft?.dentist.id ?? "")
-  const [timeValue, setTimeValue] = useState(draft ? fmtTime(draft.startsAt) : "")
+  const [dentistId, setDentistId] = useState(draft?.dentist?.id ?? "")
+  const [timeValue, setTimeValue] = useState(draft?.startsAt ? fmtTime(draft.startsAt) : "")
+  const [bookingError, setBookingError] = useState("")
+  const repeatDetailsRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => setDebouncedSearch(search.trim()), 250)
+    return () => window.clearTimeout(timer)
+  }, [search])
 
   const resolvedDentist = dentists.find((d) => d.id === dentistId) ?? draft?.dentist ?? null
-  const resolvedStartsAt = draft ? (parseTimeOfDay(dayStart, timeValue) ?? draft.startsAt) : 0
-  const resolvedDraft: CreateDraft | null =
-    draft && resolvedDentist
+  const resolvedStartsAt = draft && timeValue ? parseTimeOfDay(dayStart, timeValue) : null
+  const resolvedDraft: ResolvedCreateDraft | null =
+    draft && resolvedDentist && resolvedStartsAt !== null
       ? { dentist: resolvedDentist, branchId: draft.branchId, startsAt: resolvedStartsAt }
       : null
 
-  const byWeekday = weekdays ?? (resolvedDraft ? [bkkWeekday(resolvedDraft.startsAt)] : [])
+  const byWeekday = weekdays ?? [bkkWeekday(dayStart)]
 
   const patients = useQuery({
-    queryKey: ["patients", search],
+    queryKey: queryKeys.patients.search(debouncedSearch),
     queryFn: () =>
-      api("/patients", patientPageSchema, { query: { q: search || undefined, limit: "20" } })
+      api("/patients", patientPageSchema, {
+        query: { q: debouncedSearch || undefined, limit: debouncedSearch ? "8" : "5" }
+      })
+  })
+  const initialPatient = useQuery({
+    queryKey: queryKeys.patients.detail(initialPatientId),
+    queryFn: () => api(`/patients/${initialPatientId}`, patientDetailSchema),
+    enabled: Boolean(initialPatientId)
   })
 
+  useEffect(() => {
+    if (!initialPatient.data || patientId) return
+    setPatientId(initialPatient.data.id)
+    setPatientName(initialPatient.data.name)
+    setPatientPhone(initialPatient.data.phone)
+  }, [initialPatient.data, patientId])
+
+  const selectedService = services.data?.find((service) => service.id === serviceId) ?? null
+  const visiblePatients = debouncedSearch
+    ? (patients.data?.items ?? []).slice(0, 8)
+    : (patients.data?.items ?? []).slice(0, 5)
+  const missingFields = [
+    !resolvedDentist ? "dentist" : null,
+    resolvedStartsAt === null ? "time" : null,
+    !selectedService ? "service" : null,
+    !patientId ? "patient" : null,
+    repeats && byWeekday.length === 0 ? "weekday" : null
+  ].filter((field): field is string => field !== null)
+  const missingFieldLabel = (() => {
+    if (missingFields.length === 0) return ""
+    if (missingFields.length === 1) return missingFields[0]
+    if (missingFields.length === 2) return `${missingFields[0]} and ${missingFields[1]}`
+    return `${missingFields.slice(0, -1).join(", ")}, and ${missingFields.at(-1)}`
+  })()
+  const endTime =
+    resolvedStartsAt !== null && selectedService
+      ? fmtTime(resolvedStartsAt + selectedService.durationMin * MINUTE)
+      : null
+  const summaryParts = [
+    selectedService?.name,
+    resolvedDentist?.name,
+    resolvedStartsAt !== null
+      ? `${fmtDay(bkkDate(resolvedStartsAt))} · ${fmtTime(resolvedStartsAt)}${endTime ? `–${endTime}` : ""}`
+      : null,
+    repeats ? `weekly ×${count}` : null,
+    patientName || null
+  ].filter((part): part is string => Boolean(part))
+
   const done = () => {
-    void queryClient.invalidateQueries({ queryKey: ["appointments"] })
+    void queryClient.invalidateQueries({ queryKey: queryKeys.appointments.root() })
     setConflicts([])
+    setBookingError("")
     onClose()
   }
 
   const create = useMutation({
-    mutationFn: (draftToBook: CreateDraft) =>
+    mutationFn: (draftToBook: ResolvedCreateDraft) =>
       api("/appointments", appointmentSchema, {
         method: "POST",
         body: {
@@ -118,12 +191,12 @@ export const CreateDrawer = ({ draft, dentists, dayStart, onClose }: CreateDrawe
       done()
     },
     onError: (error) => {
-      toast.error(error instanceof ApiError ? error.message : "Booking failed")
+      setBookingError(error instanceof ApiError ? error.message : "Booking failed")
     }
   })
 
   const createSeries = useMutation({
-    mutationFn: (draftToBook: CreateDraft) =>
+    mutationFn: (draftToBook: ResolvedCreateDraft) =>
       api("/appointments/series", appointmentSeriesSchema, {
         method: "POST",
         body: {
@@ -151,11 +224,14 @@ export const CreateDrawer = ({ draft, dentists, dayStart, onClose }: CreateDrawe
   })
 
   const pending = create.isPending || createSeries.isPending
+  const dirty = Boolean(serviceId || patientId || repeats || interval !== 1 || count !== DEFAULT_COUNT || weekdays !== null || dentistId !== (draft?.dentist?.id ?? "") || timeValue !== (draft?.startsAt ? fmtTime(draft.startsAt) : ""))
+  const discardGuard = useDiscardGuard(dirty, onClose)
 
   const submit = (e: FormEvent) => {
     e.preventDefault()
     if (!resolvedDraft || !serviceId || !patientId || pending) return
     setConflicts([])
+    setBookingError("")
     if (repeats) createSeries.mutate(resolvedDraft)
     else create.mutate(resolvedDraft)
   }
@@ -170,129 +246,266 @@ export const CreateDrawer = ({ draft, dentists, dayStart, onClose }: CreateDrawe
   return (
     <Sheet
       open={draft !== null}
-      onOpenChange={(open) => {
-        if (!open) onClose()
-      }}
+      onOpenChange={discardGuard.requestClose}
       title="New appointment"
+      initialFocusId={!draft?.dentist ? "create-dentist" : !draft.startsAt ? "create-starts" : "create-service"}
+      footer={
+        <div className="space-y-3">
+          {summaryParts.length > 0 ? (
+            <div data-testid="create-summary" className="min-w-0">
+              <p className="truncate type-ui font-semibold text-foreground">
+                {summaryParts.join(" · ")}
+              </p>
+            </div>
+          ) : null}
+          {missingFields.length > 0 ? (
+            <p id="create-missing-fields" data-testid="create-missing-fields" className="type-meta text-muted-foreground">
+              Choose a {missingFieldLabel} to continue.
+            </p>
+          ) : null}
+          <Button
+            type="submit"
+            form="create-appointment-form"
+            className="w-full"
+            disabled={!resolvedDraft || !serviceId || !patientId || pending || (repeats && byWeekday.length === 0)}
+            aria-describedby={missingFields.length > 0 ? "create-missing-fields" : undefined}
+          >
+            {pending ? "Booking…" : repeats ? "Book series" : "Book appointment"}
+          </Button>
+        </div>
+      }
     >
       {draft ? (
-        <form className="space-y-4" onSubmit={submit}>
-          <div className="flex gap-3">
-            <div className="flex-1 space-y-1">
-              <Label htmlFor="create-dentist">Dentist</Label>
-              <NativeSelect
-                id="create-dentist"
-                value={dentistId}
-                onChange={(e) => setDentistId(e.target.value)}
-              >
-                {dentists.map((dentist) => (
-                  <option key={dentist.id} value={dentist.id}>
-                    {dentist.name}
-                  </option>
-                ))}
-              </NativeSelect>
+        <form id="create-appointment-form" className="space-y-6" onSubmit={submit} noValidate>
+          <div
+            data-testid="create-date-context"
+            className="flex min-w-0 items-center justify-between gap-3 rounded-card border border-border bg-surface-subtle px-3 py-2.5"
+          >
+            <span className="min-w-0 truncate type-ui font-medium text-muted-foreground">
+              {branchName ?? "Selected branch"}
+            </span>
+            <span className="type-ui font-semibold tabular-nums text-foreground">
+              {fmtDay(bkkDate(dayStart))}
+            </span>
+          </div>
+          <section aria-labelledby="create-when-heading" className="space-y-3">
+            <div>
+              <h3 id="create-when-heading" className="type-ui font-semibold text-foreground">When</h3>
+              <p className="mt-0.5 type-meta text-muted-foreground">Choose the clinician and starting time.</p>
+            </div>
+            <div
+              data-testid="create-primary-fields"
+              className="grid grid-cols-[minmax(0,1fr)_auto] gap-3 max-[359px]:grid-cols-1"
+            >
+              <Field id="create-dentist" label="Dentist">
+                {(aria) => (
+                  <AppSelect
+                    {...aria}
+                    name="dentistId"
+                    value={dentistId}
+                    aria-label="Dentist"
+                    aria-required="true"
+                    placeholder="Choose a dentist"
+                    onValueChange={(value) => {
+                      setDentistId(value)
+                      setBookingError("")
+                    }}
+                    options={dentists.map((dentist) => ({ value: dentist.id, label: dentist.name }))}
+                  />
+                )}
+              </Field>
+              <Field id="create-starts" label="Starts">
+                {(aria) => (
+                  <FieldInput
+                    {...aria}
+                    name="startsAt"
+                    type="time"
+                    autoComplete="off"
+                    className="tabular-nums"
+                    value={timeValue}
+                    onChange={(e) => {
+                      setTimeValue(e.target.value)
+                      setBookingError("")
+                    }}
+                  />
+                )}
+              </Field>
+            </div>
+            <FormError message={bookingError || null} />
+          </section>
+          <section className="space-y-3 border-t border-border pt-5">
+            <div>
+              <h3 id="create-service-heading" className="type-ui font-semibold text-foreground">Service</h3>
+              <p className="mt-0.5 type-meta text-muted-foreground">Duration updates the appointment end time.</p>
             </div>
             <div className="space-y-1">
-              <Label htmlFor="create-starts">Starts</Label>
-              <Input
-                id="create-starts"
-                type="time"
-                className="min-h-11 tabular-nums"
-                value={timeValue}
-                onChange={(e) => setTimeValue(e.target.value)}
-              />
+              <Field id="create-service" label="Treatment">
+                {(aria) => (
+                  <AppSelect
+                    {...aria}
+                    name="serviceId"
+                    value={serviceId}
+                    aria-label="Service"
+                    aria-required="true"
+                    placeholder={services.isPending ? "Loading services…" : "Choose a service"}
+                    disabled={services.isPending || services.isError}
+                    onValueChange={setServiceId}
+                    options={(services.data ?? []).map((service) => ({ value: service.id, label: `${service.name} · ${service.durationMin} min` }))}
+                  />
+                )}
+              </Field>
+              {services.isError ? (
+                <div className="flex min-h-11 items-center justify-between gap-3 rounded-control bg-destructive-soft px-3 type-meta text-destructive">
+                  <span>Services could not be loaded.</span>
+                  <button type="button" onClick={() => void services.refetch()} className="inline-flex min-h-9 items-center gap-1.5 rounded-control px-2 font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+                    <RefreshCw className="h-3.5 w-3.5" aria-hidden="true" /> Retry
+                  </button>
+                </div>
+              ) : null}
             </div>
-          </div>
-          <div className="space-y-1">
-            <Label htmlFor="create-service">Service</Label>
-            <NativeSelect
-              id="create-service"
-              value={serviceId}
-              onChange={(e) => setServiceId(e.target.value)}
-            >
-              <option value="">Choose a service</option>
-              {(services.data ?? []).map((s) => (
-                <option key={s.id} value={s.id}>
-                  {s.name} · {s.durationMin} min
-                </option>
-              ))}
-            </NativeSelect>
-          </div>
-          <div className="space-y-1">
-            <Label htmlFor="create-patient-search">Patient</Label>
-            <Input
-              id="create-patient-search"
-              placeholder="Search by name or phone"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-            />
-            <div className="max-h-48 space-y-1 overflow-y-auto rounded-md border border-border bg-card p-1">
-              {(patients.data?.items ?? []).map((p) => (
-                <button
-                  key={p.id}
-                  type="button"
-                  aria-pressed={p.id === patientId}
-                  onClick={() => {
-                    setPatientId(p.id)
-                    setPatientName(p.name)
-                  }}
-                  className={
-                    p.id === patientId
-                      ? "w-full rounded-sm bg-secondary px-2 py-1.5 text-left text-sm text-primary"
-                      : "w-full rounded-sm px-2 py-1.5 text-left text-sm hover:bg-accent"
-                  }
-                >
-                  {p.name} <span className="text-muted-foreground tabular-nums">{p.phone}</span>
+          </section>
+          <section className="space-y-3 border-t border-border pt-5">
+            <div>
+              <h3 id="create-patient-heading" className="type-ui font-semibold text-foreground">Patient</h3>
+              <p className="mt-0.5 type-meta text-muted-foreground">Find an existing patient by name or phone.</p>
+            </div>
+            {patientId ? (
+              <div data-testid="selected-patient" className="flex min-w-0 items-center gap-3 rounded-card border border-border bg-secondary/60 p-3">
+                <span className="grid size-9 shrink-0 place-items-center rounded-full bg-card text-muted-foreground">
+                  <UserRound className="h-4 w-4" aria-hidden="true" />
+                </span>
+                <button type="button" aria-pressed="true" className="min-w-0 flex-1 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+                  <span className="block truncate type-ui font-semibold">{patientName}</span>
+                  <span className="mt-0.5 block truncate type-meta tabular-nums text-muted-foreground">{patientPhone}</span>
                 </button>
-              ))}
-            </div>
-          </div>
-          <section aria-label="Repeat" className="space-y-3 border-t border-border pt-4">
-            <label className="flex min-h-11 items-center gap-2 text-sm" htmlFor="create-repeats">
-              <input
+                <Button type="button" variant="ghost" className="shrink-0" onClick={() => {
+                  setPatientId("")
+                  setPatientName("")
+                  setPatientPhone("")
+                }}>
+                  Change patient
+                </Button>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                <div className="relative">
+                  <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
+                  <Input
+                    id="create-patient-search"
+                    name="patientSearch"
+                    autoComplete="off"
+                    role="combobox"
+                    aria-controls="create-patient-results"
+                    aria-expanded="true"
+                    aria-autocomplete="list"
+                    aria-label="Patient"
+                    placeholder="Search by name or phone…"
+                    className="pl-9"
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                  />
+                </div>
+                {patients.isPending ? (
+                  <div data-testid="patient-results-loading" className="space-y-1 rounded-card border border-border p-1" aria-label="Loading patients">
+                    {[0, 1, 2].map((row) => <div key={row} className="h-12 animate-pulse rounded-control bg-surface-subtle" />)}
+                  </div>
+                ) : patients.isError ? (
+                  <div className="flex min-h-14 items-center justify-between gap-3 rounded-card border border-border px-3 type-meta text-muted-foreground">
+                    <span>Patients could not be loaded.</span>
+                    <Button type="button" variant="ghost" onClick={() => void patients.refetch()}>Retry</Button>
+                  </div>
+                ) : visiblePatients.length === 0 ? (
+                  <div className="rounded-card border border-dashed border-border px-3 py-5 text-center type-ui text-muted-foreground">
+                    {debouncedSearch ? `No patients match “${debouncedSearch}”` : "No patients yet"}
+                  </div>
+                ) : (
+                  <div id="create-patient-results" role="listbox" aria-label="Patient results" className="space-y-1 rounded-card border border-border bg-card p-1">
+                    {visiblePatients.map((p) => (
+                      <div
+                        key={p.id}
+                        role="option"
+                        aria-selected="false"
+                        onClick={() => {
+                          setPatientId(p.id)
+                          setPatientName(p.name)
+                          setPatientPhone(p.phone)
+                        }}
+                      >
+                        <button
+                          type="button"
+                          aria-pressed="false"
+                          className="flex min-h-11 w-full flex-col items-start rounded-control px-2.5 py-1.5 text-left type-ui hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                        >
+                          <span className="font-medium">{p.name}</span>
+                          <span className="mt-0.5 type-meta tabular-nums text-muted-foreground">{p.phone}</span>
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+          </section>
+          <section aria-label="Repeat" className="space-y-3 border-t border-border pt-5">
+            <label className="flex min-h-11 cursor-pointer items-start gap-3 type-ui" htmlFor="create-repeats">
+              <Checkbox
                 id="create-repeats"
-                type="checkbox"
-                className="h-4 w-4"
+                className="mt-0.5"
                 checked={repeats}
-                onChange={(e) => setRepeats(e.target.checked)}
+                aria-label="Repeat weekly"
+                onChange={(e) => {
+                  setRepeats(e.target.checked)
+                  if (e.target.checked) window.setTimeout(() => repeatDetailsRef.current?.scrollIntoView({ block: "nearest" }), 0)
+                }}
               />
-              Repeat weekly
+              <span className="min-w-0">
+                <span className="block font-semibold text-foreground">Repeat</span>
+                <span className="mt-0.5 block type-meta text-muted-foreground">Create a weekly appointment series.</span>
+              </span>
             </label>
             {repeats ? (
-              <div className="space-y-3">
-                <div className="flex flex-wrap gap-3">
-                  <div className="space-y-1">
-                    <Label htmlFor="create-interval">Every</Label>
-                    <Input
-                      id="create-interval"
-                      type="number"
-                      min={MIN_INTERVAL}
-                      max={MAX_INTERVAL}
-                      className="min-h-11 w-24 tabular-nums"
-                      value={interval}
-                      onChange={(e) =>
-                        setInterval(clampNumber(e.target.valueAsNumber, MIN_INTERVAL, MAX_INTERVAL))
-                      }
-                    />
-                  </div>
-                  <div className="space-y-1">
-                    <Label htmlFor="create-count">Occurrences</Label>
-                    <Input
-                      id="create-count"
-                      type="number"
-                      min={MIN_COUNT}
-                      max={MAX_COUNT}
-                      className="min-h-11 w-24 tabular-nums"
-                      value={count}
-                      onChange={(e) =>
-                        setCount(clampNumber(e.target.valueAsNumber, MIN_COUNT, MAX_COUNT))
-                      }
-                    />
-                  </div>
+              <div ref={repeatDetailsRef} className="space-y-3 rounded-card bg-surface-subtle p-3">
+                <div className="grid grid-cols-2 gap-3">
+                  <Field id="create-interval" label="Every">
+                    {(aria) => (
+                      <FieldInput
+                        {...aria}
+                        name="recurrenceInterval"
+                        type="number"
+                        inputMode="numeric"
+                        autoComplete="off"
+                        min={MIN_INTERVAL}
+                        max={MAX_INTERVAL}
+                        className="tabular-nums"
+                        value={interval}
+                        onChange={(e) =>
+                          setInterval(clampNumber(e.target.valueAsNumber, MIN_INTERVAL, MAX_INTERVAL))
+                        }
+                      />
+                    )}
+                  </Field>
+                  <Field id="create-count" label="Occurrences">
+                    {(aria) => (
+                      <FieldInput
+                        {...aria}
+                        name="recurrenceCount"
+                        type="number"
+                        inputMode="numeric"
+                        autoComplete="off"
+                        min={MIN_COUNT}
+                        max={MAX_COUNT}
+                        className="tabular-nums"
+                        value={count}
+                        onChange={(e) =>
+                          setCount(clampNumber(e.target.valueAsNumber, MIN_COUNT, MAX_COUNT))
+                        }
+                      />
+                    )}
+                  </Field>
                 </div>
                 <fieldset>
-                  <legend className="mb-1 text-sm font-medium">On</legend>
-                  <div className="flex flex-wrap gap-1.5">
+                  <legend className="mb-1 type-ui font-medium">On</legend>
+                  <div data-testid="weekday-grid" className="grid grid-cols-7 gap-1">
                     {WEEKDAYS.map((day) => (
                       <button
                         key={day.value}
@@ -300,7 +513,7 @@ export const CreateDrawer = ({ draft, dentists, dayStart, onClose }: CreateDrawe
                         aria-pressed={byWeekday.includes(day.value)}
                         onClick={() => toggleWeekday(day.value)}
                         className={cn(
-                          "min-h-11 min-w-11 rounded-md border border-border px-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                          "min-h-11 min-w-0 rounded-control border border-border px-1 type-meta font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
                           byWeekday.includes(day.value)
                             ? "bg-secondary text-secondary-foreground"
                             : "hover:bg-accent"
@@ -315,38 +528,9 @@ export const CreateDrawer = ({ draft, dentists, dayStart, onClose }: CreateDrawe
             ) : null}
           </section>
           <SeriesConflictList conflicts={conflicts} />
-          {resolvedDraft ? (
-            <div
-              data-testid="create-summary"
-              className="rounded-card border border-border bg-secondary px-3 py-2.5 text-sm text-secondary-foreground"
-            >
-              <p className="font-medium">
-                {services.data?.find((s) => s.id === serviceId)?.name ?? "Choose a service"}
-                {" with "}
-                {resolvedDraft.dentist.name}
-              </p>
-              <p className="tabular-nums opacity-80">
-                {fmtDay(bkkDate(resolvedDraft.startsAt))} · {timeValue || "—"}
-                {repeats ? ` · weekly ×${count}` : ""}
-                {patientName ? ` · ${patientName}` : ""}
-              </p>
-            </div>
-          ) : null}
-          <Button
-            type="submit"
-            className="w-full"
-            disabled={
-              !resolvedDentist ||
-              !serviceId ||
-              !patientId ||
-              pending ||
-              (repeats && byWeekday.length === 0)
-            }
-          >
-            {repeats ? "Book series" : "Book appointment"}
-          </Button>
         </form>
       ) : null}
+      {discardGuard.dialog}
     </Sheet>
   )
 }

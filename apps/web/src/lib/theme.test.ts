@@ -28,6 +28,47 @@ const systemSwitchesTo = (dark: boolean) => {
 
 const isDark = () => document.documentElement.classList.contains("dark")
 
+const CHROME_SURFACES = [
+  "--background",
+  "--card",
+  "--surface-subtle",
+  "--muted",
+  "--secondary",
+  "--offshift",
+  "--border",
+  "--grid-line",
+  "--grid-line-hour",
+  "--accent",
+  "--input"
+]
+
+const darkTokens = (): Record<string, string> => {
+  const css = stylesheet()
+  const tokens: Record<string, string> = {}
+  for (const block of css.matchAll(/(?::root|\.dark)\s*\{([^}]*)\}/g)) {
+    for (const declaration of block[1]!.matchAll(/(--[\w-]+)\s*:\s*(#[0-9a-fA-F]{6})\s*;/g)) {
+      tokens[declaration[1]!] = declaration[2]!
+    }
+  }
+  return tokens
+}
+
+const oklchChroma = (hex: string): number => {
+  const toLinear = (channel: number) =>
+    channel <= 0.04045 ? channel / 12.92 : ((channel + 0.055) / 1.055) ** 2.4
+  const [r, g, b] = [0, 2, 4].map((offset) =>
+    toLinear(parseInt(hex.slice(1 + offset, 3 + offset), 16) / 255)
+  ) as [number, number, number]
+  const l = Math.cbrt(0.4122214708 * r + 0.5363325363 * g + 0.0514459929 * b)
+  const m = Math.cbrt(0.2119034982 * r + 0.6806995451 * g + 0.1073969566 * b)
+  const s = Math.cbrt(0.0883024619 * r + 0.2817188376 * g + 0.6299787005 * b)
+  return Math.hypot(
+    1.9779984951 * l - 2.428592205 * m + 0.4505937099 * s,
+    0.0259040371 * l + 0.7827717662 * m - 0.808675766 * s
+  )
+}
+
+
 const here = dirname(fileURLToPath(import.meta.url))
 const stylesheet = () => readFileSync(resolve(here, "../app.css"), "utf8")
 
@@ -117,14 +158,27 @@ describe("Sea Glass design tokens", () => {
 
   it("defines a green-charcoal dark palette rather than the industrial black theme", () => {
     const css = stylesheet()
-    expect(css).toMatch(/\.dark\s*\{[\s\S]*--background:\s*#10211F;/)
-    expect(css).toMatch(/\.dark\s*\{[\s\S]*--primary:\s*#69C7BA;/)
+    expect(css).toMatch(/\.dark\s*\{[\s\S]*--background:\s*#1A1F1E;/)
+    expect(css).toMatch(/\.dark\s*\{[\s\S]*--primary:\s*#7FC4B9;/)
+  })
+
+  it("keeps dark chrome quieter than the hues that carry appointment data", () => {
+    const dark = darkTokens()
+    const chromaOf = (token: string) => oklchChroma(dark[token]!)
+    const dataHues = [0, 1, 2, 3, 4, 5].map((n) => chromaOf(`--hue${n}-bg`))
+    const quietestData = Math.min(...dataHues)
+
+    for (const surface of CHROME_SURFACES) {
+      expect(chromaOf(surface), `${surface} must recede behind appointment data`).toBeLessThan(
+        quietestData
+      )
+    }
   })
 
   it("publishes named typography roles for page and section hierarchy", () => {
     const css = stylesheet()
-    expect(css).toMatch(/--text-page-title:\s*1\.75rem;/)
-    expect(css).toMatch(/--text-page-title--line-height:\s*2\.25rem;/)
+    expect(css).toMatch(/--text-page-title:\s*1\.5rem;/)
+    expect(css).toMatch(/--text-page-title--line-height:\s*2rem;/)
     expect(css).toMatch(/--text-section-title:\s*1\.25rem;/)
     expect(css).toMatch(/--text-section-title--line-height:\s*1\.75rem;/)
     expect(css).toMatch(/--text-meta:\s*0\.75rem;/)

@@ -155,6 +155,63 @@ describe("useRescheduleAppointment", () => {
     expect(patches).toEqual([{ version: 1, startsAt: "2026-08-03T03:00:00.000Z" }])
   })
 
+  it("offers an undo that puts the appointment back where it started", async () => {
+    const patches: unknown[] = []
+    server.use(
+      http.patch(`${API}/appointments/:id`, async ({ request }) => {
+        const body = (await request.json()) as { startsAt?: string; version: number }
+        patches.push(body)
+        const startsAt = body.startsAt ?? "2026-08-03T03:00:00.000Z"
+        return HttpResponse.json({
+          ...makeAppointment(
+            first,
+            "S. Chaiwat",
+            startsAt,
+            new Date(Date.parse(startsAt) + 3_600_000).toISOString()
+          ),
+          version: patches.length + 1
+        })
+      })
+    )
+    mount()
+    await userEvent.click(screen.getByRole("button", { name: "move first" }))
+    await waitFor(() => expect(screen.getByTestId(`row-${first}`)).toHaveTextContent("v2"))
+
+    const undo = await screen.findByRole("button", { name: "Undo" })
+    await userEvent.click(undo)
+
+    await waitFor(() =>
+      expect(screen.getByTestId(`row-${first}`)).toHaveTextContent("2026-08-03T02:00:00.000Z")
+    )
+    expect(patches[1]).toEqual({
+      version: 2,
+      startsAt: "2026-08-03T02:00:00.000Z",
+      dentistId,
+      durationMin: 60
+    })
+  })
+
+  it("stays quiet when the drop lands the appointment exactly where it was", async () => {
+    server.use(
+      http.patch(`${API}/appointments/:id`, () =>
+        HttpResponse.json({
+          ...makeAppointment(
+            first,
+            "S. Chaiwat",
+            "2026-08-03T02:00:00.000Z",
+            "2026-08-03T03:00:00.000Z"
+          ),
+          version: 2
+        })
+      )
+    )
+    mount()
+    await userEvent.click(screen.getByRole("button", { name: "move first" }))
+    await waitFor(() => expect(screen.getByTestId(`row-${first}`)).toHaveTextContent("v2"))
+
+    expect(screen.queryByRole("button", { name: "Undo" })).not.toBeInTheDocument()
+  })
+
   it("derives the optimistic end from durationMin and sends only the duration on a resize", async () => {
     const patches: unknown[] = []
     server.use(

@@ -9,7 +9,7 @@ export const OfflineBannerView = () => (
   <div
     id={OFFLINE_BANNER_ID}
     data-testid="offline-banner"
-    className="flex items-center justify-center gap-2 bg-destructive px-4 py-1 text-center text-xs font-medium text-destructive-foreground"
+    className="flex items-center justify-center gap-2 bg-destructive px-4 py-1 text-center type-meta font-medium text-destructive-foreground"
   >
     <WifiOff className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
     {OFFLINE_MESSAGE}

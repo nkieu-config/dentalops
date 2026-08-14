@@ -84,16 +84,15 @@ describe("StaffDialog", () => {
     expect(password).toHaveAttribute("autocomplete", "new-password")
 
     expect(screen.getByLabelText("Role")).toHaveAttribute("name", "role")
+    expect(screen.getByLabelText("Role")).toHaveClass("sm:h-10")
   })
 
-  it("offers only the roles the API will accept", () => {
-    mount()
+  it("offers only the roles the API will accept", async () => {
+    const { user } = mount()
 
     const role = screen.getByLabelText("Role")
-    expect([...role.querySelectorAll("option")].map((option) => option.value)).toEqual([
-      "dentist",
-      "receptionist"
-    ])
+    await user.click(role)
+    expect((await screen.findAllByRole("option")).map((option) => option.textContent)).toEqual(["Dentist — takes appointments", "Receptionist — books and manages the desk"])
   })
 
   it("shows a short password under its own field and sends nothing", async () => {
@@ -143,7 +142,7 @@ describe("StaffDialog", () => {
     await waitFor(() => expect(email).toHaveAttribute("aria-invalid", "true"))
     expect(email).toHaveAccessibleDescription(/already uses that email/)
     expect(email).toHaveFocus()
-    expect(screen.queryByRole("alert")).not.toBeInTheDocument()
+    expect(screen.getByRole("alert")).toHaveTextContent("Somebody in this clinic already uses that email")
     expect(onClose).not.toHaveBeenCalled()
   })
 
@@ -181,6 +180,16 @@ describe("StaffDialog", () => {
 
     await user.click(screen.getByRole("button", { name: "Discard" }))
     expect(onClose).toHaveBeenCalled()
+  })
+
+  it("warns before the browser unloads a partly filled invite", async () => {
+    const { user } = mount()
+    await user.type(screen.getByLabelText("Name"), "Dr. Anong")
+    const event = new Event("beforeunload", { cancelable: true })
+
+    window.dispatchEvent(event)
+
+    expect(event.defaultPrevented).toBe(true)
   })
 
   it("closes without a prompt when nothing has been typed yet", async () => {

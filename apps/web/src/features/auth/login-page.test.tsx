@@ -69,20 +69,20 @@ describe("LoginPage prefill", () => {
     localStorage.setItem("dentalops.lastClinic", "smile-dental")
     renderLogin()
 
-    expect(screen.getByLabelText("Clinic URL")).toHaveValue("smile-dental")
+    expect(screen.getByLabelText("Clinic address")).toHaveValue("smile-dental")
   })
 
   it("lets ?clinic= beat the remembered clinic", () => {
     localStorage.setItem("dentalops.lastClinic", "smile-dental")
     renderLogin("/login?clinic=bright-teeth")
 
-    expect(screen.getByLabelText("Clinic URL")).toHaveValue("bright-teeth")
+    expect(screen.getByLabelText("Clinic address")).toHaveValue("bright-teeth")
   })
 
   it("starts empty when neither source has a clinic", () => {
     renderLogin()
 
-    expect(screen.getByLabelText("Clinic URL")).toHaveValue("")
+    expect(screen.getByLabelText("Clinic address")).toHaveValue("")
   })
 
   it("renders even when localStorage is unreadable", () => {
@@ -92,7 +92,7 @@ describe("LoginPage prefill", () => {
     }
     try {
       renderLogin()
-      expect(screen.getByLabelText("Clinic URL")).toHaveValue("")
+      expect(screen.getByLabelText("Clinic address")).toHaveValue("")
     } finally {
       Storage.prototype.getItem = getItem
     }
@@ -103,14 +103,16 @@ describe("LoginPage inputs", () => {
   it("declares the types and autocomplete hints a password manager needs", () => {
     renderLogin()
 
-    const slug = screen.getByLabelText("Clinic URL")
+    const slug = screen.getByLabelText("Clinic address")
     expect(slug).toHaveAttribute("name", "clinicSlug")
     expect(slug).toHaveAttribute("autocomplete", "off")
+    expect(slug).toHaveAttribute("placeholder", "e.g. bright-smile…")
 
     const email = screen.getByLabelText("Email")
     expect(email).toHaveAttribute("name", "email")
     expect(email).toHaveAttribute("type", "email")
     expect(email).toHaveAttribute("autocomplete", "email")
+    expect(email).toHaveAttribute("spellcheck", "false")
 
     const password = screen.getByLabelText("Password")
     expect(password).toHaveAttribute("name", "password")
@@ -121,7 +123,7 @@ describe("LoginPage inputs", () => {
   it("explains where the clinic URL comes from", () => {
     renderLogin()
 
-    expect(screen.getByLabelText("Clinic URL")).toHaveAccessibleDescription(
+    expect(screen.getByLabelText("Clinic address")).toHaveAccessibleDescription(
       "The clinic URL you chose at signup."
     )
   })
@@ -129,7 +131,20 @@ describe("LoginPage inputs", () => {
   it("offers a way to create a clinic instead", () => {
     renderLogin()
 
-    expect(screen.getByRole("link", { name: "Create a clinic" })).toHaveAttribute("href", "/signup")
+    for (const link of screen.getAllByRole("link", { name: "Create a clinic" })) {
+      expect(link).toHaveAttribute("href", "/signup")
+    }
+  })
+
+  it("makes the signup link look like a link, not like the sentence around it", () => {
+    renderLogin()
+
+    const inline = screen
+      .getAllByRole("link", { name: "Create a clinic" })
+      .find((link) => link.closest("footer"))
+
+    expect(inline?.className).toContain("underline")
+    expect(inline?.className).toContain("text-foreground")
   })
 })
 
@@ -139,7 +154,7 @@ describe("LoginPage validation", () => {
     const recorded = recordLogin(ok)
     renderLogin()
 
-    const slug = screen.getByLabelText("Clinic URL")
+    const slug = screen.getByLabelText("Clinic address")
     expect(slug).toHaveAttribute("aria-invalid", "false")
 
     await user.click(screen.getByRole("button", { name: "Sign in" }))
@@ -275,7 +290,7 @@ describe("LoginPage failure", () => {
 
     await screen.findByRole("alert")
     expect(screen.getByLabelText("Email")).toHaveValue("owner@clinic.test")
-    expect(screen.getByLabelText("Clinic URL")).toHaveValue("bright-teeth")
+    expect(screen.getByLabelText("Clinic address")).toHaveValue("bright-teeth")
     expect(getSession()).toBeNull()
   })
 

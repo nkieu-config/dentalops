@@ -1,6 +1,7 @@
 import {
   branchSettingsSchema,
   clinicProfileSchema,
+  type ClinicProfile,
   createBranchSchema,
   createResourceSchema,
   createServiceSchema,
@@ -17,25 +18,30 @@ import {
   type StaffMember
 } from "@dentalops/contracts"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
-import { Building2, CalendarClock, MapPin, Settings2, Users, Wrench } from "lucide-react"
+import { MapPin, Settings2, TriangleAlert } from "lucide-react"
 import { useState, type ReactNode } from "react"
 import { toast } from "sonner"
 import { z } from "zod"
 import { Badge } from "../../components/ui/badge"
-import { Button } from "../../components/ui/button"
+import { Button, buttonVariants } from "../../components/ui/button"
 import { Card, CardBody, CardDescription, CardHeader, CardTitle } from "../../components/ui/card"
 import { EmptyState } from "../../components/ui/empty-state"
 import { InitialsAvatar } from "../../components/ui/initials-avatar"
 import { Input } from "../../components/ui/input"
+import { Skeleton } from "../../components/ui/skeleton"
+import { PageHeader } from "../../components/ui/page-header"
 import { AlertDialog } from "../../components/ui/alert-dialog"
 import { useDiscardGuard } from "../../lib/use-discard-guard"
-import { NativeSelect } from "../../components/ui/native-select"
+import { AppSelect } from "../../components/ui/app-select"
 import { Sheet } from "../../components/ui/sheet"
 import { api } from "../../lib/api"
 import { useSession } from "../../lib/session"
-import { Field, FieldInput, FormError } from "../auth/auth-form"
+import { Checkbox } from "../../components/ui/checkbox"
+import { Field, FieldInput, FormError } from "../../components/ui/form-field"
 import { useAuthForm } from "../auth/use-auth-form"
 import { StaffDialog } from "../staff/staff-dialog"
+import { appointmentHue } from "../../lib/appointment-hue"
+import { queryKeys } from "../../lib/query-keys"
 
 const DAYS = [
   ["mon", "Monday"],
@@ -65,13 +71,7 @@ const serviceFormSchema = createServiceSchema
 const resourceFormSchema = createResourceSchema
 const staffFormSchema = updateStaffSchema
 
-const sectionItems = [
-  ["clinic", "Clinic profile", Building2],
-  ["branches", "Branches", MapPin],
-  ["services", "Services", CalendarClock],
-  ["resources", "Resources", Wrench],
-  ["staff", "Staff", Users]
-] as const
+const serviceColourNames = ["Teal", "Blue", "Violet", "Rose", "Amber", "Sage"]
 
 
 
@@ -84,7 +84,7 @@ const Section = ({
 }: {
   id: string
   title: string
-  description: string
+  description?: string
   action?: ReactNode
   children: ReactNode
 }) => (
@@ -93,13 +93,31 @@ const Section = ({
       <CardHeader className="gap-2 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <CardTitle>{title}</CardTitle>
-          <CardDescription>{description}</CardDescription>
+          {description ? <CardDescription className="mt-1">{description}</CardDescription> : null}
         </div>
         {action}
       </CardHeader>
       <CardBody>{children}</CardBody>
     </Card>
   </section>
+)
+
+const SectionSkeleton = ({ label, rows = 3 }: { label: string; rows?: number }) => (
+  <div aria-busy="true" aria-label={`Loading ${label}`} className="space-y-2">
+    {Array.from({ length: rows }, (_, index) => (
+      <div
+        key={index}
+        data-testid="section-row-skeleton"
+        className="flex flex-col gap-3 rounded-md border border-border p-3 md:flex-row md:items-center"
+      >
+        <div className="min-w-0 flex-1 space-y-2">
+          <Skeleton className="h-3.5 w-40 max-w-full" />
+          <Skeleton className="h-3 w-24 max-w-full" />
+        </div>
+        <Skeleton className="h-9 w-28 shrink-0" />
+      </div>
+    ))}
+  </div>
 )
 
 const StateBadge = ({ active }: { active: boolean }) => (
@@ -118,37 +136,19 @@ const RecordRow = ({
   <div className="flex flex-col gap-3 rounded-md border border-border p-3 md:flex-row md:items-center">
     <div className="min-w-0 flex-1">{children}</div>
     <div className="flex flex-wrap items-center gap-2">
-      <StateBadge active={active} />
+      {active ? null : <StateBadge active={false} />}
       {actions}
     </div>
   </div>
 )
 
 const ClinicProfileSection = () => {
-  const query = useQuery({ queryKey: ["tenant"], queryFn: () => api("/tenant", clinicProfileSchema) })
-  const client = useQueryClient()
-  
-  const form = useAuthForm({
-    schema: profileFormSchema,
-    initial: { name: query.data?.name ?? "", slug: query.data?.slug ?? "" },
-    fieldForErrorCode: (code) => (code === "SLUG_TAKEN" ? "slug" : null),
-    onSubmit: async (values) => {
-      const saved = await api("/tenant", clinicProfileSchema, { method: "PATCH", body: values })
-      client.setQueryData(["tenant"], saved)
-      toast.success("Clinic profile saved")
-    }
-  })
-
-  // Sync initial values when data loads
-  if (query.data && form.values.name === "" && form.values.slug === "") {
-    form.set("name", query.data.name)
-    form.set("slug", query.data.slug)
-  }
+  const query = useQuery({ queryKey: queryKeys.tenant(), queryFn: () => api("/tenant", clinicProfileSchema) })
 
   if (query.isPending) {
     return (
       <Section id="clinic" title="Clinic profile" description="The name and URL patients see when they book.">
-        <p className="text-sm text-muted-foreground">Loading clinic profile…</p>
+        <SectionSkeleton label="clinic profile" rows={2} />
       </Section>
     )
   }
@@ -156,17 +156,47 @@ const ClinicProfileSection = () => {
   if (query.isError || !query.data) {
     return (
       <Section id="clinic" title="Clinic profile" description="The name and URL patients see when they book.">
-        <EmptyState icon={Settings2} title="Could not load clinic profile" hint="Retry shortly." />
+        <EmptyState icon={TriangleAlert} title="Could not load clinic profile" hint="Check your connection and try again." action={<Button variant="secondary" onClick={() => void query.refetch()}>Retry</Button>} />
       </Section>
     )
   }
 
-  const publicUrl = `${window.location.origin}/book/${form.values.slug}`
+  return <ClinicProfileForm profile={query.data} />
+}
+
+const ClinicProfileForm = ({ profile }: { profile: ClinicProfile }) => {
+  const client = useQueryClient()
+  const [copyStatus, setCopyStatus] = useState<"idle" | "success" | "error">("idle")
+
+  const form = useAuthForm({
+    schema: profileFormSchema,
+    initial: { name: profile.name, slug: profile.slug },
+    fieldForErrorCode: (code) => (code === "SLUG_TAKEN" ? "slug" : null),
+    onSubmit: async (values) => {
+      const saved = await api("/tenant", clinicProfileSchema, { method: "PATCH", body: values })
+      client.setQueryData(queryKeys.tenant(), saved)
+      toast.success("Clinic profile saved")
+    }
+  })
+
+  const publicUrl = `${window.location.origin}${profile.publicBookingPath}`
+  const bookingLinkDirty = form.values.slug !== profile.slug
+
+  const copyPublicUrl = async () => {
+    try {
+      await navigator.clipboard.writeText(publicUrl)
+      setCopyStatus("success")
+      toast.success("Copied link")
+    } catch {
+      setCopyStatus("error")
+      toast.error("Could not copy link. Select and copy it manually.")
+    }
+  }
 
   return (
     <Section id="clinic" title="Clinic profile" description="The name and URL patients see when they book.">
-      <div className="grid gap-8 lg:grid-cols-[1fr_20rem]">
-        <form ref={form.formRef} onSubmit={form.submit} noValidate className="space-y-4">
+      <div className="grid gap-8 xl:grid-cols-[minmax(0,1fr)_18rem]">
+        <form ref={form.formRef} onSubmit={form.submit} noValidate className="min-w-0 space-y-4">
           <FormError message={form.formError} />
           <div className="grid gap-4 md:grid-cols-2">
             <Field id="clinic-name" label="Clinic name" error={form.errors.name}>
@@ -192,53 +222,54 @@ const ClinicProfileSection = () => {
           </div>
           
           <div className="rounded-md border border-border bg-surface-subtle p-3">
-            <p className="mb-2 text-sm font-medium text-foreground">Public booking link</p>
+            <p className="mb-2 type-ui font-medium text-foreground">Public booking link</p>
             <div className="flex flex-wrap items-center gap-2">
-              <code
-                tabIndex={0}
-                className="flex-1 overflow-x-auto whitespace-nowrap rounded bg-background px-2 py-1.5 text-sm text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-              >
-                {publicUrl}
-              </code>
+              <code className="min-w-0 flex-1 truncate rounded bg-background px-2 py-1.5 type-ui text-muted-foreground" title={publicUrl}>{publicUrl}</code>
               <Button
                 type="button"
                 variant="secondary"
                 size="sm"
-                onClick={() => {
-                  void navigator.clipboard.writeText(publicUrl)
-                  toast.success("Copied link")
-                }}
+                disabled={bookingLinkDirty}
+                onClick={() => void copyPublicUrl()}
               >
                 Copy
               </Button>
-              <Button
-                type="button"
-                variant="secondary"
-                size="sm"
-                onClick={() => {
-                  window.open(`/book/${form.values.slug}`, "_blank")
-                }}
+              <a
+                href={profile.publicBookingPath}
+                target="_blank"
+                rel="noreferrer"
+                aria-disabled={bookingLinkDirty}
+                onClick={bookingLinkDirty ? (event) => event.preventDefault() : undefined}
+                className={buttonVariants({
+                  variant: "secondary",
+                  size: "sm",
+                  className: bookingLinkDirty ? "pointer-events-none opacity-50" : undefined
+                })}
               >
                 Open
-              </Button>
+              </a>
             </div>
+            {bookingLinkDirty ? <p role="status" className="mt-2 type-ui text-muted-foreground">Save changes to publish this link.</p> : null}
+            {copyStatus === "error" ? <p role="alert" className="mt-2 type-ui font-medium text-destructive">Could not copy link. Select and copy it manually.</p> : null}
           </div>
 
           <div className="flex justify-end pt-2">
-            <Button type="submit" disabled={form.pending} aria-busy={form.pending}>
+            <Button type="submit" disabled={form.pending || !form.dirty} aria-busy={form.pending}>
               {form.pending ? "Saving…" : "Save clinic"}
             </Button>
           </div>
         </form>
 
-        <div className="hidden lg:block">
-          <p className="mb-3 text-sm font-medium text-foreground">Patient preview</p>
-          <div className="overflow-hidden rounded-xl border border-border bg-background shadow-sm ring-4 ring-surface-subtle">
-            <div className="h-24 bg-primary/10"></div>
-            <div className="px-5 pb-6 pt-5">
-              <div className="mb-4 h-12 w-12 rounded-xl bg-primary shadow-xs"></div>
-              <p className="mb-1 text-lg font-semibold tracking-tight text-foreground line-clamp-1">{form.values.name || "Clinic Name"}</p>
-              <p className="text-sm text-muted-foreground">Book an appointment online</p>
+        <div className="hidden xl:block">
+          <p className="mb-3 type-ui font-medium text-foreground">Patient preview</p>
+          <div className="rounded-2xl bg-surface-subtle p-1">
+            <div className="overflow-hidden rounded-xl border border-border bg-background shadow-sm">
+              <div className="h-24 bg-primary/10"></div>
+              <div className="px-5 pb-6 pt-5">
+                <div className="mb-4 h-12 w-12 rounded-xl bg-primary shadow-xs"></div>
+                <p className="mb-1 type-subsection-title font-semibold text-foreground line-clamp-1">{form.values.name || "Clinic Name"}</p>
+                <p className="type-ui text-muted-foreground">Book an appointment online</p>
+              </div>
             </div>
           </div>
         </div>
@@ -256,6 +287,8 @@ const OpeningHoursEditor = ({
   onChange: (next: OpeningHours) => void
   error?: string
 }) => {
+  const [expandedDay, setExpandedDay] = useState<Day | null>(null)
+  const [dayToCopy, setDayToCopy] = useState<Day | null>(null)
   const updateDay = (day: Day, next: Array<[string, string]>) => onChange({ ...value, [day]: next })
   const copyToWeekdays = (fromDay: Day) => {
     const intervals = value[fromDay]
@@ -270,60 +303,58 @@ const OpeningHoursEditor = ({
     toast.success(`Copied ${DAYS.find(d => d[0] === fromDay)?.[1]} hours to all weekdays`)
   }
 
+  const summaryFor = (intervals: Array<[string, string]>) =>
+    intervals.length === 0 ? "Closed" : intervals.map(([start, end]) => `${start}–${end}`).join(" · ")
+
+  const copiedDayLabel = dayToCopy ? DAYS.find(([day]) => day === dayToCopy)?.[1] : ""
+
   return (
-    <fieldset className="space-y-3">
-      <legend className="text-sm font-medium">Opening hours</legend>
+    <>
+      <fieldset className="space-y-3">
+        <legend className="type-ui font-medium">Opening hours</legend>
       <div className="space-y-3">
         {DAYS.map(([day, label]) => {
           const intervals = value[day]
           const isOpen = intervals.length > 0
+          const expanded = expandedDay === day
           
           return (
-            <div key={day} className="rounded-md border border-border bg-card p-3">
-              <div className="mb-3 flex items-center justify-between gap-3">
-                <label className="flex items-center gap-3 text-sm font-medium">
-                  <input
-                    type="checkbox"
-                    className="h-4 w-4 rounded border-border"
-                    checked={isOpen}
-                    onChange={(e) => {
-                      if (e.target.checked) updateDay(day, [["09:00", "17:00"]])
-                      else updateDay(day, [])
-                    }}
-                  />
-                  {label}
-                </label>
-                <div className="flex items-center gap-2">
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="ghost"
-                    onClick={() => copyToWeekdays(day)}
-                    title="Copy these hours to Monday-Friday"
-                  >
-                    Copy to weekdays
-                  </Button>
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="secondary"
-                    onClick={() => updateDay(day, [...intervals, ["09:00", "17:00"]])}
-                  >
-                    Add hours
-                  </Button>
-                </div>
-              </div>
-              
-              {!isOpen ? (
-                <p className="pl-7 text-sm text-muted-foreground">Closed</p>
-              ) : (
-                <div className="space-y-2 pl-7">
+            <div key={day} className="overflow-hidden rounded-md border border-border bg-card">
+              <button
+                type="button"
+                aria-label={`Edit ${label} hours`}
+                aria-expanded={expanded}
+                aria-controls={`${day}-hours-panel`}
+                className="flex min-h-11 w-full items-center justify-between gap-3 px-3 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
+                onClick={() => setExpandedDay(expanded ? null : day)}
+              >
+                <span className="type-ui font-medium text-foreground">{label}</span>
+                <span className="min-w-0 truncate type-ui tabular-nums text-muted-foreground">{summaryFor(intervals)}</span>
+              </button>
+              {expanded ? (
+                <div id={`${day}-hours-panel`} className="space-y-3 border-t border-border bg-surface-subtle p-3">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <label className="flex min-h-11 cursor-pointer items-center gap-3 type-ui font-medium">
+                      <Checkbox
+                        checked={isOpen}
+                        onChange={(event) => updateDay(day, event.target.checked ? [["09:00", "17:00"]] : [])}
+                      />
+                      Open {label}
+                    </label>
+                    {isOpen ? (
+                      <Button type="button" size="sm" variant="ghost" onClick={() => setDayToCopy(day)}>
+                        Apply {label} hours to weekdays
+                      </Button>
+                    ) : null}
+                  </div>
+                  {!isOpen ? <p className="type-ui text-muted-foreground">Closed</p> : (
+                    <div className="space-y-3">
                   {intervals.map(([start, end], index) => (
-                    <div key={`${day}-${index}`} className="flex items-center gap-2">
+                    <div key={`${day}-${index}`} className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2">
                       <Input
                         id={`${day}-open-${index}`}
                         type="time"
-                        className="min-h-11 tabular-nums"
+                        className="tabular-nums"
                         aria-label={`${label} opening ${index + 1} starts`}
                         value={start}
                         onChange={(event) => {
@@ -333,10 +364,10 @@ const OpeningHoursEditor = ({
                           updateDay(day, next)
                         }}
                       />
-                      <span className="text-sm text-muted-foreground">to</span>
+                      <span className="type-ui text-muted-foreground">to</span>
                       <Input
                         type="time"
-                        className="min-h-11 tabular-nums"
+                        className="tabular-nums"
                         aria-label={`${label} opening ${index + 1} ends`}
                         value={end}
                         onChange={(event) => {
@@ -350,6 +381,7 @@ const OpeningHoursEditor = ({
                         type="button"
                         size="sm"
                         variant="ghost"
+                        className="col-span-3 justify-self-end"
                         aria-label={`Remove ${label} hours ${index + 1}`}
                         onClick={() => updateDay(day, intervals.filter((_, intervalIndex) => intervalIndex !== index))}
                       >
@@ -357,19 +389,34 @@ const OpeningHoursEditor = ({
                       </Button>
                     </div>
                   ))}
+                      <Button type="button" size="sm" variant="secondary" onClick={() => updateDay(day, [...intervals, ["09:00", "17:00"]])}>Add hours</Button>
+                    </div>
+                  )}
                 </div>
-              )}
+              ) : null}
             </div>
           )
         })}
       </div>
-      {error ? <p className="text-sm font-medium text-destructive">{error}</p> : null}
-    </fieldset>
+      {error ? <p role="alert" className="type-ui font-medium text-destructive">{error}</p> : null}
+      </fieldset>
+      <AlertDialog
+        open={dayToCopy !== null}
+        onOpenChange={(open) => { if (!open) setDayToCopy(null) }}
+        title={`Apply ${copiedDayLabel} hours to weekdays?`}
+        description={`This replaces the current Monday–Friday hours with ${copiedDayLabel}'s schedule.`}
+        confirmLabel="Apply hours"
+        onConfirm={() => {
+          if (dayToCopy) copyToWeekdays(dayToCopy)
+          setDayToCopy(null)
+        }}
+      />
+    </>
   )
 }
 
 const BranchesSection = () => {
-  const query = useQuery({ queryKey: ["branches", "settings"], queryFn: () => api("/branches", z.array(branchSettingsSchema)) })
+  const query = useQuery({ queryKey: queryKeys.branches(), queryFn: () => api("/branches", z.array(branchSettingsSchema)) })
   const client = useQueryClient()
   const [branchSheet, setBranchSheet] = useState<BranchSettings | null | undefined>(undefined)
   const [deactivating, setDeactivating] = useState<{ id: string; name: string } | null>(null)
@@ -377,14 +424,14 @@ const BranchesSection = () => {
   const deactivate = async () => {
     if (!deactivating) return
     await api(`/branches/${deactivating.id}`, z.unknown(), { method: "DELETE" })
-    await client.invalidateQueries({ queryKey: ["branches", "settings"] })
+    await client.invalidateQueries({ queryKey: queryKeys.branches() })
     toast.success("Branch deactivated")
     setDeactivating(null)
   }
 
   const reactivate = async (id: string) => {
     const saved = await api(`/branches/${id}`, branchSettingsSchema, { method: "PATCH", body: { isActive: true } })
-    client.setQueryData<BranchSettings[]>(["branches", "settings"], (current = []) =>
+    client.setQueryData<BranchSettings[]>(queryKeys.branches(), (current = []) =>
       current.map((branch) => (branch.id === saved.id ? saved : branch))
     )
     toast.success("Branch reactivated")
@@ -393,7 +440,7 @@ const BranchesSection = () => {
   if (query.isPending) {
     return (
       <Section id="branches" title="Branches" description="Opening hours control when each location can accept bookings.">
-        <p className="text-sm text-muted-foreground">Loading branches…</p>
+        <SectionSkeleton label="branches" />
       </Section>
     )
   }
@@ -401,7 +448,7 @@ const BranchesSection = () => {
   if (query.isError || !query.data) {
     return (
       <Section id="branches" title="Branches" description="Opening hours control when each location can accept bookings.">
-        <EmptyState icon={Settings2} title="Could not load branches" hint="Retry shortly." />
+        <EmptyState icon={TriangleAlert} title="Could not load branches" hint="Check your connection and try again." action={<Button variant="secondary" onClick={() => void query.refetch()}>Retry</Button>} />
       </Section>
     )
   }
@@ -415,24 +462,24 @@ const BranchesSection = () => {
         <div className="space-y-6">
           {active.length > 0 ? (
             <div className="space-y-2">
-              <h3 className="px-1 text-sm font-semibold tracking-wide text-foreground">Active locations</h3>
+              <h3 className="px-1 type-ui font-semibold tracking-wide text-foreground">Locations</h3>
               {active.map((branch) => (
-                <RecordRow key={branch.id} active={branch.isActive} actions={<><Button variant="secondary" onClick={() => setBranchSheet(branch)}>Edit</Button><Button variant="ghost" onClick={() => setDeactivating({ id: branch.id, name: branch.name })}>Deactivate</Button></>}>
+                <RecordRow key={branch.id} active={branch.isActive} actions={<><Button variant="secondary" aria-label={`Edit ${branch.name}`} onClick={() => setBranchSheet(branch)}>Edit</Button><Button variant="ghost" aria-label={`Deactivate ${branch.name}`} onClick={() => setDeactivating({ id: branch.id, name: branch.name })}>Deactivate</Button></>}>
                   <p className="font-medium">{branch.name}</p>
-                  <p className="text-sm text-muted-foreground">{branch.timezone}</p>
+                  <p className="type-ui text-muted-foreground">{branch.timezone}</p>
                 </RecordRow>
               ))}
             </div>
-          ) : <p className="text-sm text-muted-foreground">No active branches.</p>}
+          ) : <p className="type-ui text-muted-foreground">No active branches.</p>}
 
           {inactive.length > 0 ? (
             <div className="space-y-2 pt-2">
-              <h3 className="px-1 text-sm font-semibold tracking-wide text-muted-foreground">Inactive locations</h3>
+              <h3 className="px-1 type-ui font-semibold tracking-wide text-muted-foreground">Inactive locations</h3>
               {inactive.map((branch) => (
-                <div key={branch.id} className="opacity-75">
-                  <RecordRow active={branch.isActive} actions={<><Button variant="secondary" onClick={() => setBranchSheet(branch)}>Edit</Button><Button variant="secondary" onClick={() => reactivate(branch.id)}>Reactivate</Button></>}>
+                <div key={branch.id}>
+                  <RecordRow active={branch.isActive} actions={<><Button variant="secondary" aria-label={`Edit ${branch.name}`} onClick={() => setBranchSheet(branch)}>Edit</Button><Button variant="secondary" aria-label={`Reactivate ${branch.name}`} onClick={() => reactivate(branch.id)}>Reactivate</Button></>}>
                     <p className="font-medium">{branch.name}</p>
-                    <p className="text-sm text-muted-foreground">{branch.timezone}</p>
+                    <p className="type-ui text-muted-foreground">{branch.timezone}</p>
                   </RecordRow>
                 </div>
               ))}
@@ -458,7 +505,7 @@ const BranchSheet = ({ value, onClose }: { value: BranchSettings | null; onClose
         method: value ? "PATCH" : "POST",
         body: values
       })
-      client.setQueryData<BranchSettings[]>(["branches", "settings"], (current = []) =>
+      client.setQueryData<BranchSettings[]>(queryKeys.branches(), (current = []) =>
         value ? current.map((branch) => (branch.id === saved.id ? saved : branch)) : [...current, saved]
       )
       toast.success(value ? "Branch saved" : "Branch added")
@@ -468,8 +515,8 @@ const BranchSheet = ({ value, onClose }: { value: BranchSettings | null; onClose
   const discardGuard = useDiscardGuard(form.dirty, onClose)
   return (
     <>
-      <Sheet open onOpenChange={discardGuard.requestClose} title={value ? "Edit branch" : "Add branch"}>
-        <form ref={form.formRef} onSubmit={form.submit} noValidate className="flex h-full flex-col space-y-4">
+      <Sheet open onOpenChange={discardGuard.requestClose} title={value ? "Edit branch" : "Add branch"} footer={<Button type="submit" form="branch-form" className="w-full" disabled={form.pending} aria-busy={form.pending}>{form.pending ? "Saving…" : "Save branch"}</Button>}>
+        <form id="branch-form" ref={form.formRef} onSubmit={form.submit} noValidate className="space-y-4">
           <FormError message={form.formError} />
           <Field id="branch-name" label="Branch name" error={form.errors.name}>
             {(aria) => <FieldInput {...aria} name="name" value={form.values.name} onChange={(event) => form.set("name", event.target.value)} />}
@@ -478,7 +525,7 @@ const BranchSheet = ({ value, onClose }: { value: BranchSettings | null; onClose
             {(aria) => (
               <div>
                 <FieldInput {...aria} name="timezone" value={form.values.timezone} onChange={(event) => form.set("timezone", event.target.value)} disabled={true} />
-                <p className="mt-2 text-sm text-muted-foreground">Note: Currently locked to <span className="font-medium text-foreground">Asia/Bangkok</span> for all branches.</p>
+                <p className="mt-2 type-ui text-muted-foreground">Note: Currently locked to <span className="font-medium text-foreground">Asia/Bangkok</span> for all branches.</p>
               </div>
             )}
           </Field>
@@ -487,11 +534,6 @@ const BranchSheet = ({ value, onClose }: { value: BranchSettings | null; onClose
             onChange={(openingHours) => form.set("openingHours", openingHours)}
             error={form.errors.openingHours}
           />
-          <div className="sticky bottom-0 z-10 mt-auto bg-card pt-4 pb-4">
-            <Button type="submit" className="w-full" disabled={form.pending} aria-busy={form.pending}>
-              {form.pending ? "Saving…" : "Save branch"}
-            </Button>
-          </div>
         </form>
       </Sheet>
       {discardGuard.dialog}
@@ -500,7 +542,7 @@ const BranchSheet = ({ value, onClose }: { value: BranchSettings | null; onClose
 }
 
 const ServicesSection = () => {
-  const query = useQuery({ queryKey: ["services", "settings"], queryFn: () => api("/services", z.array(serviceSummarySchema)) })
+  const query = useQuery({ queryKey: queryKeys.services(), queryFn: () => api("/services", z.array(serviceSummarySchema)) })
   const client = useQueryClient()
   const [serviceSheet, setServiceSheet] = useState<ServiceSummary | null | undefined>(undefined)
   const [deactivating, setDeactivating] = useState<{ id: string; name: string } | null>(null)
@@ -508,14 +550,14 @@ const ServicesSection = () => {
   const deactivate = async () => {
     if (!deactivating) return
     await api(`/services/${deactivating.id}`, z.unknown(), { method: "DELETE" })
-    await client.invalidateQueries({ queryKey: ["services", "settings"] })
+    await client.invalidateQueries({ queryKey: queryKeys.services() })
     toast.success("Service deactivated")
     setDeactivating(null)
   }
 
   const reactivate = async (id: string) => {
     const saved = await api(`/services/${id}`, serviceSummarySchema, { method: "PATCH", body: { isActive: true } })
-    client.setQueryData<ServiceSummary[]>(["services", "settings"], (current = []) =>
+    client.setQueryData<ServiceSummary[]>(queryKeys.services(), (current = []) =>
       current.map((service) => (service.id === saved.id ? saved : service))
     )
     toast.success("Service reactivated")
@@ -524,7 +566,7 @@ const ServicesSection = () => {
   if (query.isPending) {
     return (
       <Section id="services" title="Services" description="Duration and buffer time keep the schedule realistic.">
-        <p className="text-sm text-muted-foreground">Loading services…</p>
+        <SectionSkeleton label="services" />
       </Section>
     )
   }
@@ -532,7 +574,7 @@ const ServicesSection = () => {
   if (query.isError || !query.data) {
     return (
       <Section id="services" title="Services" description="Duration and buffer time keep the schedule realistic.">
-        <EmptyState icon={Settings2} title="Could not load services" hint="Retry shortly." />
+        <EmptyState icon={TriangleAlert} title="Could not load services" hint="Check your connection and try again." action={<Button variant="secondary" onClick={() => void query.refetch()}>Retry</Button>} />
       </Section>
     )
   }
@@ -546,32 +588,44 @@ const ServicesSection = () => {
         <div className="space-y-6">
           {active.length > 0 ? (
             <div className="space-y-2">
-              <h3 className="px-1 text-sm font-semibold tracking-wide text-foreground">Active services</h3>
+              <h3 className="px-1 type-ui font-semibold tracking-wide text-foreground">Services</h3>
               {active.map((service) => (
-                <RecordRow key={service.id} active={service.isActive} actions={<><Button variant="secondary" onClick={() => setServiceSheet(service)}>Edit</Button><Button variant="ghost" onClick={() => setDeactivating({ id: service.id, name: service.name })}>Deactivate</Button></>}>
+                <RecordRow key={service.id} active={service.isActive} actions={<><Button variant="secondary" aria-label={`Edit ${service.name}`} onClick={() => setServiceSheet(service)}>Edit</Button><Button variant="ghost" aria-label={`Deactivate ${service.name}`} onClick={() => setDeactivating({ id: service.id, name: service.name })}>Deactivate</Button></>}>
                   <div className="flex items-center gap-3">
-                    <div className={`h-4 w-4 rounded-full bg-appointment-${service.colorIndex} border border-appointment-${service.colorIndex}-border`} />
+                    <div
+                      className="h-4 w-4 rounded-full border"
+                      style={{
+                        backgroundColor: appointmentHue(service.colorIndex).background,
+                        borderColor: appointmentHue(service.colorIndex).border
+                      }}
+                    />
                     <div>
                       <p className="font-medium">{service.name}</p>
-                      <p className="text-sm tabular-nums text-muted-foreground">{service.durationMin} min + {service.bufferMin} min buffer</p>
+                      <p className="type-ui tabular-nums text-muted-foreground">{service.durationMin} min + {service.bufferMin} min buffer</p>
                     </div>
                   </div>
                 </RecordRow>
               ))}
             </div>
-          ) : <p className="text-sm text-muted-foreground">No active services.</p>}
+          ) : <p className="type-ui text-muted-foreground">No active services.</p>}
 
           {inactive.length > 0 ? (
             <div className="space-y-2 pt-2">
-              <h3 className="px-1 text-sm font-semibold tracking-wide text-muted-foreground">Inactive services</h3>
+              <h3 className="px-1 type-ui font-semibold tracking-wide text-muted-foreground">Inactive services</h3>
               {inactive.map((service) => (
-                <div key={service.id} className="opacity-75">
-                  <RecordRow active={service.isActive} actions={<><Button variant="secondary" onClick={() => setServiceSheet(service)}>Edit</Button><Button variant="secondary" onClick={() => reactivate(service.id)}>Reactivate</Button></>}>
+                <div key={service.id}>
+                  <RecordRow active={service.isActive} actions={<><Button variant="secondary" aria-label={`Edit ${service.name}`} onClick={() => setServiceSheet(service)}>Edit</Button><Button variant="secondary" aria-label={`Reactivate ${service.name}`} onClick={() => reactivate(service.id)}>Reactivate</Button></>}>
                     <div className="flex items-center gap-3">
-                      <div className={`h-4 w-4 rounded-full bg-appointment-${service.colorIndex} border border-appointment-${service.colorIndex}-border`} />
+                      <div
+                      className="h-4 w-4 rounded-full border"
+                      style={{
+                        backgroundColor: appointmentHue(service.colorIndex).background,
+                        borderColor: appointmentHue(service.colorIndex).border
+                      }}
+                    />
                       <div>
                         <p className="font-medium">{service.name}</p>
-                        <p className="text-sm tabular-nums text-muted-foreground">{service.durationMin} min + {service.bufferMin} min buffer</p>
+                        <p className="type-ui tabular-nums text-muted-foreground">{service.durationMin} min + {service.bufferMin} min buffer</p>
                       </div>
                     </div>
                   </RecordRow>
@@ -599,7 +653,7 @@ const ServiceSheet = ({ value, onClose }: { value: ServiceSummary | null; onClos
         method: value ? "PATCH" : "POST",
         body: values
       })
-      client.setQueryData<ServiceSummary[]>(["services", "settings"], (current = []) =>
+      client.setQueryData<ServiceSummary[]>(queryKeys.services(), (current = []) =>
         value ? current.map((service) => (service.id === saved.id ? saved : service)) : [...current, saved]
       )
       toast.success(value ? "Service saved" : "Service added")
@@ -610,18 +664,25 @@ const ServiceSheet = ({ value, onClose }: { value: ServiceSummary | null; onClos
 
   return (
     <>
-    <Sheet open onOpenChange={discardGuard.requestClose} title={value ? "Edit service" : "Add service"}>
-      <form ref={form.formRef} onSubmit={form.submit} noValidate className="flex flex-col space-y-4">
+    <Sheet open onOpenChange={discardGuard.requestClose} title={value ? "Edit service" : "Add service"} footer={<Button type="submit" form="service-form" className="w-full" disabled={form.pending} aria-busy={form.pending}>{form.pending ? "Saving…" : "Save service"}</Button>}>
+      <form id="service-form" ref={form.formRef} onSubmit={form.submit} noValidate className="space-y-4">
         <FormError message={form.formError} />
         
-        {/* Timeline Preview */}
-        <div className="mb-4 rounded-xl border border-border bg-surface-subtle p-6">
-          <p className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Timeline preview</p>
-          <div className={`relative flex flex-col rounded-md border bg-appointment-${form.values.colorIndex} border-appointment-${form.values.colorIndex}-border p-3 shadow-xs transition-colors`} style={{ height: "6rem" }}>
-            <div className={`absolute left-0 top-0 h-full w-1 rounded-l-md bg-appointment-${form.values.colorIndex}-border`} />
-            <p className={`font-semibold text-appointment-${form.values.colorIndex}-text`}>{form.values.name || "Service Name"}</p>
-            <p className={`text-sm font-medium text-appointment-${form.values.colorIndex}-text`}>Patient Name</p>
-            <p className={`mt-auto text-xs font-medium text-appointment-${form.values.colorIndex}-text/80`}>{form.values.durationMin} min</p>
+        <div className="rounded-xl border border-border bg-surface-subtle p-4">
+          <p className="mb-2 type-meta font-semibold uppercase tracking-wider text-muted-foreground">Timeline preview</p>
+          <div
+            className="relative flex h-20 flex-col rounded-md border p-3 shadow-xs transition-colors"
+            style={{
+              backgroundColor: appointmentHue(form.values.colorIndex).background,
+              borderColor: appointmentHue(form.values.colorIndex).border
+            }}
+          >
+            <div
+              className="absolute left-0 top-0 h-full w-1 rounded-l-md"
+              style={{ backgroundColor: appointmentHue(form.values.colorIndex).border }}
+            />
+            <p className="font-semibold text-card-foreground">{form.values.name || "Service Name"}</p>
+            <p className="type-ui font-medium text-appointment-muted">{form.values.durationMin + form.values.bufferMin} min total slot</p>
           </div>
         </div>
 
@@ -639,17 +700,28 @@ const ServiceSheet = ({ value, onClose }: { value: ServiceSummary | null; onClos
         </div>
         
         <fieldset className="space-y-3">
-          <legend className="text-sm font-medium">Timeline colour</legend>
+          <legend className="type-ui font-medium">Timeline colour</legend>
           <div className="flex flex-wrap gap-3" role="radiogroup" aria-label="Service color">
-            {[0, 1, 2, 3, 4, 5].map((index) => (
+            {serviceColourNames.map((colour, index) => (
               <button
                 key={index}
                 type="button"
                 role="radio"
                 aria-checked={form.values.colorIndex === index}
-                className={`relative h-10 w-10 cursor-pointer rounded-full border-2 transition-all hover:scale-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ${form.values.colorIndex === index ? "border-foreground ring-2 ring-foreground/20 ring-offset-2" : "border-transparent"} bg-appointment-${index} border-appointment-${index}-border`}
-                aria-label={`Select colour ${index + 1}`}
+                tabIndex={form.values.colorIndex === index ? 0 : -1}
+                className={`relative h-10 w-10 cursor-pointer rounded-full border-2 transition-[border-color,box-shadow,transform] duration-150 hover:scale-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ${form.values.colorIndex === index ? "border-foreground ring-2 ring-foreground/20 ring-offset-2" : "border-transparent"}`}
+                style={{ backgroundColor: appointmentHue(index).background }}
+                aria-label={`Select ${colour} timeline colour`}
                 onClick={() => form.set("colorIndex", index)}
+                onKeyDown={(event) => {
+                  const offset = event.key === "ArrowRight" || event.key === "ArrowDown" ? 1 : event.key === "ArrowLeft" || event.key === "ArrowUp" ? -1 : 0
+                  if (offset === 0) return
+                  event.preventDefault()
+                  const nextIndex = (index + offset + serviceColourNames.length) % serviceColourNames.length
+                  form.set("colorIndex", nextIndex)
+                  const radios = event.currentTarget.parentElement?.querySelectorAll<HTMLButtonElement>('[role="radio"]')
+                  radios?.[nextIndex]?.focus()
+                }}
               >
                 {form.values.colorIndex === index ? (
                   <div className="absolute inset-0 flex items-center justify-center">
@@ -661,9 +733,6 @@ const ServiceSheet = ({ value, onClose }: { value: ServiceSummary | null; onClos
           </div>
         </fieldset>
 
-        <div className="sticky bottom-0 z-10 mt-auto bg-card pt-4 pb-4">
-          <Button type="submit" className="w-full" disabled={form.pending} aria-busy={form.pending}>{form.pending ? "Saving…" : "Save service"}</Button>
-        </div>
       </form>
     </Sheet>
     {discardGuard.dialog}
@@ -672,9 +741,9 @@ const ServiceSheet = ({ value, onClose }: { value: ServiceSummary | null; onClos
 }
 
 const ResourcesSection = () => {
-  const branchesQuery = useQuery({ queryKey: ["branches", "settings"], queryFn: () => api("/branches", z.array(branchSettingsSchema)) })
-  const equipmentTypesQuery = useQuery({ queryKey: ["equipment-types"], queryFn: () => api("/equipment-types", z.array(equipmentTypeSchema)) })
-  const resourcesQuery = useQuery({ queryKey: ["resources", "settings"], queryFn: () => api("/resources", z.array(resourceSettingsSchema), { query: { includeInactive: "true" } }) })
+  const branchesQuery = useQuery({ queryKey: queryKeys.branches(), queryFn: () => api("/branches", z.array(branchSettingsSchema)) })
+  const equipmentTypesQuery = useQuery({ queryKey: queryKeys.equipmentTypes(), queryFn: () => api("/equipment-types", z.array(equipmentTypeSchema)) })
+  const resourcesQuery = useQuery({ queryKey: queryKeys.resources.includingInactive(), queryFn: () => api("/resources", z.array(resourceSettingsSchema), { query: { includeInactive: "true" } }) })
   
   const client = useQueryClient()
   const [resourceSheet, setResourceSheet] = useState<ResourceSettings | null | undefined>(undefined)
@@ -683,14 +752,14 @@ const ResourcesSection = () => {
   const deactivate = async () => {
     if (!deactivating) return
     await api(`/resources/${deactivating.id}`, z.unknown(), { method: "DELETE" })
-    await client.invalidateQueries({ queryKey: ["resources", "settings"] })
+    await client.invalidateQueries({ queryKey: queryKeys.resources.includingInactive() })
     toast.success("Resource deactivated")
     setDeactivating(null)
   }
 
   const reactivate = async (id: string) => {
     const saved = await api(`/resources/${id}`, resourceSettingsSchema, { method: "PATCH", body: { isActive: true } })
-    client.setQueryData<ResourceSettings[]>(["resources", "settings"], (current = []) =>
+    client.setQueryData<ResourceSettings[]>(queryKeys.resources.includingInactive(), (current = []) =>
       current.map((resource) => (resource.id === saved.id ? saved : resource))
     )
     toast.success("Resource reactivated")
@@ -702,7 +771,7 @@ const ResourcesSection = () => {
   if (isPending) {
     return (
       <Section id="resources" title="Resources" description="Chairs and equipment available to your scheduling engine.">
-        <p className="text-sm text-muted-foreground">Loading resources…</p>
+        <SectionSkeleton label="resources" />
       </Section>
     )
   }
@@ -710,7 +779,7 @@ const ResourcesSection = () => {
   if (isError) {
     return (
       <Section id="resources" title="Resources" description="Chairs and equipment available to your scheduling engine.">
-        <EmptyState icon={Settings2} title="Could not load resources" hint="Retry shortly." />
+        <EmptyState icon={TriangleAlert} title="Could not load resources" hint="Check your connection and try again." action={<Button variant="secondary" onClick={() => void Promise.all([branchesQuery.refetch(), equipmentTypesQuery.refetch(), resourcesQuery.refetch()])}>Retry</Button>} />
       </Section>
     )
   }
@@ -722,6 +791,11 @@ const ResourcesSection = () => {
   const chairs = resources.filter((r) => r.type === "chair" && r.isActive)
   const equipment = resources.filter((r) => r.type === "equipment" && r.isActive)
   const inactive = resources.filter((r) => !r.isActive)
+  const navigateToBranches = () => {
+    window.history.replaceState(null, "", "#branches")
+    document.getElementById("branches")?.scrollIntoView({ behavior: "smooth", block: "start" })
+  }
+  const addBranchAction = <Button variant="secondary" onClick={navigateToBranches}>Add branch</Button>
 
   const renderResource = (resource: ResourceSettings) => {
     const branchName = branches.find(b => b.id === resource.branchId)?.name ?? "Unknown branch"
@@ -730,16 +804,16 @@ const ResourcesSection = () => {
     return (
       <RecordRow key={resource.id} active={resource.isActive} actions={
         <>
-          <Button variant="secondary" onClick={() => setResourceSheet(resource)}>Edit</Button>
-          {resource.isActive ? <Button variant="ghost" onClick={() => setDeactivating({ id: resource.id, name: resource.name })}>Deactivate</Button> : <Button variant="secondary" onClick={() => reactivate(resource.id)}>Reactivate</Button>}
+          <Button variant="secondary" aria-label={`Edit ${resource.name}`} onClick={() => setResourceSheet(resource)}>Edit</Button>
+          {resource.isActive ? <Button variant="ghost" aria-label={`Deactivate ${resource.name}`} onClick={() => setDeactivating({ id: resource.id, name: resource.name })}>Deactivate</Button> : <Button variant="secondary" aria-label={`Reactivate ${resource.name}`} onClick={() => reactivate(resource.id)}>Reactivate</Button>}
         </>
       }>
         <div className="flex items-center gap-3">
           <Badge tone="neutral" className="hidden sm:inline-flex">{branchName}</Badge>
           <div>
             <p className="font-medium text-foreground">{resource.name}</p>
-            <p className="text-sm text-muted-foreground sm:hidden">{branchName} · {typeName}</p>
-            <p className="hidden text-sm text-muted-foreground sm:block">{typeName}</p>
+            <p className="type-ui text-muted-foreground sm:hidden">{branchName} · {typeName}</p>
+            <p className="hidden type-ui text-muted-foreground sm:block">{typeName}</p>
           </div>
         </div>
       </RecordRow>
@@ -748,31 +822,31 @@ const ResourcesSection = () => {
 
   return (
     <>
-      <Section id="resources" title="Resources" description="Chairs and equipment available to your scheduling engine." action={<Button onClick={() => setResourceSheet(null)}>Add resource</Button>}>
+      <Section id="resources" title="Resources" description="Chairs and equipment available to your scheduling engine." action={branches.length === 0 ? undefined : <Button onClick={() => setResourceSheet(null)}>Add resource</Button>}>
         <div className="space-y-6">
           {chairs.length > 0 ? (
             <div className="space-y-2">
-              <h3 className="px-1 text-sm font-semibold tracking-wide text-foreground">Chairs</h3>
+              <h3 className="px-1 type-ui font-semibold tracking-wide text-foreground">Chairs</h3>
               {chairs.map(renderResource)}
             </div>
           ) : null}
 
           {equipment.length > 0 ? (
             <div className="space-y-2">
-              <h3 className="px-1 text-sm font-semibold tracking-wide text-foreground">Equipment</h3>
+              <h3 className="px-1 type-ui font-semibold tracking-wide text-foreground">Equipment</h3>
               {equipment.map(renderResource)}
             </div>
           ) : null}
 
           {chairs.length === 0 && equipment.length === 0 ? (
-            <p className="text-sm text-muted-foreground">No active resources.</p>
+            branches.length === 0 ? <EmptyState icon={MapPin} title="Add a branch before resources" hint="Resources need a location before they can be scheduled." action={addBranchAction} /> : <p className="type-ui text-muted-foreground">No active resources.</p>
           ) : null}
 
           {inactive.length > 0 ? (
             <div className="space-y-2 pt-2">
-              <h3 className="px-1 text-sm font-semibold tracking-wide text-muted-foreground">Inactive resources</h3>
+              <h3 className="px-1 type-ui font-semibold tracking-wide text-muted-foreground">Inactive resources</h3>
               {inactive.map((resource) => (
-                <div key={resource.id} className="opacity-75">{renderResource(resource)}</div>
+                <div key={resource.id}>{renderResource(resource)}</div>
               ))}
             </div>
           ) : null}
@@ -810,7 +884,7 @@ const ResourceSheet = ({
         method: value ? "PATCH" : "POST",
         body
       })
-      client.setQueryData<ResourceSettings[]>(["resources", "settings"], (current = []) =>
+      client.setQueryData<ResourceSettings[]>(queryKeys.resources.includingInactive(), (current = []) =>
         value ? current.map((resource) => (resource.id === saved.id ? saved : resource)) : [...current, saved]
       )
       toast.success(value ? "Resource saved" : "Resource added")
@@ -820,36 +894,30 @@ const ResourceSheet = ({
   const discardGuard = useDiscardGuard(form.dirty, onClose)
   return (
     <>
-    <Sheet open onOpenChange={discardGuard.requestClose} title={value ? "Edit resource" : "Add resource"}>
-      <form ref={form.formRef} onSubmit={form.submit} noValidate className="flex h-full flex-col space-y-4">
+    <Sheet open onOpenChange={discardGuard.requestClose} title={value ? "Edit resource" : "Add resource"} footer={<Button type="submit" form="resource-form" className="w-full" disabled={form.pending || branches.length === 0} aria-busy={form.pending}>{form.pending ? "Saving…" : "Save resource"}</Button>}>
+      <form id="resource-form" ref={form.formRef} onSubmit={form.submit} noValidate className="space-y-4">
         <FormError message={form.formError} />
         <Field id="resource-name" label="Resource name" error={form.errors.name}>
           {(aria) => <FieldInput {...aria} name="name" value={form.values.name} onChange={(event) => form.set("name", event.target.value)} />}
         </Field>
         <Field id="resource-branch" label="Branch" error={form.errors.branchId}>
-          {(aria) => <NativeSelect {...aria} name="branchId" value={form.values.branchId} onChange={(event) => form.set("branchId", event.target.value)}>{branches.map((branch) => <option key={branch.id} value={branch.id}>{branch.name}</option>)}</NativeSelect>}
+          {(aria) => <AppSelect {...aria} name="branchId" aria-label="Branch" value={form.values.branchId} onValueChange={(branchId) => form.set("branchId", branchId)} options={branches.map((branch) => ({ value: branch.id, label: branch.name }))} />}
         </Field>
         {value ? null : (
           <Field id="resource-type" label="Type" error={form.errors.type}>
             {(aria) => (
-              <NativeSelect {...aria} name="type" value={type} onChange={(event) => { const next = event.target.value as "chair" | "equipment"; setType(next); form.set("type", next); if (next === "chair") form.set("equipmentTypeId", undefined) }}>
-                <option value="chair">Chair</option>
-                <option value="equipment">Equipment</option>
-              </NativeSelect>
+              <AppSelect {...aria} name="type" aria-label="Type" value={type} onValueChange={(next) => { const resourceType = next as "chair" | "equipment"; setType(resourceType); form.set("type", resourceType); if (resourceType === "chair") form.set("equipmentTypeId", undefined) }} options={[{ value: "chair", label: "Chair" }, { value: "equipment", label: "Equipment" }]} />
             )}
           </Field>
         )}
         {type === "equipment" ? (
           <Field id="resource-equipment-type" label="Equipment type" error={form.errors.equipmentTypeId}>
-            {(aria) => <NativeSelect {...aria} name="equipmentTypeId" value={form.values.equipmentTypeId ?? ""} onChange={(event) => form.set("equipmentTypeId", event.target.value)}><option value="">Choose a type</option>{equipmentTypes.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</NativeSelect>}
+            {(aria) => <AppSelect {...aria} name="equipmentTypeId" aria-label="Equipment type" value={form.values.equipmentTypeId ?? ""} placeholder="Choose a type" onValueChange={(equipmentTypeId) => form.set("equipmentTypeId", equipmentTypeId)} options={equipmentTypes.map((item) => ({ value: item.id, label: item.name }))} />}
           </Field>
         ) : null}
         {branches.length === 0 ? (
-          <p className="text-sm text-muted-foreground">Add a branch before you can create resources.</p>
+          <p className="type-ui text-muted-foreground">Add a branch before you can create resources.</p>
         ) : null}
-        <div className="sticky bottom-0 z-10 mt-auto bg-card pt-4 pb-4">
-          <Button type="submit" className="w-full" disabled={form.pending || branches.length === 0} aria-busy={form.pending}>{form.pending ? "Saving…" : "Save resource"}</Button>
-        </div>
       </form>
     </Sheet>
     {discardGuard.dialog}
@@ -858,7 +926,7 @@ const ResourceSheet = ({
 }
 
 const StaffSection = () => {
-  const query = useQuery({ queryKey: ["staff", "settings"], queryFn: () => api("/staff", z.array(staffMemberSchema)) })
+  const query = useQuery({ queryKey: queryKeys.staff.all(), queryFn: () => api("/staff", z.array(staffMemberSchema)) })
   const client = useQueryClient()
   const [staffSheet, setStaffSheet] = useState<StaffMember | null>(null)
   const [staffDialogOpen, setStaffDialogOpen] = useState(false)
@@ -867,7 +935,7 @@ const StaffSection = () => {
   const deactivate = async () => {
     if (!deactivating) return
     const saved = await api(`/staff/${deactivating.id}`, staffMemberSchema, { method: "PATCH", body: { isActive: false } })
-    client.setQueryData<StaffMember[]>(["staff", "settings"], (current = []) =>
+    client.setQueryData<StaffMember[]>(queryKeys.staff.all(), (current = []) =>
       current.map((member) => (member.id === saved.id ? saved : member))
     )
     toast.success("Staff member deactivated")
@@ -876,7 +944,7 @@ const StaffSection = () => {
 
   const reactivate = async (id: string) => {
     const saved = await api(`/staff/${id}`, staffMemberSchema, { method: "PATCH", body: { isActive: true } })
-    client.setQueryData<StaffMember[]>(["staff", "settings"], (current = []) =>
+    client.setQueryData<StaffMember[]>(queryKeys.staff.all(), (current = []) =>
       current.map((member) => (member.id === saved.id ? saved : member))
     )
     toast.success("Staff member reactivated")
@@ -885,7 +953,7 @@ const StaffSection = () => {
   if (query.isPending) {
     return (
       <Section id="staff" title="Staff" description="Manage who can book appointments and work from the schedule.">
-        <p className="text-sm text-muted-foreground">Loading staff…</p>
+        <SectionSkeleton label="staff" />
       </Section>
     )
   }
@@ -893,7 +961,7 @@ const StaffSection = () => {
   if (query.isError || !query.data) {
     return (
       <Section id="staff" title="Staff" description="Manage who can book appointments and work from the schedule.">
-        <EmptyState icon={Settings2} title="Could not load staff" hint="Retry shortly." />
+        <EmptyState icon={TriangleAlert} title="Could not load staff" hint="Check your connection and try again." action={<Button variant="secondary" onClick={() => void query.refetch()}>Retry</Button>} />
       </Section>
     )
   }
@@ -907,17 +975,17 @@ const StaffSection = () => {
     return (
       <RecordRow key={member.id} active={member.isActive} actions={
         <>
-          <Button variant="secondary" onClick={() => setStaffSheet(member)}>Edit</Button>
-          {member.isActive && !isLastOwner ? <Button variant="ghost" onClick={() => setDeactivating({ id: member.id, name: member.name })}>Deactivate</Button> : null}
-          {!member.isActive ? <Button variant="secondary" onClick={() => reactivate(member.id)}>Reactivate</Button> : null}
-          {member.isActive && isLastOwner ? <p className="text-sm text-muted-foreground">The last owner can't be deactivated.</p> : null}
+          <Button variant="secondary" aria-label={`Edit ${member.name}`} onClick={() => setStaffSheet(member)}>Edit</Button>
+          {member.isActive && !isLastOwner ? <Button variant="ghost" aria-label={`Deactivate ${member.name}`} onClick={() => setDeactivating({ id: member.id, name: member.name })}>Deactivate</Button> : null}
+          {!member.isActive ? <Button variant="secondary" aria-label={`Reactivate ${member.name}`} onClick={() => reactivate(member.id)}>Reactivate</Button> : null}
+          {member.isActive && isLastOwner ? <p className="type-ui text-muted-foreground">The last owner can't be deactivated.</p> : null}
         </>
       }>
         <div className="flex items-center gap-4">
-          <InitialsAvatar name={member.name} className="h-10 w-10 text-sm hidden sm:flex" />
+          <InitialsAvatar name={member.name} className="h-10 w-10 type-ui hidden sm:flex" />
           <div>
             <p className="font-medium text-foreground">{member.name}</p>
-            <div className="flex flex-wrap items-center gap-1.5 text-sm text-muted-foreground">
+            <div className="flex flex-wrap items-center gap-1.5 type-ui text-muted-foreground">
               <span className="capitalize font-medium text-foreground">{member.role}</span>
               <span>·</span>
               <span>{member.role === "owner" ? "Full access" : member.role === "receptionist" ? "Can manage bookings" : "Can view schedule"}</span>
@@ -934,16 +1002,16 @@ const StaffSection = () => {
         <div className="space-y-6">
           {active.length > 0 ? (
             <div className="space-y-2">
-              <h3 className="px-1 text-sm font-semibold tracking-wide text-foreground">Active team</h3>
+              <h3 className="px-1 type-ui font-semibold tracking-wide text-foreground">Team</h3>
               {active.map(renderStaff)}
             </div>
-          ) : <p className="text-sm text-muted-foreground">No active staff.</p>}
+          ) : <p className="type-ui text-muted-foreground">No active staff.</p>}
 
           {inactive.length > 0 ? (
             <div className="space-y-2 pt-2">
-              <h3 className="px-1 text-sm font-semibold tracking-wide text-muted-foreground">Inactive team</h3>
+              <h3 className="px-1 type-ui font-semibold tracking-wide text-muted-foreground">Inactive team</h3>
               {inactive.map((member) => (
-                <div key={member.id} className="opacity-75">{renderStaff(member)}</div>
+                <div key={member.id}>{renderStaff(member)}</div>
               ))}
             </div>
           ) : null}
@@ -964,7 +1032,7 @@ const StaffSheet = ({ value, onClose }: { value: StaffMember; onClose: () => voi
     onSubmit: async (values) => {
       const body = value.role === "owner" ? { name: values.name } : values
       const saved = await api(`/staff/${value.id}`, staffMemberSchema, { method: "PATCH", body })
-      client.setQueryData<StaffMember[]>(["staff", "settings"], (current = []) =>
+      client.setQueryData<StaffMember[]>(queryKeys.staff.all(), (current = []) =>
         current.map((member) => (member.id === saved.id ? saved : member))
       )
       toast.success("Staff member saved")
@@ -975,25 +1043,22 @@ const StaffSheet = ({ value, onClose }: { value: StaffMember; onClose: () => voi
   const discardGuard = useDiscardGuard(form.dirty, onClose)
   return (
     <>
-    <Sheet open onOpenChange={discardGuard.requestClose} title="Edit staff member">
-      <form ref={form.formRef} onSubmit={form.submit} noValidate className="space-y-4">
+    <Sheet open onOpenChange={discardGuard.requestClose} title="Edit staff member" footer={<Button type="submit" form="staff-form" className="w-full" disabled={form.pending} aria-busy={form.pending}>{form.pending ? "Saving…" : "Save staff member"}</Button>}>
+      <form id="staff-form" ref={form.formRef} onSubmit={form.submit} noValidate className="space-y-4">
         <FormError message={form.formError} />
         <Field id="staff-edit-name" label="Name" error={form.errors.name}>
           {(aria) => <FieldInput {...aria} name="name" value={form.values.name} onChange={(event) => form.set("name", event.target.value)} />}
         </Field>
         {editable ? (
           <Field id="staff-edit-role" label="Role" error={form.errors.role}>
-            {(aria) => <NativeSelect {...aria} name="role" value={form.values.role} onChange={(event) => form.set("role", event.target.value as "dentist" | "receptionist")}><option value="dentist">Dentist</option><option value="receptionist">Receptionist</option></NativeSelect>}
+            {(aria) => <AppSelect {...aria} name="role" aria-label="Role" value={form.values.role} onValueChange={(role) => form.set("role", role as "dentist" | "receptionist")} options={[{ value: "dentist", label: "Dentist" }, { value: "receptionist", label: "Receptionist" }]} />}
           </Field>
         ) : (
           <div className="rounded-md border border-border bg-surface-subtle p-3">
-            <p className="text-sm font-medium text-foreground">Owner protection</p>
-            <p className="text-sm text-muted-foreground">Owners can update their own name but not their access level, ensuring the clinic never accidentally loses administrative access.</p>
+            <p className="type-ui font-medium text-foreground">Owner protection</p>
+            <p className="type-ui text-muted-foreground">Owners can update their own name but not their access level, ensuring the clinic never accidentally loses administrative access.</p>
           </div>
         )}
-        <div className="sticky bottom-0 z-10 mt-auto bg-card pt-4 pb-4">
-          <Button type="submit" className="w-full" disabled={form.pending} aria-busy={form.pending}>{form.pending ? "Saving…" : "Save staff member"}</Button>
-        </div>
       </form>
     </Sheet>
     {discardGuard.dialog}
@@ -1001,30 +1066,36 @@ const StaffSheet = ({ value, onClose }: { value: StaffMember; onClose: () => voi
   )
 }
 
-const SettingsContent = () => {
-  return (
-    <div className="mx-auto max-w-4xl p-4 lg:grid lg:grid-cols-[12rem_minmax(0,1fr)] lg:gap-8">
-      <aside className="mb-5 lg:mb-0">
-        <nav aria-label="Settings sections" className="flex gap-1 overflow-x-auto rounded-md border border-border bg-card p-1 lg:sticky lg:top-4 lg:flex-col lg:overflow-visible">
-          {sectionItems.map(([id, label, Icon]) => <a key={id} href={`#${id}`} className="flex min-h-11 shrink-0 items-center gap-2 rounded-sm px-3 text-sm font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"><Icon className="h-4 w-4" aria-hidden="true" />{label}</a>)}
-        </nav>
-      </aside>
-      <main className="space-y-5">
-        <header><h1 className="text-xl font-semibold tracking-tight">Settings</h1><p className="mt-1 text-sm text-muted-foreground">Keep clinic details, scheduling capacity and team access current.</p></header>
-        <ClinicProfileSection />
-        <BranchesSection />
-        <ServicesSection />
-        <ResourcesSection />
-        <StaffSection />
-      </main>
-    </div>
-  )
-}
+const SettingsShell = ({ children }: { children: ReactNode }) => (
+  <div className="flex flex-col p-2 sm:p-3">
+    <section
+      data-testid="settings-command-surface"
+      className="mx-auto w-full max-w-4xl rounded-hero border border-border bg-card p-4 shadow-xs sm:p-5"
+    >
+      <PageHeader title="Settings" description="Clinic profile, locations, services, chairs and team." />
+    </section>
+    <div className="mx-auto w-full max-w-4xl space-y-5 pt-4">{children}</div>
+  </div>
+)
+
+const SettingsContent = () => (
+  <SettingsShell>
+    <ClinicProfileSection />
+    <BranchesSection />
+    <ServicesSection />
+    <ResourcesSection />
+    <StaffSection />
+  </SettingsShell>
+)
 
 export const SettingsPage = () => {
   const session = useSession()
   if (session?.user.role !== "owner") {
-    return <div className="mx-auto max-w-2xl p-4"><h1 className="text-xl font-semibold tracking-tight">Settings</h1><EmptyState icon={Settings2} title="Owner access required" hint="Only an owner can change clinic settings." /></div>
+    return (
+      <SettingsShell>
+        <EmptyState icon={Settings2} title="Owner access required" hint="Only an owner can change clinic settings." />
+      </SettingsShell>
+    )
   }
   return <SettingsContent />
 }

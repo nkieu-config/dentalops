@@ -52,7 +52,10 @@ test("J3: shrinking a shift past its appointments blocks the save until it is re
 
   const block = page.getByTestId(`shift-${shift.id}`)
   await expect(block).toBeVisible()
-  await expect(page.getByTestId("violations-panel")).toContainText("No violations")
+  await expect(
+    page.getByTestId("violations-panel"),
+    "a clean roster keeps the review queue out of the editor"
+  ).toHaveCount(0)
 
   await block.click()
   const dialog = page.getByRole("dialog")

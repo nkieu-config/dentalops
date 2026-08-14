@@ -3,10 +3,14 @@ import { createBrowserRouter, Navigate } from "react-router"
 import { Skeleton } from "./components/ui/skeleton"
 import { LoginPage } from "./features/auth/login-page"
 import { SignupPage } from "./features/auth/signup-page"
-import { BookingPage } from "./features/booking/booking-page"
-import { ManagePage } from "./features/booking/manage-page"
 import { LandingPage } from "./pages/landing-page"
 
+const BookingPage = lazy(() =>
+  import("./features/booking/booking-page").then((m) => ({ default: m.BookingPage }))
+)
+const ManagePage = lazy(() =>
+  import("./features/booking/manage-page").then((m) => ({ default: m.ManagePage }))
+)
 const AppShell = lazy(() =>
   import("./components/shell/app-shell").then((m) => ({ default: m.AppShell }))
 )
@@ -44,12 +48,14 @@ const Loading = () => (
 
 const deferred = (node: ReactNode) => <Suspense fallback={<Loading />}>{node}</Suspense>
 
+const galleryEnabled = import.meta.env.DEV || import.meta.env.VITE_DEV_UI === "1"
+
 export const router = createBrowserRouter([
   { path: "/", element: <LandingPage /> },
   { path: "/login", element: <LoginPage /> },
   { path: "/signup", element: <SignupPage /> },
-  { path: "/book/:clinicSlug", element: <BookingPage /> },
-  { path: "/manage/:token", element: <ManagePage /> },
+  { path: "/book/:clinicSlug", element: deferred(<BookingPage />) },
+  { path: "/manage/:token", element: deferred(<ManagePage />) },
   {
     path: "/app",
     element: deferred(
@@ -67,5 +73,5 @@ export const router = createBrowserRouter([
       { path: "settings", element: deferred(<SettingsPage />) }
     ]
   },
-  { path: "/dev/ui", element: deferred(<DevUiPage />) }
+  ...(galleryEnabled ? [{ path: "/dev/ui", element: deferred(<DevUiPage />) }] : [])
 ])

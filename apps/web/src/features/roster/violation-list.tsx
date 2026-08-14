@@ -26,7 +26,7 @@ interface GroupProps extends ViolationListProps {
 const Group = ({ violations, staffName, linkFor, heading, icon: Icon, tone, surfaceTone, testId }: GroupProps) =>
   violations.length === 0 ? null : (
     <div data-testid={testId}>
-      <h3 className={cn("flex items-center gap-1.5 text-sm font-semibold", tone)}>
+      <h3 className={cn("flex items-center gap-1.5 type-ui font-semibold", tone)}>
         <Icon className="h-4 w-4 shrink-0" aria-hidden="true" />
         <span>
           {heading} (<span className="tabular-nums">{violations.length}</span>)
@@ -38,7 +38,7 @@ const Group = ({ violations, staffName, linkFor, heading, icon: Icon, tone, surf
           return (
             <li
               key={`${violation.rule}-${violation.staffId}-${index}`}
-              className={cn("flex gap-2 rounded-md border p-2.5 text-sm", surfaceTone)}
+              className={cn("flex gap-2 rounded-md border p-2.5 type-ui", surfaceTone)}
             >
               <Icon className={cn("mt-0.5 h-4 w-4 shrink-0", tone)} aria-label={heading} />
               <div className="min-w-0 space-y-0.5">
@@ -68,7 +68,7 @@ export const ViolationList = ({ violations, staffName, linkFor }: ViolationListP
     return (
       <p
         data-testid="violations-clean"
-        className="flex items-center gap-2 text-sm text-muted-foreground"
+        className="flex items-center gap-2 type-ui text-muted-foreground"
       >
         <CircleCheck className="h-4 w-4 shrink-0 text-success" aria-hidden="true" />
         No violations

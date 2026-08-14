@@ -21,7 +21,8 @@ const ONE = "2026-08-03T06:00:00.000Z"
 
 const sizeClass = (element: Element): string | null => {
   for (let node: Element | null = element; node; node = node.parentElement) {
-    const found = /(?:^|\s)(text-(?:xs|sm|base|lg|xl|2xl|3xl))(?:\s|$)/.exec(node.className)
+    const className = typeof node.className === "string" ? node.className : ""
+    const found = /(?:^|\s)(type-(?:meta|dense|ui|supporting|body|card-title|subsection-title|section-title|page-title|display|display-lg))(?:\s|$)/.exec(className)
     if (found?.[1]) return found[1]
   }
   return null
@@ -124,6 +125,7 @@ describe("ManagePage", () => {
     expect(screen.getByText("Dr. Anong")).toBeInTheDocument()
     expect(screen.getByText("Sukhumvit")).toBeInTheDocument()
     expect(screen.getByText("Napat Chai")).toBeInTheDocument()
+    expect(screen.getByText("Bright Smile Dental")).toBeInTheDocument()
     expect(screen.getByRole("button", { name: "Cancel this booking" })).toBeInTheDocument()
   })
 
@@ -134,7 +136,7 @@ describe("ManagePage", () => {
 
     await user.click(screen.getByRole("button", { name: "Cancel this booking" }))
 
-    const dialog = await screen.findByTestId("cancel-confirm")
+    const dialog = await screen.findByRole("alertdialog")
     expect(within(dialog).getByText(/will be given to someone else/)).toBeInTheDocument()
     expect(cancels).toEqual([])
 
@@ -151,10 +153,10 @@ describe("ManagePage", () => {
     await screen.findByText("Mon, 3 Aug 2026 · 10:30")
 
     await user.click(screen.getByRole("button", { name: "Cancel this booking" }))
-    const dialog = await screen.findByTestId("cancel-confirm")
+    const dialog = await screen.findByRole("alertdialog")
     await user.click(within(dialog).getByRole("button", { name: "Keep my booking" }))
 
-    await waitFor(() => expect(screen.queryByTestId("cancel-confirm")).not.toBeInTheDocument())
+    await waitFor(() => expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument())
     expect(cancels).toEqual([])
     expect(screen.getByRole("button", { name: "Cancel this booking" })).toBeInTheDocument()
   })
@@ -269,6 +271,7 @@ describe("ManagePage", () => {
 
     const main = screen.getByRole("main")
     expect(main.className).toContain("min-h-dvh")
+    expect(main.className).toContain("safe-area-inset-bottom")
     expect(main.className).not.toContain("h-screen")
 
     const written = Array.from(main.querySelectorAll<HTMLElement>("*")).filter((element) =>
@@ -278,7 +281,7 @@ describe("ManagePage", () => {
     )
     expect(written.length).toBeGreaterThan(5)
     for (const element of written) {
-      expect(sizeClass(element)).not.toMatch(/text-(xs|sm)/)
+      expect(sizeClass(element)).not.toMatch(/type-(meta|dense)/)
     }
 
     expect(screen.getByText("Mon, 3 Aug 2026 · 10:30").className).toContain("tabular-nums")

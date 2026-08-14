@@ -34,4 +34,18 @@ describe("Button", () => {
     expect(screen.getByRole("button").className).toContain("focus-visible:ring-offset-background")
     expect(screen.getByRole("button").className).toContain("rounded-control")
   })
+
+  it("uses touch manipulation to make mobile taps immediate", () => {
+    render(<Button>Tap</Button>)
+    expect(screen.getByRole("button", { name: "Tap" }).className).toContain("touch-manipulation")
+  })
+
+  it("keeps default and small controls on the readable UI text role", () => {
+    const { rerender } = render(<Button>Default</Button>)
+    expect(screen.getByRole("button")).toHaveClass("type-ui")
+
+    rerender(<Button size="sm">Small</Button>)
+    expect(screen.getByRole("button")).toHaveClass("type-ui")
+    expect(screen.getByRole("button")).not.toHaveClass("text-xs")
+  })
 })

@@ -10,6 +10,7 @@ import { useQuery } from "@tanstack/react-query"
 import { useEffect, useState } from "react"
 import { z } from "zod"
 import { api } from "../../lib/api"
+import { queryKeys } from "../../lib/query-keys"
 import { DAY_MS, bkkDate, bkkDayStart, bkkShiftDate, fmtTime } from "../timeline/lib/geometry"
 
 export const WEEK_DAYS = 7
@@ -87,8 +88,7 @@ export interface ValidateRequest {
   draftShifts: DraftShift[]
 }
 
-export const weekShiftsKey = (branchId: string | undefined, weekStart: string) =>
-  ["roster-shifts", branchId, weekStart] as const
+export const weekShiftsKey = queryKeys.shifts.week
 
 export const useWeekShifts = (branchId: string | undefined, weekStart: string) =>
   useQuery({
@@ -100,7 +100,7 @@ export const useWeekShifts = (branchId: string | undefined, weekStart: string) =
 
 export const useWeekAppointments = (branchId: string | undefined, weekStart: string) =>
   useQuery({
-    queryKey: ["roster-appointments", branchId, weekStart],
+    queryKey: queryKeys.appointments.week(branchId, weekStart),
     enabled: branchId !== undefined,
     queryFn: () =>
       api("/appointments", z.array(appointmentSchema), {
@@ -127,7 +127,7 @@ export interface RosterValidationState {
 export const useRosterValidation = (request: ValidateRequest | null): RosterValidationState => {
   const settled = useDebounced(request, VALIDATE_DEBOUNCE_MS)
   const query = useQuery({
-    queryKey: ["roster-validate", settled],
+    queryKey: queryKeys.rosterValidation.for(settled),
     enabled: settled !== null,
     queryFn: () =>
       api("/roster/validate", rosterValidationSchema, { method: "POST", body: settled })

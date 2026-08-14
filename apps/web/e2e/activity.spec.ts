@@ -19,12 +19,18 @@ test("J6: the activity feed reads as who, what and when, with a deterministic en
   await expect(page).toHaveURL(/\/app\/timeline/)
 
   await page.goto("/app/activity")
-  await expect(page.getByRole("heading", { name: "Clinic activity" })).toBeVisible()
+  await expect(page.getByRole("heading", { name: "Activity", level: 1 })).toBeVisible()
 
   const entry = page.getByText("checked the roster").first()
   await expect(entry).toBeVisible()
 
   const row = entry.locator("xpath=ancestor::li[1]")
-  await expect(row.locator("time")).toBeVisible()
-  await expect(row.locator("[aria-label]").first()).toBeVisible()
+  await expect(
+    row.locator("time").first(),
+    "repeated roster checks cluster into one row, so match its header time"
+  ).toBeVisible()
+
+  const actor = row.locator("p span").first()
+  await expect(actor, "the row names who acted, not just what happened").toBeVisible()
+  await expect(actor).not.toBeEmpty()
 })

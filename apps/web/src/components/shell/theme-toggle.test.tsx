@@ -14,17 +14,16 @@ beforeEach(() => {
 })
 
 describe("ThemeToggle", () => {
-  it("says which theme is active and what pressing it will do", async () => {
+  it("shows the active theme and lets people choose a specific preference", async () => {
     localStorage.setItem("dentalops-theme", "light")
     render(<ThemeToggle />)
 
-    expect(screen.getByRole("button", { name: "Light theme. Switch to dark" })).toBeInTheDocument()
+    await userEvent.click(screen.getByRole("button", { name: "Theme: Light" }))
+    expect(screen.getByRole("menuitemradio", { name: "Light" })).toHaveAttribute("aria-checked", "true")
+    expect(screen.getByRole("menuitemradio", { name: "Dark" })).toHaveAttribute("aria-checked", "false")
 
-    await userEvent.click(screen.getByRole("button"))
-    expect(screen.getByRole("button", { name: "Dark theme. Switch to system" })).toBeInTheDocument()
-
-    await userEvent.click(screen.getByRole("button"))
-    expect(screen.getByRole("button", { name: "System theme. Switch to light" })).toBeInTheDocument()
+    await userEvent.click(screen.getByRole("menuitemradio", { name: "Dark" }))
+    expect(localStorage.getItem("dentalops-theme")).toBe("dark")
   })
 
   it("draws a different glyph for each state rather than one static face", async () => {
@@ -33,9 +32,11 @@ describe("ThemeToggle", () => {
     const glyph = () => container.querySelector("svg")?.innerHTML ?? ""
 
     const drawn = [glyph()]
-    await userEvent.click(screen.getByRole("button"))
+    await userEvent.click(screen.getByRole("button", { name: "Theme: Light" }))
+    await userEvent.click(screen.getByRole("menuitemradio", { name: "Dark" }))
     drawn.push(glyph())
-    await userEvent.click(screen.getByRole("button"))
+    await userEvent.click(screen.getByRole("button", { name: "Theme: Dark" }))
+    await userEvent.click(screen.getByRole("menuitemradio", { name: "System" }))
     drawn.push(glyph())
 
     expect(drawn.every((markup) => markup.length > 0)).toBe(true)

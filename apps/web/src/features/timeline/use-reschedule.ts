@@ -19,6 +19,16 @@ interface RescheduleOptions {
   onAnnounce?: (message: string) => void
 }
 
+const UNDO_MS = 8000
+
+const durationMinOf = (appointment: Appointment): number =>
+  Math.round((Date.parse(appointment.endsAt) - Date.parse(appointment.startsAt)) / 60_000)
+
+const movedFrom = (before: Appointment, after: Appointment): boolean =>
+  before.startsAt !== after.startsAt ||
+  before.dentistId !== after.dentistId ||
+  durationMinOf(before) !== durationMinOf(after)
+
 const applyOptimistic = (list: Appointment[], input: RescheduleInput): Appointment[] =>
   list.map((appointment) => {
     if (appointment.id !== input.id) return appointment
@@ -42,6 +52,7 @@ export const useRescheduleAppointment = ({
 }: RescheduleOptions) => {
   const queryClient = useQueryClient()
   const busy = useRef(new Set<string>())
+  const runRef = useRef<(input: RescheduleInput) => void>(() => {})
 
   const mutation = useMutation({
     mutationFn: (input: RescheduleInput) =>
@@ -57,8 +68,9 @@ export const useRescheduleAppointment = ({
     onMutate: async (input) => {
       await queryClient.cancelQueries({ queryKey })
       const previous = queryClient.getQueryData<Appointment[]>(queryKey)
+      const before = previous?.find((appointment) => appointment.id === input.id)
       if (previous) queryClient.setQueryData(queryKey, applyOptimistic(previous, input))
-      return { previous }
+      return { previous, before }
     },
     onError: (error, _input, context) => {
       if (context?.previous) queryClient.setQueryData(queryKey, context.previous)
@@ -85,7 +97,7 @@ export const useRescheduleAppointment = ({
       toast.error(message)
       onAnnounce?.(message)
     },
-    onSuccess: (updated) => {
+    onSuccess: (updated, _input, context) => {
       const cached = queryClient.getQueryData<Appointment[]>(queryKey)
       if (cached) {
         queryClient.setQueryData(
@@ -94,6 +106,23 @@ export const useRescheduleAppointment = ({
         )
       }
       onAnnounce?.(`Moved to ${fmtTime(Date.parse(updated.startsAt))}`)
+      const before = context?.before
+      if (!before || !movedFrom(before, updated)) return
+      toast.success(`Moved to ${fmtTime(Date.parse(updated.startsAt))}`, {
+        id: `moved-${updated.id}`,
+        duration: UNDO_MS,
+        action: {
+          label: "Undo",
+          onClick: () =>
+            runRef.current({
+              id: updated.id,
+              version: updated.version,
+              startsAt: before.startsAt,
+              dentistId: before.dentistId,
+              durationMin: durationMinOf(before)
+            })
+        }
+      })
     },
     onSettled: (_data, _error, input) => {
       busy.current.delete(input.id)
@@ -101,12 +130,15 @@ export const useRescheduleAppointment = ({
     }
   })
 
+  const reschedule = (input: RescheduleInput) => {
+    if (busy.current.has(input.id)) return
+    busy.current.add(input.id)
+    mutation.mutate(input)
+  }
+  runRef.current = reschedule
+
   return {
-    reschedule: (input: RescheduleInput) => {
-      if (busy.current.has(input.id)) return
-      busy.current.add(input.id)
-      mutation.mutate(input)
-    },
+    reschedule,
     isBusy: (id: string) => busy.current.has(id)
   }
 }

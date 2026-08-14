@@ -13,7 +13,19 @@ interface AxeViolation {
   nodes: Array<{ target: unknown[]; failureSummary?: string }>
 }
 
+const settleEntryAnimations = (page: Page) =>
+  page.waitForFunction(() =>
+    document
+      .getAnimations()
+      .filter(
+        (animation) =>
+          (animation.effect as KeyframeEffect | null)?.getComputedTiming().iterations !== Infinity
+      )
+      .every((animation) => animation.playState === "finished")
+  )
+
 const scan = async (page: Page, context?: string) => {
+  await settleEntryAnimations(page)
   const builder = new AxeBuilder({ page }).withTags([
     "wcag2a",
     "wcag2aa",
@@ -133,7 +145,7 @@ test.describe("staff screens", () => {
       await page.setViewportSize(viewport)
       await signIn(page)
       await page.goto("/app/settings")
-      await expect(page.getByRole("navigation", { name: "Settings sections" })).toBeVisible()
+      await expect(page.getByRole("heading", { name: "Clinic profile" })).toBeVisible()
       await expectClean(page)
     })
   }
@@ -145,11 +157,41 @@ test.describe("staff screens", () => {
     await expectClean(page)
   })
 
+  test("the chair layout has no serious or critical violations at 1440px", async ({
+    page,
+    request
+  }) => {
+    await page.setViewportSize(DESKTOP)
+    const token = await demoLogin(request)
+    const branches = await getJson<Array<{ id: string }>>(request, token, "/branches")
+    const branch = branches[0]
+    expect(branch).toBeDefined()
+
+    await signIn(page)
+    await page.goto(`/app/timeline?d=${nextMonday()}&b=${branch!.id}&c=chair`)
+    await expect(page.getByTestId("chair-read-only")).toBeVisible()
+    await page.waitForSelector("[data-testid='timegrid-scroll']")
+    await expectClean(page)
+  })
+
+  test("the keyboard shortcut list has no serious or critical violations", async ({ page }) => {
+    await page.setViewportSize(DESKTOP)
+    await signIn(page)
+    await page.waitForSelector("[data-testid='timegrid-scroll']")
+
+    await page.keyboard.press("Shift+Slash")
+    await expect(page.getByTestId("keyboard-shortcuts")).toBeVisible()
+    await expectClean(page)
+
+    await page.keyboard.press("Escape")
+    await expect(page.getByTestId("keyboard-shortcuts")).toHaveCount(0)
+  })
+
   test("roster editor has no serious or critical violations at 1440px", async ({ page }) => {
     await page.setViewportSize(DESKTOP)
     await signIn(page)
     await page.goto("/app/roster")
-    await expect(page.getByRole("button", { name: /Add shift/ })).toBeVisible()
+    await expect(page.getByRole("button", { name: /Add shift for / }).first()).toBeVisible()
     await expectClean(page)
   })
 
@@ -253,7 +295,7 @@ test.describe("what axe cannot see", () => {
 
     await page.getByTestId("bottom-nav").getByRole("link", { name: "Activity" }).click()
     await expect(page).toHaveURL(/\/app\/activity/)
-    await expect(page.getByRole("heading", { name: "Clinic activity" })).toBeVisible()
+    await expect(page.getByRole("heading", { name: "Activity", level: 1 })).toBeVisible()
     await expectClean(page)
   })
 
@@ -285,7 +327,7 @@ test.describe("wcag 2.2 checks axe does not make", () => {
     await page.locator("body").press("Tab")
 
     const firstStop = await page.evaluate(() => document.activeElement?.textContent ?? "")
-    expect(firstStop).toContain("Skip to the schedule")
+    expect(firstStop).toContain("Skip to main content")
 
     await page.keyboard.press("Enter")
     await expect(page.locator("main#main")).toBeVisible()

@@ -2,17 +2,19 @@ import { authSessionSchema } from "@dentalops/contracts"
 import { ArrowRight, CalendarClock, Stethoscope, Users } from "lucide-react"
 import { useCallback, useRef, useState, type ReactElement } from "react"
 import { Link, useNavigate } from "react-router"
+import { toast } from "sonner"
 import { z } from "zod"
 import { Button } from "../../components/ui/button"
 import { api } from "../../lib/api"
 import { setSession } from "../../lib/session"
-import { AuthCard, Field, FieldInput, FormError, PasswordStrengthHint, SubmitButton } from "./auth-form"
+import { Field, FieldInput, FormError, SubmitButton } from "../../components/ui/form-field"
+import { AuthCard, PasswordStrengthHint } from "./auth-form"
 import { SLUG_PATTERN, toSlug } from "./slug"
 import { useAuthForm } from "./use-auth-form"
 
 export const LAST_CLINIC_KEY = "dentalops.lastClinic"
 
-const SLUG_GUIDANCE = "Latin letters, numbers and hyphens — this becomes your public booking link."
+const SLUG_GUIDANCE = "Latin letters, numbers and hyphens. This becomes your public booking link."
 
 const signupSchema = z.object({
   clinicName: z
@@ -42,8 +44,11 @@ const rememberClinic = (slug: string): void => {
   }
 }
 
+const bookingUrl = (slug: string): string =>
+  typeof window === "undefined" ? `/book/${slug}` : `${window.location.origin}/book/${slug}`
+
 const bookingHost = (): string =>
-  typeof window === "undefined" ? "" : `${window.location.host}/book/`
+  typeof window === "undefined" ? "/book/" : `${window.location.host}/book/`
 
 interface ReadyState {
   clinicName: string
@@ -72,6 +77,7 @@ export const SignupPage = (): ReactElement => {
   const navigate = useNavigate()
   const slugEdited = useRef(false)
   const [ready, setReady] = useState<ReadyState | null>(null)
+  const [copied, setCopied] = useState(false)
 
   const onSubmit = useCallback(async (values: SignupValues) => {
     const session = await api("/auth/signup", authSessionSchema, {
@@ -86,36 +92,71 @@ export const SignupPage = (): ReactElement => {
   const form = useAuthForm({ schema: signupSchema, initial, onSubmit, fieldForErrorCode })
 
   if (ready) {
+    const publicBookingUrl = bookingUrl(ready.slug)
     return (
-      <AuthCard title="You're ready" subtitle={`${ready.clinicName} is live. A few things make it feel complete.`}>
+      <AuthCard
+        page="signup"
+        title="Your clinic is created"
+        subtitle={`${ready.clinicName} is ready for its first setup steps.`}
+      >
         <div className="space-y-5">
           <div className="rounded-control border border-border bg-surface-subtle p-3">
-            <p className="text-sm font-medium text-foreground">Public booking link</p>
-            <code className="mt-1 block break-all text-sm text-muted-foreground">
-              {bookingHost()}
-              {ready.slug}
+            <p className="type-ui font-medium text-foreground">Public booking link</p>
+            <code className="mt-1 block break-all type-ui text-muted-foreground">
+              {publicBookingUrl}
             </code>
+            <div className="mt-3 flex flex-wrap gap-2">
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => {
+                  if (!navigator.clipboard) {
+                    toast.error("Could not copy the booking link")
+                    return
+                  }
+
+                  void navigator.clipboard.writeText(publicBookingUrl).then(
+                    () => {
+                      setCopied(true)
+                      toast.success("Booking link copied")
+                    },
+                    () => toast.error("Could not copy the booking link")
+                  )
+                }}
+              >
+                {copied ? "Copied" : "Copy booking link"}
+              </Button>
+              <a
+                href={publicBookingUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex h-9 items-center rounded-control px-3 type-meta font-semibold text-primary hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+              >
+                Open booking page
+              </a>
+            </div>
           </div>
-          <ul className="space-y-3">
+          <ol className="space-y-3">
             {SETUP_CHECKLIST.map(({ icon: Icon, title, description }) => (
               <li key={title} className="flex items-start gap-3">
                 <span className="flex size-8 shrink-0 items-center justify-center rounded-control bg-accent text-primary">
                   <Icon className="size-4" aria-hidden="true" />
                 </span>
                 <span>
-                  <span className="block text-sm font-medium text-foreground">{title}</span>
-                  <span className="block text-sm text-muted-foreground">{description}</span>
+                  <span className="block type-ui font-medium text-foreground">{title}</span>
+                  <span className="block type-ui text-muted-foreground">{description}</span>
                 </span>
               </li>
             ))}
-          </ul>
+          </ol>
           <Button
-            className="h-11 w-full sm:h-10 font-semibold"
-            onClick={() => void navigate("/app/timeline")}
+            className="w-full font-semibold"
+            onClick={() => void navigate("/app/settings#branches")}
           >
-            Go to your clinic
+            Set branch hours
             <ArrowRight className="size-4" aria-hidden="true" />
           </Button>
+          <Button variant="secondary" className="w-full" onClick={() => void navigate("/app/timeline")}>Go to schedule</Button>
         </div>
       </AuthCard>
     )
@@ -133,21 +174,29 @@ export const SignupPage = (): ReactElement => {
 
   return (
     <AuthCard
+      page="signup"
       title="Create a clinic"
       subtitle="Your own schedule, roster and booking page in about two minutes."
       footer={
         <>
           Already have a clinic?{" "}
-          <Link className="underline" to="/login">
+          <Link
+            className="font-medium text-foreground underline underline-offset-4 transition-colors hover:text-primary"
+            to="/login"
+          >
             Sign in
           </Link>
         </>
       }
     >
-      <form ref={form.formRef} onSubmit={form.submit} noValidate className="space-y-4">
+      <form ref={form.formRef} onSubmit={form.submit} noValidate className="space-y-5">
         <FormError message={form.formError} />
 
-        <Field id="clinicName" label="Clinic name" error={form.errors.clinicName}>
+        <fieldset className="min-w-0 space-y-4">
+          <legend className="type-meta font-semibold uppercase tracking-wider text-muted-foreground">
+            Your clinic
+          </legend>
+          <Field id="clinicName" label="Clinic name" error={form.errors.clinicName}>
           {(aria) => (
             <FieldInput
               {...aria}
@@ -158,15 +207,18 @@ export const SignupPage = (): ReactElement => {
               onChange={(event) => setClinicName(event.target.value)}
             />
           )}
-        </Field>
+          </Field>
 
-        <Field id="slug" label="Clinic URL" error={form.errors.slug} hint={SLUG_GUIDANCE}>
+          <Field id="slug" label="Clinic URL" error={form.errors.slug} hint={SLUG_GUIDANCE}>
           {(aria) => (
-            <div className="flex flex-col gap-1 sm:flex-row sm:items-center">
-              <span aria-hidden="true" className="shrink-0 truncate text-sm text-muted-foreground">
+            <div className="flex h-11 w-full items-center rounded-control border border-input bg-background shadow-xs transition-[border-color,box-shadow] duration-150 focus-within:ring-2 focus-within:ring-ring sm:h-10">
+              <span
+                aria-hidden="true"
+                className="flex h-full min-w-0 items-center truncate rounded-l-control border-r border-input bg-surface-subtle px-3 type-body text-muted-foreground"
+              >
                 {bookingHost()}
               </span>
-              <FieldInput
+              <input
                 {...aria}
                 name="slug"
                 type="text"
@@ -174,12 +226,19 @@ export const SignupPage = (): ReactElement => {
                 spellCheck={false}
                 value={form.values.slug}
                 onChange={(event) => setSlug(event.target.value)}
+                className="h-full w-0 min-w-0 flex-1 basis-32 bg-transparent px-3 type-body outline-none placeholder:text-muted-foreground"
+                placeholder="bright-smile"
               />
             </div>
           )}
-        </Field>
+          </Field>
+        </fieldset>
 
-        <Field id="name" label="Your name" error={form.errors.name}>
+        <fieldset className="min-w-0 space-y-4">
+          <legend className="type-meta font-semibold uppercase tracking-wider text-muted-foreground">
+            Your account
+          </legend>
+          <Field id="name" label="Your name" error={form.errors.name}>
           {(aria) => (
             <FieldInput
               {...aria}
@@ -190,22 +249,23 @@ export const SignupPage = (): ReactElement => {
               onChange={(event) => form.set("name", event.target.value)}
             />
           )}
-        </Field>
+          </Field>
 
-        <Field id="email" label="Email" error={form.errors.email}>
+          <Field id="email" label="Email" error={form.errors.email}>
           {(aria) => (
             <FieldInput
               {...aria}
               name="email"
               type="email"
               autoComplete="email"
+              spellCheck={false}
               value={form.values.email}
               onChange={(event) => form.set("email", event.target.value)}
             />
           )}
-        </Field>
+          </Field>
 
-        <Field id="password" label="Password" error={form.errors.password}>
+          <Field id="password" label="Password" error={form.errors.password} hint="Use at least 8 characters.">
           {(aria) => (
             <div className="space-y-1">
               <FieldInput
@@ -219,7 +279,8 @@ export const SignupPage = (): ReactElement => {
               <PasswordStrengthHint password={form.values.password} />
             </div>
           )}
-        </Field>
+          </Field>
+        </fieldset>
 
         <SubmitButton pending={form.pending} pendingLabel="Creating your clinic…">
           Create clinic

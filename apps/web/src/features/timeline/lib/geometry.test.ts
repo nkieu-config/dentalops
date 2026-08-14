@@ -1,16 +1,21 @@
+import type { Shift } from "@dentalops/contracts"
 import { describe, expect, it } from "vitest"
 import {
   bkkDate,
   bkkDayStart,
   bkkShiftDate,
   bkkWeekStart,
+  fmtCompactDay,
   fmtTime,
   fmtWeekdayShort,
+  initialTimelineMinute,
+  MINUTES_PER_DAY,
   msToY,
   snapCeil,
   snapFloor,
+  timelineWindow,
   weekDates,
-  yToMs
+  yToMs,
 } from "./geometry"
 
 const day = bkkDayStart("2026-08-03")
@@ -68,12 +73,80 @@ describe("geometry", () => {
       "2026-08-06",
       "2026-08-07",
       "2026-08-08",
-      "2026-08-09"
+      "2026-08-09",
     ])
   })
 
   it("abbreviates the weekday for a compact column label", () => {
     expect(fmtWeekdayShort("2026-08-03")).toBe("Mon")
     expect(fmtWeekdayShort("2026-08-01")).toBe("Sat")
+  })
+
+  it("formats a compact day label without the weekday or year", () => {
+    expect(fmtCompactDay("2026-08-03")).toBe("3 Aug")
+  })
+
+  it("frames the grid an hour either side of the day's shifts", () => {
+    expect(
+      timelineWindow(
+        [{ startsAt: "2026-08-03T02:00:00.000Z", endsAt: "2026-08-03T12:00:00.000Z" }],
+        [],
+      ),
+    ).toEqual({ startMin: 8 * 60, endMin: 20 * 60 })
+  })
+
+  it("stretches the frame to cover an appointment booked outside every shift", () => {
+    expect(
+      timelineWindow(
+        [{ startsAt: "2026-08-03T02:00:00.000Z", endsAt: "2026-08-03T10:00:00.000Z" }],
+        [{ startsAt: "2026-08-03T13:30:00.000Z", endsAt: "2026-08-03T14:30:00.000Z" }],
+      ),
+    ).toEqual({ startMin: 8 * 60, endMin: 22 * 60 })
+  })
+
+  it("falls back to a working day when neither shifts nor appointments exist", () => {
+    expect(timelineWindow([], [])).toEqual({ startMin: 8 * 60, endMin: 20 * 60 })
+  })
+
+  it("never frames less than eight hours around a short shift", () => {
+    const { startMin, endMin } = timelineWindow(
+      [{ startsAt: "2026-08-03T02:00:00.000Z", endsAt: "2026-08-03T03:00:00.000Z" }],
+      [],
+    )
+    expect(endMin - startMin).toBe(8 * 60)
+    expect(startMin).toBe(8 * 60)
+  })
+
+  it("keeps the frame inside the calendar day when a shift runs to midnight", () => {
+    const { startMin, endMin } = timelineWindow(
+      [{ startsAt: "2026-08-03T14:00:00.000Z", endsAt: "2026-08-03T16:59:00.000Z" }],
+      [],
+    )
+    expect(startMin).toBeGreaterThanOrEqual(0)
+    expect(endMin).toBe(MINUTES_PER_DAY)
+  })
+
+  it("starts today's grid one hour before the current clinic time", () => {
+    const now = Date.parse("2026-08-03T06:00:00.000Z")
+    expect(initialTimelineMinute("2026-08-03", now, [])).toBe(12 * 60)
+  })
+
+  it("starts a future grid one hour before its earliest shift", () => {
+    const shifts = [{ startsAt: "2026-08-04T03:00:00.000Z" }] as Shift[]
+    expect(
+      initialTimelineMinute("2026-08-04", Date.parse("2026-08-03T06:00:00.000Z"), shifts),
+    ).toBe(9 * 60)
+  })
+
+  it("falls back to 08:00 and clamps the initial grid position", () => {
+    expect(initialTimelineMinute("2026-08-04", Date.parse("2026-08-03T06:00:00.000Z"), [])).toBe(
+      480,
+    )
+    expect(initialTimelineMinute("2026-08-03", Date.parse("2026-08-02T18:00:00.000Z"), [])).toBe(0)
+    expect(
+      initialTimelineMinute("2026-08-04", Date.parse("2026-08-03T06:00:00.000Z"), [
+        { startsAt: "2026-08-05T01:00:00.000Z" },
+      ] as Shift[]),
+    ).toBe(23 * 60)
   })
 })

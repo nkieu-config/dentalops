@@ -1,9 +1,10 @@
 import { cva, type VariantProps } from "class-variance-authority"
 import { ButtonHTMLAttributes, forwardRef } from "react"
 import { cn } from "../../lib/cn"
+import { disabledControl, focusRing } from "./focus-ring"
 
 export const buttonVariants = cva(
-  "inline-flex items-center justify-center gap-2 rounded-control text-sm font-semibold transition-[background-color,color,box-shadow,transform] duration-150 active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:pointer-events-none disabled:opacity-50 cursor-pointer",
+  `inline-flex touch-manipulation items-center justify-center gap-2 rounded-control type-ui font-semibold transition-[background-color,color,box-shadow,transform] duration-150 active:scale-[0.97] cursor-pointer ${focusRing} ${disabledControl}`,
   {
     variants: {
       variant: {
@@ -13,9 +14,10 @@ export const buttonVariants = cva(
         destructive: "bg-destructive text-destructive-foreground shadow-xs hover:bg-destructive/90"
       },
       size: {
-        default: "h-11 px-4 sm:h-9",
-        sm: "h-9 px-3 text-xs sm:h-8",
-        icon: "h-11 w-11 sm:h-9 sm:w-9"
+        default: "h-11 px-4 sm:h-10 [@media(pointer:coarse)]:h-11",
+        sm: "h-9 px-3 [@media(pointer:coarse)]:h-11",
+        lg: "min-h-12 px-5 type-body",
+        icon: "h-11 w-11 sm:h-10 sm:w-10 [@media(pointer:coarse)]:h-11 [@media(pointer:coarse)]:w-11"
       }
     },
     defaultVariants: { variant: "default", size: "default" }

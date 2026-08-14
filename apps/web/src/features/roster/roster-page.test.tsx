@@ -1,19 +1,20 @@
 import type { Shift, UserRole, Violation } from "@dentalops/contracts"
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
-import { fireEvent, render, screen, waitFor, within } from "@testing-library/react"
+import { fireEvent, render, screen, waitFor, within } from "../../test/render"
 import userEvent from "@testing-library/user-event"
 import { MemoryRouter, Route, Routes } from "react-router"
 import { describe, expect, it } from "vitest"
 import { OFFLINE_MESSAGE } from "../../components/shell/offline-banner"
 import { setSession } from "../../lib/session"
-import { API, http, HttpResponse, server } from "../../test/msw"
+import { API, delay, http, HttpResponse, server } from "../../test/msw"
 import { goOffline, goOnline } from "../../test/network"
 import { setViewport, type Viewport } from "../../test/viewport"
-import { bkkToday, fmtDay } from "../timeline/lib/geometry"
+import { bkkShiftDate, bkkToday, fmtScheduleDay } from "../timeline/lib/geometry"
 import { bkkWeekStart } from "./hooks"
 import { RosterRoute } from "./roster-page"
 
 const branchId = "1f9619ff-8b86-4d01-b42d-00cf4fc964ff"
+const ladpraoBranchId = "3f9619ff-8b86-4d01-b42d-00cf4fc964ff"
 const anongId = "2f9619ff-8b86-4d01-b42d-00cf4fc964ff"
 const somchaiId = "8f9619ff-8b86-4d01-b42d-00cf4fc964ff"
 const serviceId = "5f9619ff-8b86-4d01-b42d-00cf4fc964ff"
@@ -92,7 +93,7 @@ interface RosterState {
 const useHandlers = (state: RosterState) => {
   server.use(
     http.get(`${API}/branches`, () =>
-      HttpResponse.json([{ id: branchId, name: "Sukhumvit", openingHours: {} }])
+      HttpResponse.json([{ id: branchId, name: "Sukhumvit", openingHours: {}, timezone: "Asia/Bangkok", isActive: true }])
     ),
     http.get(`${API}/staff`, () =>
       HttpResponse.json([
@@ -142,7 +143,7 @@ const freshState = (shifts = savedShifts()): RosterState => ({
   patched: []
 })
 
-const mount = (viewport: Viewport, role: UserRole = "owner") => {
+const mount = (viewport: Viewport, role: UserRole = "owner", week = "2026-08-03") => {
   setViewport(viewport)
   setSession({
     accessToken: "t1",
@@ -151,7 +152,7 @@ const mount = (viewport: Viewport, role: UserRole = "owner") => {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   return render(
     <QueryClientProvider client={client}>
-      <MemoryRouter initialEntries={["/app/roster?w=2026-08-03"]}>
+      <MemoryRouter initialEntries={[`/app/roster?w=${week}`]}>
         <Routes>
           <Route path="/app/roster" element={<RosterRoute />} />
           <Route path="/app/timeline" element={<p>Timeline stub</p>} />
@@ -162,7 +163,7 @@ const mount = (viewport: Viewport, role: UserRole = "owner") => {
 }
 
 const openMondayShift = async () => {
-  await userEvent.click(await screen.findByTestId(`shift-${monShiftId}`))
+  await userEvent.click(await screen.findByTestId(`shift-edit-${monShiftId}`))
   return await screen.findByRole("dialog")
 }
 
@@ -173,7 +174,7 @@ const setEndTime = (dialog: HTMLElement, value: string) => {
 describe("RosterPage", () => {
   it("renders the whole week with each staff member's shifts", async () => {
     useHandlers(freshState())
-    mount("lg")
+    mount("xl")
 
     expect(await screen.findByTestId(`shift-${monShiftId}`)).toHaveTextContent("09:00–17:00")
     expect(screen.getByTestId("roster-grid")).toBeInTheDocument()
@@ -185,8 +186,48 @@ describe("RosterPage", () => {
     expect(screen.getByText("Dr. Somchai")).toBeInTheDocument()
     expect(screen.getByTestId(`shift-${tueShiftId}`)).toBeInTheDocument()
     expect(screen.getByTestId(`shift-${somchaiShiftId}`)).toBeInTheDocument()
-    expect(screen.getByTestId("violations-panel")).toBeInTheDocument()
-    expect(screen.getByTestId("coverage-health")).toHaveTextContent("no violations")
+    expect(screen.getByTestId("roster-title")).toHaveTextContent("Roster")
+    expect(screen.queryByTestId("violations-panel")).not.toBeInTheDocument()
+    expect(screen.queryByTestId("coverage-health")).not.toBeInTheDocument()
+    expect(screen.queryByRole("button", { name: /Review/ })).not.toBeInTheDocument()
+    expect(screen.getByRole("button", { name: /^Week of/ })).toHaveTextContent("Week of")
+  })
+
+  it("fits the shell by flexing instead of guessing the header height", async () => {
+    useHandlers(freshState())
+    mount("xl")
+    await screen.findByTestId("roster-grid")
+
+    const page = screen.getByTestId("roster-command-surface").closest("header")!.parentElement!
+    expect(page.className).toContain("flex-1")
+    expect(page.className).not.toContain("100dvh")
+    expect(page.className).not.toContain("calc(")
+  })
+
+  it("frames the roster in the same floating surfaces the rest of the workspace uses", async () => {
+    useHandlers(freshState())
+    mount("xl")
+    await screen.findByTestId("roster-grid")
+
+    expect(screen.getByTestId("roster-command-surface")).toHaveClass(
+      "rounded-hero",
+      "border",
+      "border-border",
+      "bg-card",
+      "shadow-xs"
+    )
+    expect(screen.getByTestId("roster-grid")).toHaveClass("rounded-timeline-shell", "border")
+  })
+
+  it("keeps the roster header focused on the week and branch controls", async () => {
+    useHandlers(freshState())
+    mount("xl")
+
+    await screen.findByTestId("roster-grid")
+
+    expect(screen.queryByText("Schedule dentist availability and review coverage")).not.toBeInTheDocument()
+    expect(screen.queryByText("Branch", { exact: true })).not.toBeInTheDocument()
+    expect(screen.getByRole("combobox", { name: "Branch: Sukhumvit" })).toBeInTheDocument()
   })
 
   it("does not claim the roster is clean when validation itself fails to load", async () => {
@@ -199,34 +240,98 @@ describe("RosterPage", () => {
         )
       )
     )
-    mount("lg")
+    mount("xl")
 
     await screen.findByTestId("roster-grid")
-    await waitFor(() =>
-      expect(screen.getByTestId("coverage-health")).toHaveTextContent("could not check")
-    )
     expect(await screen.findByText("Could not check coverage")).toBeInTheDocument()
+    expect(screen.getByTestId("violations-panel")).toBeInTheDocument()
+    expect(screen.queryByRole("button", { name: /Review/ })).not.toBeInTheDocument()
 
     const dialog = await openMondayShift()
     expect(within(dialog).getByText("Could not check this draft")).toBeInTheDocument()
-    expect(within(dialog).getByRole("button", { name: "Save" })).toBeDisabled()
+    expect(within(dialog).getByRole("button", { name: "Save shift" })).toBeDisabled()
   })
 
   it("jumps back to the current week when Today is pressed", async () => {
     useHandlers(freshState())
-    mount("lg")
+    mount("xl")
 
     expect(await screen.findByTestId("roster-grid")).toBeInTheDocument()
     await userEvent.click(screen.getByRole("button", { name: "Today" }))
 
     const expectedWeek = bkkWeekStart(bkkToday())
-    expect(await screen.findByText(`Week of ${fmtDay(expectedWeek)}`)).toBeInTheDocument()
+    expect(
+      await screen.findByRole("button", {
+        name: `Week of ${fmtScheduleDay(expectedWeek)} to ${fmtScheduleDay(bkkShiftDate(expectedWeek, 6))}`
+      })
+    ).toBeVisible()
+  })
+
+  it("lets any week be reached without stepping one arrow at a time", async () => {
+    useHandlers(freshState())
+    mount("xl")
+    await screen.findByTestId("roster-grid")
+
+    await userEvent.click(screen.getByRole("button", { name: /^Week of/ }))
+
+    expect(await screen.findByRole("dialog")).toBeInTheDocument()
+    expect(screen.getByRole("grid")).toBeInTheDocument()
+  })
+
+  it("keeps the add-shift affordance readable rather than fading it below the contrast floor", async () => {
+    useHandlers(freshState())
+    mount("xl")
+    await screen.findByTestId("roster-grid")
+
+    const empty = screen.getByTestId(`cell-${anongId}-2026-08-05`)
+    expect(empty.className).toContain("text-muted-foreground")
+    expect(empty.className).not.toContain("text-muted-foreground/")
+  })
+
+  it("renders Branch with the shared custom select trigger", async () => {
+    useHandlers(freshState())
+    mount("sm")
+
+    const field = await screen.findByRole("combobox", { name: "Branch: Sukhumvit" })
+    expect(field).toHaveAttribute("data-slot", "select-trigger")
+    expect(screen.getByTestId("branch-field")).toHaveClass("min-w-0")
+    expect(field).toHaveClass("flex-1", "rounded-full")
+  })
+
+  it("announces a schedule refresh after the branch changes", async () => {
+    useHandlers(freshState())
+    server.use(
+      http.get(`${API}/branches`, () =>
+        HttpResponse.json([
+          { id: branchId, name: "Sukhumvit", openingHours: {}, timezone: "Asia/Bangkok", isActive: true },
+          { id: ladpraoBranchId, name: "Ladprao", openingHours: {}, timezone: "Asia/Bangkok", isActive: true }
+        ])
+      ),
+      http.get(`${API}/shifts`, async ({ request }) => {
+        if (new URL(request.url).searchParams.get("branchId") === ladpraoBranchId) await delay(100)
+        return HttpResponse.json([])
+      })
+    )
+    mount("xl")
+
+    const field = await screen.findByRole("combobox", { name: "Branch: Sukhumvit" })
+    await userEvent.click(field)
+    await userEvent.click(await screen.findByRole("option", { name: "Ladprao" }))
+
+    expect(await screen.findByRole("status")).toHaveTextContent("Loading Ladprao schedule…")
+  })
+
+  it("marks today in the roster grid when the selected week contains it", async () => {
+    useHandlers(freshState())
+    mount("xl", "owner", bkkWeekStart(bkkToday()))
+
+    expect(await screen.findByTestId(`day-${bkkToday()}`)).toHaveAttribute("data-today", "true")
   })
 
   it("validates the draft being edited, not the shifts already saved", async () => {
     const state = freshState()
     useHandlers(state)
-    mount("lg")
+    mount("xl")
 
     const dialog = await openMondayShift()
     state.bodies.length = 0
@@ -251,10 +356,10 @@ describe("RosterPage", () => {
   it("a blocking violation disables Save and resolving it re-enables Save", async () => {
     const state = freshState()
     useHandlers(state)
-    mount("lg")
+    mount("xl")
 
     const dialog = await openMondayShift()
-    const save = within(dialog).getByRole("button", { name: "Save" })
+    const save = within(dialog).getByRole("button", { name: "Save shift" })
     await waitFor(() => expect(save).toBeEnabled())
 
     setEndTime(dialog, "15:00")
@@ -272,7 +377,7 @@ describe("RosterPage", () => {
 
   it("links each blocking violation to the affected appointments on the timeline", async () => {
     useHandlers(freshState())
-    mount("lg")
+    mount("xl")
 
     const dialog = await openMondayShift()
     setEndTime(dialog, "15:00")
@@ -284,11 +389,11 @@ describe("RosterPage", () => {
   it("edits a shift in place, never deleting it first, and closes the dialog", async () => {
     const state = freshState()
     useHandlers(state)
-    mount("lg")
+    mount("xl")
 
     const dialog = await openMondayShift()
     setEndTime(dialog, "18:00")
-    const save = within(dialog).getByRole("button", { name: "Save" })
+    const save = within(dialog).getByRole("button", { name: "Save shift" })
     await waitFor(() => expect(save).toBeEnabled())
     await userEvent.click(save)
 
@@ -305,17 +410,78 @@ describe("RosterPage", () => {
     await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument())
   })
 
-  it("deletes a shift from the dialog", async () => {
+  it("requires confirmation before deleting a shift", async () => {
     const state = freshState()
     useHandlers(state)
-    mount("lg")
+    mount("xl")
 
     const dialog = await openMondayShift()
-    await userEvent.click(within(dialog).getByRole("button", { name: "Delete" }))
+    await userEvent.click(within(dialog).getByRole("button", { name: "Delete shift" }))
+
+    expect(state.deleted).toEqual([])
+    const confirmation = await screen.findByRole("alertdialog", { name: "Delete shift?" })
+    expect(within(confirmation).getByText("This permanently removes the shift from the roster.")).toBeVisible()
+    await userEvent.click(within(confirmation).getByRole("button", { name: "Delete permanently" }))
 
     await waitFor(() => expect(state.deleted).toEqual([monShiftId]))
     expect(state.created).toHaveLength(0)
     await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument())
+  })
+
+  it("keeps the delete confirmation open while the shift removal is still pending", async () => {
+    const state = freshState()
+    useHandlers(state)
+    server.use(
+      http.delete(`${API}/shifts/:id`, async ({ params }) => {
+        await delay(100)
+        state.deleted.push(String(params.id))
+        return new HttpResponse(null, { status: 204 })
+      })
+    )
+    mount("xl")
+
+    const dialog = await openMondayShift()
+    await userEvent.click(within(dialog).getByRole("button", { name: "Delete shift" }))
+    const confirmation = await screen.findByRole("alertdialog", { name: "Delete shift?" })
+    await userEvent.click(within(confirmation).getByRole("button", { name: "Delete permanently" }))
+
+    expect(screen.getByRole("alertdialog", { name: "Delete shift?" })).toBeInTheDocument()
+    expect(screen.getByRole("button", { name: "Working…" })).toBeDisabled()
+    await waitFor(() => expect(state.deleted).toEqual([monShiftId]))
+  })
+
+  it("opens a blank grid cell as a shift draft for that dentist and day", async () => {
+    useHandlers(freshState())
+    mount("xl")
+
+    const cell = await screen.findByTestId(`cell-${anongId}-2026-08-05`)
+    await userEvent.click(cell)
+
+    const dialog = await screen.findByRole("dialog")
+    expect(within(dialog).getByRole("combobox", { name: "Dentist" })).toHaveTextContent("Dr. Anong")
+    expect(within(dialog).getByLabelText("Date")).toHaveValue("2026-08-05")
+  })
+
+  it("opens the top-level add shift action without hidden dentist or date defaults", async () => {
+    useHandlers(freshState())
+    mount("xl")
+
+    await userEvent.click(await screen.findByRole("button", { name: "Add shift" }))
+
+    const dialog = await screen.findByRole("dialog")
+    expect(within(dialog).getByRole("combobox", { name: "Dentist" })).toHaveTextContent("Choose a dentist")
+    expect(within(dialog).getByLabelText("Date")).toHaveValue("")
+  })
+
+  it("explains an invalid shift interval beside its time fields", async () => {
+    useHandlers(freshState())
+    mount("xl")
+
+    const dialog = await openMondayShift()
+    setEndTime(dialog, "08:00")
+
+    expect(within(dialog).getByText("End time must be later than start time.")).toBeVisible()
+    expect(within(dialog).getByRole("button", { name: "Save shift" })).toBeDisabled()
   })
 
   it("shows a three-day window between 768 and 1023", async () => {
@@ -327,11 +493,21 @@ describe("RosterPage", () => {
     expect(screen.getByTestId("day-2026-08-03")).toBeInTheDocument()
     expect(screen.queryByTestId("day-2026-08-06")).not.toBeInTheDocument()
     expect(screen.queryByTestId("violations-panel")).not.toBeInTheDocument()
+    expect(screen.getByTestId("visible-date-window")).toHaveTextContent("Showing Mon 3 - Wed 5")
 
     await userEvent.click(screen.getByRole("button", { name: "Later days" }))
     expect(await screen.findByTestId("day-2026-08-06")).toBeInTheDocument()
     expect(screen.queryByTestId("day-2026-08-03")).not.toBeInTheDocument()
     expect(screen.getAllByTestId(/^day-/)).toHaveLength(3)
+  })
+
+  it("keeps the compact three-day roster at 1024px", async () => {
+    useHandlers(freshState())
+    mount("lg")
+
+    expect(await screen.findByTestId("roster-grid")).toBeInTheDocument()
+    expect(screen.getAllByTestId(/^day-/)).toHaveLength(3)
+    expect(screen.queryByTestId("violations-panel")).not.toBeInTheDocument()
   })
 
   it("falls back to a per-staff list below 768 with violations in a bottom sheet", async () => {
@@ -346,8 +522,8 @@ describe("RosterPage", () => {
     expect(screen.queryByTestId("roster-grid")).not.toBeInTheDocument()
     expect(screen.queryByTestId("violations-panel")).not.toBeInTheDocument()
 
-    const trigger = await screen.findByRole("button", { name: /Validation/ })
-    await waitFor(() => expect(trigger).toHaveAccessibleName("Validation (1 blocking)"))
+    const trigger = await screen.findByRole("button", { name: /Review/ })
+    await waitFor(() => expect(trigger).toHaveAccessibleName("Review (1 blocking)"))
     await userEvent.click(trigger)
 
     const sheet = await screen.findByTestId("violations-sheet")
@@ -356,33 +532,53 @@ describe("RosterPage", () => {
     )
   })
 
+  it("does not offer a review action when the mobile roster has no coverage issues", async () => {
+    useHandlers(freshState())
+    mount("sm")
+
+    await screen.findByTestId("roster-list")
+    expect(screen.queryByRole("button", { name: /Review/ })).not.toBeInTheDocument()
+  })
+
+  it("starts a mobile shift draft for the selected dentist", async () => {
+    useHandlers(freshState())
+    mount("sm")
+
+    await userEvent.click(await screen.findByRole("button", { name: "Add shift for Dr. Anong" }))
+
+    const dialog = await screen.findByRole("dialog")
+    expect(within(dialog).getByRole("combobox", { name: "Dentist" })).toHaveTextContent("Dr. Anong")
+    expect(within(dialog).getByLabelText("Date")).toHaveValue("")
+  })
+
   it("marks a staff member's shifts as conflicting while a blocking violation stands", async () => {
     const shrunk = savedShifts().map((s) =>
       s.id === monShiftId ? { ...s, endsAt: "2026-08-03T08:00:00.000Z" } : s
     )
     useHandlers(freshState(shrunk))
-    mount("lg")
+    mount("xl")
 
     await waitFor(() =>
       expect(screen.getByTestId(`shift-${monShiftId}`)).toHaveAttribute("data-conflicting", "true")
     )
+    expect(screen.getByTestId(`shift-${tueShiftId}`)).not.toHaveAttribute("data-conflicting")
     expect(screen.getByTestId(`shift-${somchaiShiftId}`)).not.toHaveAttribute("data-conflicting")
   })
 
   it("disables Save while offline, says why, and restores it on reconnect", async () => {
     const state = freshState()
     useHandlers(state)
-    mount("lg")
+    mount("xl")
 
     const dialog = await openMondayShift()
-    const save = within(dialog).getByRole("button", { name: "Save" })
+    const save = within(dialog).getByRole("button", { name: "Save shift" })
     await waitFor(() => expect(save).toBeEnabled())
 
     goOffline()
     expect(save).toBeDisabled()
     expect(save).toHaveAccessibleDescription(OFFLINE_MESSAGE)
     expect(save).toHaveAttribute("title", OFFLINE_MESSAGE)
-    expect(within(dialog).getByRole("button", { name: "Delete" })).toBeDisabled()
+    expect(within(dialog).getByRole("button", { name: "Delete shift" })).toBeDisabled()
 
     await userEvent.click(save)
     expect(state.patched).toEqual([])
@@ -395,17 +591,16 @@ describe("RosterPage", () => {
 
   it("withdraws the shift drag handle while offline so no move can be started", async () => {
     useHandlers(freshState())
-    mount("lg")
+    mount("xl")
 
-    const block = await screen.findByTestId(`shift-${monShiftId}`)
-    expect(block.classList.contains("cursor-grab")).toBe(true)
+    expect(await screen.findByTestId(`shift-drag-${monShiftId}`)).toBeInTheDocument()
 
     goOffline()
-    expect(screen.getByTestId(`shift-${monShiftId}`).classList.contains("cursor-grab")).toBe(false)
+    expect(screen.queryByTestId(`shift-drag-${monShiftId}`)).not.toBeInTheDocument()
   })
 
   it("sends a receptionist back to the timeline instead of the roster", async () => {
-    mount("lg", "receptionist")
+    mount("xl", "receptionist")
     expect(await screen.findByText("Timeline stub")).toBeInTheDocument()
     expect(screen.queryByTestId("roster-grid")).not.toBeInTheDocument()
     expect(screen.queryByRole("button", { name: "Add shift" })).not.toBeInTheDocument()

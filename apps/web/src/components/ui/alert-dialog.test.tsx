@@ -21,6 +21,28 @@ describe("AlertDialog", () => {
 
     const buttons = screen.getAllByRole("button").map((button) => button.textContent)
     expect(buttons.indexOf("Keep appointment")).toBeLessThan(buttons.indexOf("Cancel appointment"))
+    expect(screen.getByRole("heading", { name: "Cancel appointment?" })).toHaveClass(
+      "type-dialog-title"
+    )
+  })
+
+  it("uses a non-destructive treatment for a reversible confirmation", () => {
+    render(
+      <AlertDialog
+        open
+        onOpenChange={vi.fn()}
+        title="Complete appointment?"
+        description="Mark this visit as completed."
+        confirmLabel="Complete appointment"
+        confirmVariant="default"
+        onConfirm={vi.fn()}
+      />
+    )
+
+    expect(screen.getByRole("button", { name: "Complete appointment" })).toHaveClass("bg-primary")
+    expect(screen.getByRole("button", { name: "Complete appointment" })).not.toHaveClass(
+      "bg-destructive"
+    )
   })
 
   it("keeps the dialog open and surfaces the error when the confirmed action fails", async () => {

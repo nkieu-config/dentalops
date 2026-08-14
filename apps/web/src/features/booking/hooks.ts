@@ -8,6 +8,7 @@ import {
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { z } from "zod"
 import { api } from "../../lib/api"
+import { queryKeys } from "../../lib/query-keys"
 
 export const AVAILABILITY_KEY = "public-availability"
 export const MANAGE_KEY = "public-manage"
@@ -37,7 +38,7 @@ export interface ConfirmInput {
 
 export const useClinic = (clinicSlug: string) =>
   useQuery({
-    queryKey: ["public-clinic", clinicSlug],
+    queryKey: queryKeys.publicClinic(clinicSlug),
     queryFn: () => api(`/public/${clinicSlug}`, publicClinicSchema)
   })
 
@@ -86,7 +87,7 @@ export const useConfirmBooking = (clinicSlug: string) =>
 
 export const useManagedBooking = (token: string) =>
   useQuery({
-    queryKey: [MANAGE_KEY, token],
+    queryKey: queryKeys.publicManage.byToken(token),
     queryFn: () => api(`/public/manage/${token}`, publicAppointmentSchema)
   })
 
@@ -94,7 +95,7 @@ export const useCancelBooking = (token: string) => {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: () => api(`/public/manage/${token}/cancel`, z.void(), { method: "POST" }),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: [MANAGE_KEY, token] })
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: queryKeys.publicManage.byToken(token) })
   })
 }
 
@@ -107,8 +108,8 @@ export const useRescheduleBooking = (token: string) => {
         body: { holdId }
       }),
     onSuccess: (appointment) => {
-      queryClient.setQueryData([MANAGE_KEY, token], appointment)
-      void queryClient.invalidateQueries({ queryKey: [AVAILABILITY_KEY] })
+      queryClient.setQueryData(queryKeys.publicManage.byToken(token), appointment)
+      void queryClient.invalidateQueries({ queryKey: queryKeys.publicAvailability.root() })
     }
   })
 }

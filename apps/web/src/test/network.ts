@@ -4,7 +4,12 @@ export const setOnLine = (value: boolean): void => {
   Object.defineProperty(navigator, "onLine", { configurable: true, value })
 }
 
-export const resetNetwork = (): void => setOnLine(true)
+const announceOnline = (): void => {
+  setOnLine(true)
+  window.dispatchEvent(new Event("online"))
+}
+
+export const resetNetwork = (): void => announceOnline()
 
 export const goOffline = (): void => {
   act(() => {
@@ -14,8 +19,5 @@ export const goOffline = (): void => {
 }
 
 export const goOnline = (): void => {
-  act(() => {
-    setOnLine(true)
-    window.dispatchEvent(new Event("online"))
-  })
+  act(announceOnline)
 }

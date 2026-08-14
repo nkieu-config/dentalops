@@ -12,9 +12,9 @@ export const OutOfScope = ({ icon: Icon, title, reason }: OutOfScopeProps) => (
   <div className="flex flex-col items-center justify-center gap-3 px-6 py-16 text-center">
     <Icon className="h-8 w-8 text-muted-foreground" />
     <p className="font-medium">{title}</p>
-    <p className="max-w-prose text-base text-muted-foreground">{reason}</p>
+    <p className="max-w-prose type-body font-normal text-muted-foreground">{reason}</p>
     <a
-      className="text-sm font-medium text-primary underline underline-offset-4"
+      className="type-ui font-medium text-primary underline underline-offset-4"
       href={README_GAPS}
       target="_blank"
       rel="noreferrer"

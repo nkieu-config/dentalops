@@ -4,7 +4,8 @@ import { Link, useNavigate, useSearchParams } from "react-router"
 import { z } from "zod"
 import { api, ApiError } from "../../lib/api"
 import { setSession } from "../../lib/session"
-import { AuthCard, Field, FieldInput, FormError, SubmitButton } from "./auth-form"
+import { Field, FieldInput, FormError, SubmitButton } from "../../components/ui/form-field"
+import { AuthCard } from "./auth-form"
 import { SLUG_PATTERN } from "./slug"
 import { useAuthForm } from "./use-auth-form"
 
@@ -67,11 +68,18 @@ export const LoginPage = (): ReactElement => {
 
   return (
     <AuthCard
+      page="login"
       title="Sign in"
       subtitle="Welcome back. Your clinic is where you left it."
       footer={
         <>
-          No clinic yet? <Link to="/signup">Create a clinic</Link>
+          No clinic yet?{" "}
+          <Link
+            className="font-medium text-foreground underline underline-offset-4 transition-colors hover:text-primary"
+            to="/signup"
+          >
+            Create a clinic
+          </Link>
         </>
       }
     >
@@ -79,7 +87,7 @@ export const LoginPage = (): ReactElement => {
         <FormError message={form.formError} />
         <Field
           id="clinicSlug"
-          label="Clinic URL"
+          label="Clinic address"
           error={form.errors.clinicSlug}
           hint={CLINIC_HINT}
         >
@@ -91,6 +99,7 @@ export const LoginPage = (): ReactElement => {
               autoComplete="off"
               autoCapitalize="none"
               spellCheck={false}
+              placeholder="e.g. bright-smile…"
               value={form.values.clinicSlug}
               onChange={(event) => form.set("clinicSlug", event.target.value)}
             />
@@ -103,6 +112,7 @@ export const LoginPage = (): ReactElement => {
               name="email"
               type="email"
               autoComplete="email"
+              spellCheck={false}
               value={form.values.email}
               onChange={(event) => form.set("email", event.target.value)}
             />

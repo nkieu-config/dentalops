@@ -14,8 +14,8 @@ interface RowProps {
 
 export const Row = ({ label, value, numeric = false }: RowProps) => (
   <div className="flex justify-between gap-4 border-b border-border py-2.5 last:border-b-0 last:pb-0 first:pt-0">
-    <dt className="text-supporting text-muted-foreground">{label}</dt>
-    <dd className={`text-right text-card-title font-medium${numeric ? " tabular-nums" : ""}`}>{value}</dd>
+    <dt className="shrink-0 type-supporting text-muted-foreground">{label}</dt>
+    <dd className={`min-w-0 break-words text-right type-card-title font-medium${numeric ? " tabular-nums" : ""}`}>{value}</dd>
   </div>
 )
 

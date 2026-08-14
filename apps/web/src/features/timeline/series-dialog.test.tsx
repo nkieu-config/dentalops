@@ -50,7 +50,7 @@ const mount = () => {
 afterEach(() => toast.dismiss())
 
 describe("SeriesDialog", () => {
-  it("moves only this occurrence by default", async () => {
+  it("requires confirming the selected slot before moving an occurrence", async () => {
     const bodies: unknown[] = []
     server.use(
       http.get(`${API}/availability`, slots),
@@ -63,6 +63,9 @@ describe("SeriesDialog", () => {
 
     expect(screen.getByLabelText("This appointment")).toBeChecked()
     await userEvent.click(await screen.findByRole("button", { name: "11:00" }))
+
+    expect(bodies).toEqual([])
+    await userEvent.click(screen.getByRole("button", { name: "Confirm move" }))
 
     await waitFor(() => expect(bodies).toHaveLength(1))
     expect(bodies[0]).toEqual({
@@ -88,6 +91,7 @@ describe("SeriesDialog", () => {
 
     await userEvent.click(screen.getByLabelText("This and following"))
     await userEvent.click(await screen.findByRole("button", { name: "13:00" }))
+    await userEvent.click(screen.getByRole("button", { name: "Confirm move" }))
 
     await waitFor(() => expect(bodies).toHaveLength(1))
     expect(bodies[0]).toMatchObject({ scope: "following", startsAt: "2026-08-03T06:00:00.000Z" })
@@ -116,6 +120,7 @@ describe("SeriesDialog", () => {
 
     await userEvent.click(screen.getByLabelText("All appointments"))
     await userEvent.click(await screen.findByRole("button", { name: "11:00" }))
+    await userEvent.click(screen.getByRole("button", { name: "Confirm move" }))
 
     const list = await screen.findByTestId("series-conflicts")
     expect(list).toHaveTextContent("1 occurrence conflicts")

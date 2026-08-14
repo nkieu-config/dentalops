@@ -1,9 +1,16 @@
 import { PointerEvent, useState } from "react"
+import { exceedsThreshold } from "./lib/drag-plan"
 import { snapCeil, snapFloor, yToMs } from "./lib/geometry"
 
 export interface DragGhost {
   start: number
   end: number
+}
+
+interface DragAnchor {
+  x: number
+  y: number
+  ms: number
 }
 
 interface DragCreateOptions {
@@ -14,7 +21,7 @@ interface DragCreateOptions {
 const SLOT_MS = 15 * 60_000
 
 export const useDragCreate = ({ dayStart, onSelect }: DragCreateOptions) => {
-  const [anchor, setAnchor] = useState<number | null>(null)
+  const [anchor, setAnchor] = useState<DragAnchor | null>(null)
   const [ghost, setGhost] = useState<DragGhost | null>(null)
 
   const localY = (e: PointerEvent<HTMLDivElement>) =>
@@ -31,12 +38,12 @@ export const useDragCreate = ({ dayStart, onSelect }: DragCreateOptions) => {
       if (e.button !== 0) return
       e.currentTarget.setPointerCapture(e.pointerId)
       const ms = yToMs(localY(e), dayStart)
-      setAnchor(ms)
-      setGhost(rangeFrom(ms, ms))
+      setAnchor({ x: e.clientX, y: e.clientY, ms })
     },
     onPointerMove: (e: PointerEvent<HTMLDivElement>) => {
       if (anchor === null) return
-      setGhost(rangeFrom(anchor, yToMs(localY(e), dayStart)))
+      if (!exceedsThreshold(anchor.x, anchor.y, e.clientX, e.clientY)) return
+      setGhost(rangeFrom(anchor.ms, yToMs(localY(e), dayStart)))
     },
     onPointerUp: () => {
       if (ghost) onSelect(ghost)

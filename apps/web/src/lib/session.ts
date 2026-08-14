@@ -75,4 +75,9 @@ export const refreshSession = (): Promise<AuthSession | null> => {
   return refreshing
 }
 
-export const logout = () => setSession(null)
+export const logout = (): void => {
+  setSession(null)
+  void fetch(`${API_URL}/api/v1/auth/logout`, { method: "POST", credentials: "include" }).catch(
+    () => undefined
+  )
+}

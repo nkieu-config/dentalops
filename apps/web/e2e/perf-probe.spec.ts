@@ -16,8 +16,34 @@ test("renders a thousand appointment cards inside the frame budget", async ({ pa
     return performance.now() - started
   })
 
-  const cards = await page.locator('[data-testid^="appt-"]').count()
+  const grid = page.getByTestId("perf-grid")
+  const cards = await grid.locator('[data-testid^="appt-"]').count()
   console.log(`perf: ${cards} cards painted in ${elapsed.toFixed(0)}ms`)
-  expect(cards).toBeGreaterThan(800)
   expect(elapsed).toBeLessThan(1500)
+  expect(cards).toBeGreaterThan(200)
+  expect(cards, "the visible range must cull, not mount all thousand").toBeLessThan(1000)
+
+  const covers = async () =>
+    await grid.evaluate((node) => {
+      const scroll = node.querySelector('[data-testid="timegrid-scroll"]')
+      if (!scroll) throw new Error("no scroll container")
+      const box = scroll.getBoundingClientRect()
+      const mounted = [...node.querySelectorAll('[data-testid^="appt-"]')]
+      const inside = mounted.filter((card) => {
+        const rect = card.getBoundingClientRect()
+        return rect.bottom > box.top && rect.top < box.bottom
+      })
+      return { mounted: mounted.length, inside: inside.length }
+    })
+
+  expect((await covers()).inside).toBeGreaterThan(0)
+
+  await grid
+    .getByTestId("timegrid-scroll")
+    .evaluate((node) => node.scrollTo({ top: node.scrollHeight }))
+  await expect
+    .poll(async () => (await covers()).inside, {
+      message: "scrolling to the end must mount the cards that come into view"
+    })
+    .toBeGreaterThan(0)
 })

@@ -1,18 +1,22 @@
 import { TimerOff } from "lucide-react"
 import { SlotPickerView, type SlotPickerState } from "../../../components/slot-picker"
 import { Button } from "../../../components/ui/button"
+import { EmptyState } from "../../../components/ui/empty-state"
 import { fmtTime } from "../../timeline/lib/geometry"
 import type { WizardRecovery } from "../wizard-reducer"
 
 interface SlotStepProps {
   date: string
+  minDate?: string
   state: SlotPickerState
   recovery: WizardRecovery | null
   nearestFree: string | null
   holding: boolean
+  selection?: string
   onPick: (startsAtIso: string) => void
   onDateChange: (isoDate: string) => void
   onPickAnother: () => void
+  onRetry?: () => void
 }
 
 const RECOVERY_TITLE: Record<WizardRecovery["reason"], string> = {
@@ -29,33 +33,32 @@ const RECOVERY_BODY: Record<WizardRecovery["reason"], string> = {
 
 export const SlotStep = ({
   date,
+  minDate,
   state,
   recovery,
   nearestFree,
   holding,
+  selection,
   onPick,
   onDateChange,
-  onPickAnother
+  onPickAnother,
+  onRetry
 }: SlotStepProps) => {
   if (recovery) {
     return (
-      <div
-        data-testid="hold-recovery"
-        className="flex flex-col items-center gap-3 rounded-md border border-border py-10 text-center"
-      >
-        <TimerOff className="h-8 w-8 text-warning" aria-hidden />
-        <h2 className="text-lg font-semibold">{RECOVERY_TITLE[recovery.reason]}</h2>
-        <p className="text-base tabular-nums text-muted-foreground">
-          {fmtTime(Date.parse(recovery.startsAt))} {RECOVERY_BODY[recovery.reason]}
-        </p>
-        {nearestFree ? (
-          <p className="text-base tabular-nums">
-            Nearest free: <strong>{fmtTime(Date.parse(nearestFree))}</strong>
-          </p>
-        ) : null}
-        <Button className="min-h-11 px-6 text-base" onClick={onPickAnother}>
-          Pick another time
-        </Button>
+      <div data-testid="hold-recovery">
+        <EmptyState
+          icon={TimerOff}
+          title={RECOVERY_TITLE[recovery.reason]}
+          hint={`${fmtTime(Date.parse(recovery.startsAt))} ${RECOVERY_BODY[recovery.reason]}${
+            nearestFree ? ` Nearest free: ${fmtTime(Date.parse(nearestFree))}.` : ""
+          }`}
+          action={
+            <Button size="lg" onClick={onPickAnother}>
+              Pick another time
+            </Button>
+          }
+        />
       </div>
     )
   }
@@ -64,15 +67,28 @@ export const SlotStep = ({
 
   return (
     <div className="space-y-3" aria-busy={holding}>
-      <h2 className="text-lg font-semibold">Choose a time</h2>
-      <SlotPickerView date={date} state={state} onPick={onPick} onDateChange={onDateChange} />
+      <h2 className="type-section-title font-semibold">Choose a time</h2>
+      {selection ? (
+        <p className="rounded-card border border-border bg-card px-3 py-2 type-supporting text-muted-foreground">
+          {selection}
+        </p>
+      ) : null}
+      <SlotPickerView
+        date={date}
+        state={state}
+        onPick={onPick}
+        onDateChange={onDateChange}
+        minDate={minDate}
+        disabled={holding}
+        onRetry={onRetry}
+      />
       {state.status === "ready" && count > 0 ? (
-        <p className="text-base tabular-nums text-muted-foreground">
+        <p className="type-body tabular-nums text-muted-foreground">
           {count} {count === 1 ? "time" : "times"} available
         </p>
       ) : null}
       {holding ? (
-        <p role="status" className="text-base text-muted-foreground">
+        <p role="status" className="type-body text-muted-foreground">
           Holding that time for you…
         </p>
       ) : null}

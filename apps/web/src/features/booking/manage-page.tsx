@@ -1,11 +1,12 @@
 import { useQueryClient } from "@tanstack/react-query"
 import { Ban, CalendarX } from "lucide-react"
-import { useMemo, useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import { useParams } from "react-router"
 import { toast } from "sonner"
 import { SlotPickerView, type SlotPickerState } from "../../components/slot-picker"
 import { Button } from "../../components/ui/button"
 import { EmptyState } from "../../components/ui/empty-state"
+import { AlertDialog } from "../../components/ui/alert-dialog"
 import { Sheet } from "../../components/ui/sheet"
 import { Skeleton } from "../../components/ui/skeleton"
 import { ApiError } from "../../lib/api"
@@ -13,7 +14,6 @@ import { bkkDate, fmtDay, fmtTime } from "../timeline/lib/geometry"
 import { BookingSummary } from "./booking-summary"
 import { CountdownBanner } from "./countdown-banner"
 import {
-  AVAILABILITY_KEY,
   useCancelBooking,
   useCreateHold,
   useManagedBooking,
@@ -21,6 +21,7 @@ import {
   useReleaseHold,
   useRescheduleBooking
 } from "./hooks"
+import { queryKeys } from "../../lib/query-keys"
 
 interface HeldSlot {
   holdId: string
@@ -37,6 +38,7 @@ export const ManagePage = () => {
   const [moving, setMoving] = useState(false)
   const [date, setDate] = useState("")
   const [held, setHeld] = useState<HeldSlot | null>(null)
+  const heldRef = useRef<HeldSlot | null>(null)
 
   const appointment = booking.data
   const cancelled = appointment?.status === "cancelled"
@@ -45,6 +47,18 @@ export const ManagePage = () => {
   const createHold = useCreateHold(clinicSlug)
   const releaseHold = useReleaseHold(clinicSlug)
   const reschedule = useRescheduleBooking(token)
+
+  useEffect(() => {
+    heldRef.current = held
+  }, [held])
+
+  useEffect(
+    () => () => {
+      const activeHold = heldRef.current
+      if (activeHold) releaseHold.mutate(activeHold.holdId)
+    },
+    [releaseHold.mutate]
+  )
 
   const availability = usePublicAvailability({
     clinicSlug,
@@ -62,7 +76,7 @@ export const ManagePage = () => {
   }, [availability.isPending, availability.isError, availability.data])
 
   const refreshSlots = () => {
-    void queryClient.invalidateQueries({ queryKey: [AVAILABILITY_KEY] })
+    void queryClient.invalidateQueries({ queryKey: queryKeys.publicAvailability.root() })
   }
 
   const dropHold = (reason: string) => {
@@ -71,10 +85,7 @@ export const ManagePage = () => {
     toast.error(reason)
   }
 
-  const confirmCancel = () =>
-    cancel.mutate(undefined, {
-      onSettled: () => setConfirming(false)
-    })
+  const confirmCancel = () => cancel.mutateAsync(undefined)
 
   const openMove = () => {
     if (!appointment) return
@@ -138,8 +149,11 @@ export const ManagePage = () => {
   }
 
   return (
-    <main className="mx-auto flex min-h-dvh max-w-md flex-col gap-4 p-4 text-base">
-      <h1 className="text-lg font-semibold">Your booking</h1>
+    <main className="mx-auto flex min-h-dvh max-w-md flex-col gap-4 px-4 lg:max-w-xl pb-[calc(1rem+env(safe-area-inset-bottom))] pt-[calc(1rem+env(safe-area-inset-top))] type-body">
+      <header>
+        <h1 className="type-page-title font-semibold">Your booking</h1>
+        {appointment ? <p className="mt-1 type-body text-muted-foreground">{appointment.clinic.name}</p> : null}
+      </header>
 
       {booking.isPending ? (
         <div className="space-y-3">
@@ -162,7 +176,7 @@ export const ManagePage = () => {
             <p
               role="status"
               data-testid="cancelled-notice"
-              className="flex items-center gap-2 rounded-md border border-border bg-muted px-3 py-2 text-base text-muted-foreground"
+              className="flex items-center gap-2 rounded-card border border-border bg-muted px-3 py-2 type-body text-muted-foreground"
             >
               <Ban className="h-5 w-5 shrink-0" aria-hidden />
               This booking is cancelled
@@ -172,22 +186,22 @@ export const ManagePage = () => {
           <BookingSummary appointment={appointment} />
 
           {cancelled ? (
-            <p className="text-base text-muted-foreground">
+            <p className="type-body text-muted-foreground">
               Call the clinic if you would like to book another time.
             </p>
           ) : (
             <>
-              <p className="text-base text-muted-foreground">
+              <p className="type-body text-muted-foreground">
                 Need a different time? Pick one below — we hold it for five minutes while you
                 confirm.
               </p>
               <div className="sticky bottom-0 mt-auto flex flex-col gap-2 bg-background pt-3">
-                <Button className="min-h-12 w-full text-base" onClick={openMove}>
+                <Button size="lg" className="w-full" onClick={openMove}>
                   Move to another time
                 </Button>
                 <Button
                   variant="destructive"
-                  className="min-h-12 w-full text-base"
+                  size="lg" className="w-full"
                   onClick={() => setConfirming(true)}
                 >
                   Cancel this booking
@@ -201,8 +215,20 @@ export const ManagePage = () => {
             onOpenChange={(open) => (open ? setMoving(true) : closeMove())}
             title="Move your booking"
             side="bottom"
+            footer={
+              held ? (
+                <div className="flex flex-col gap-2 sm:flex-row-reverse">
+                  <Button size="lg" className="w-full sm:w-auto" disabled={reschedule.isPending} onClick={confirmMove}>
+                    {reschedule.isPending ? "Moving…" : "Confirm new time"}
+                  </Button>
+                  <Button variant="secondary" size="lg" className="w-full sm:w-auto" onClick={releaseHeld}>
+                    Pick another time
+                  </Button>
+                </div>
+              ) : undefined
+            }
           >
-            <div className="space-y-4 text-base" data-testid="reschedule-panel">
+            <div className="space-y-4 type-body" data-testid="reschedule-panel">
               {held ? (
                 <>
                   <CountdownBanner
@@ -210,7 +236,7 @@ export const ManagePage = () => {
                     startsAt={held.startsAt}
                     onExpire={() => dropHold("That hold expired — pick another time")}
                   />
-                  <p className="text-base" data-testid="reschedule-comparison">
+                  <p className="type-body" data-testid="reschedule-comparison">
                     <span className="tabular-nums text-muted-foreground line-through decoration-1">
                       {fmtDay(bkkDate(Date.parse(appointment.startsAt)))} ·{" "}
                       {fmtTime(Date.parse(appointment.startsAt))}
@@ -221,22 +247,6 @@ export const ManagePage = () => {
                       {fmtTime(Date.parse(held.startsAt))}
                     </span>
                   </p>
-                  <div className="flex flex-col gap-2">
-                    <Button
-                      className="min-h-12 w-full text-base"
-                      disabled={reschedule.isPending}
-                      onClick={confirmMove}
-                    >
-                      {reschedule.isPending ? "Moving…" : "Confirm new time"}
-                    </Button>
-                    <Button
-                      variant="secondary"
-                      className="min-h-12 w-full text-base"
-                      onClick={releaseHeld}
-                    >
-                      Pick another time
-                    </Button>
-                  </div>
                 </>
               ) : (
                 <div aria-busy={createHold.isPending}>
@@ -247,7 +257,7 @@ export const ManagePage = () => {
                     onDateChange={setDate}
                   />
                   {createHold.isPending ? (
-                    <p role="status" className="pt-3 text-base text-muted-foreground">
+                    <p role="status" className="pt-3 type-body text-muted-foreground">
                       Holding that time for you…
                     </p>
                   ) : null}
@@ -256,39 +266,15 @@ export const ManagePage = () => {
             </div>
           </Sheet>
 
-          <Sheet
+          <AlertDialog
             open={confirming}
             onOpenChange={setConfirming}
             title="Cancel this booking?"
-            side="bottom"
-          >
-            <div className="space-y-4 text-base" data-testid="cancel-confirm">
-              <p className="text-base leading-relaxed text-muted-foreground">
-                <span className="tabular-nums font-semibold text-foreground">
-                  {fmtDay(bkkDate(Date.parse(appointment.startsAt)))} ·{" "}
-                  {fmtTime(Date.parse(appointment.startsAt))}
-                </span>{" "}
-                will be given to someone else. Booking history is retained.
-              </p>
-              <div className="flex flex-col gap-2">
-                <Button
-                  variant="default"
-                  className="min-h-12 w-full text-base font-semibold"
-                  onClick={() => setConfirming(false)}
-                >
-                  Keep my booking
-                </Button>
-                <Button
-                  variant="destructive"
-                  className="min-h-12 w-full text-base font-semibold"
-                  disabled={cancel.isPending}
-                  onClick={confirmCancel}
-                >
-                  {cancel.isPending ? "Cancelling…" : "Yes, cancel booking"}
-                </Button>
-              </div>
-            </div>
-          </Sheet>
+            description={`${fmtDay(bkkDate(Date.parse(appointment.startsAt)))} · ${fmtTime(Date.parse(appointment.startsAt))} will be given to someone else. Booking history is retained.`}
+            confirmLabel="Yes, cancel booking"
+            cancelLabel="Keep my booking"
+            onConfirm={confirmCancel}
+          />
         </>
       ) : null}
     </main>

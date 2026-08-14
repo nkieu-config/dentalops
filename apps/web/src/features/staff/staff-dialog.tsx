@@ -4,13 +4,14 @@ import { useCallback, type ReactElement } from "react"
 import { toast } from "sonner"
 import { z } from "zod"
 import { OFFLINE_MESSAGE } from "../../components/shell/offline-banner"
-import { NativeSelect } from "../../components/ui/native-select"
+import { AppSelect } from "../../components/ui/app-select"
 import { Sheet } from "../../components/ui/sheet"
 import { api } from "../../lib/api"
 import { useOnline } from "../../lib/use-online"
-import { Field, FieldInput, FormError, SubmitButton } from "../auth/auth-form"
+import { Field, FieldInput, FormError, SubmitButton } from "../../components/ui/form-field"
 import { useAuthForm } from "../auth/use-auth-form"
 import { useDiscardGuard } from "../../lib/use-discard-guard"
+import { queryKeys } from "../../lib/query-keys"
 
 const OFFLINE_REASON_ID = "staff-dialog-offline-reason"
 
@@ -46,7 +47,7 @@ export const StaffDialog = ({ onClose }: StaffDialogProps): ReactElement => {
   const onSubmit = useCallback(
     async (values: StaffValues) => {
       const member = await api("/staff", staffMemberSchema, { method: "POST", body: values })
-      await queryClient.invalidateQueries({ queryKey: ["staff"] })
+      await queryClient.invalidateQueries({ queryKey: queryKeys.staff.root() })
       toast.success(`${member.name} joined the clinic`)
       onClose()
     },
@@ -58,8 +59,8 @@ export const StaffDialog = ({ onClose }: StaffDialogProps): ReactElement => {
 
   return (
     <>
-      <Sheet open onOpenChange={discardGuard.requestClose} title="Add a colleague">
-        <form ref={form.formRef} onSubmit={form.submit} noValidate className="space-y-4">
+      <Sheet open onOpenChange={discardGuard.requestClose} title="Add a colleague" footer={<SubmitButton form="add-colleague-form" pending={form.pending} pendingLabel="Adding…" disabled={!online} title={online ? undefined : OFFLINE_MESSAGE} describedBy={online ? undefined : OFFLINE_REASON_ID}>Add colleague</SubmitButton>}>
+        <form id="add-colleague-form" ref={form.formRef} onSubmit={form.submit} noValidate className="space-y-4">
           <FormError message={form.formError} />
 
           <Field id="staff-name" label="Name" error={form.errors.name}>
@@ -108,37 +109,23 @@ export const StaffDialog = ({ onClose }: StaffDialogProps): ReactElement => {
 
           <Field id="staff-role" label="Role" error={form.errors.role}>
             {(aria) => (
-              <NativeSelect
+              <AppSelect
                 {...aria}
                 name="role"
-                className="h-11 sm:h-9"
                 value={form.values.role}
-                onChange={(event) => form.set("role", event.target.value)}
-              >
-                {ROLES.map((option) => (
-                  <option key={option.value} value={option.value}>
-                    {option.label}
-                  </option>
-                ))}
-              </NativeSelect>
+                aria-label="Role"
+                onValueChange={(role) => form.set("role", role)}
+                options={ROLES}
+              />
             )}
           </Field>
 
           {online ? null : (
-            <p id={OFFLINE_REASON_ID} className="text-sm font-medium text-destructive">
+            <p id={OFFLINE_REASON_ID} className="type-ui font-medium text-destructive">
               {OFFLINE_MESSAGE}
             </p>
           )}
 
-          <SubmitButton
-            pending={form.pending}
-            pendingLabel="Adding…"
-            disabled={!online}
-            title={online ? undefined : OFFLINE_MESSAGE}
-            describedBy={online ? undefined : OFFLINE_REASON_ID}
-          >
-            Add colleague
-          </SubmitButton>
         </form>
       </Sheet>
       {discardGuard.dialog}

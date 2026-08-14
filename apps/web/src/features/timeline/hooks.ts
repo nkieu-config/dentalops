@@ -1,6 +1,6 @@
 import {
   appointmentSchema,
-  branchSchema,
+  branchSettingsSchema,
   resourceSchema,
   serviceSummarySchema,
   shiftSchema,
@@ -10,6 +10,7 @@ import { useQuery } from "@tanstack/react-query"
 import { useEffect, useState } from "react"
 import { z } from "zod"
 import { api } from "../../lib/api"
+import { queryKeys } from "../../lib/query-keys"
 import { DAY_MS, WEEK_DAYS, bkkDayStart } from "./lib/geometry"
 
 export const useNow = (active: boolean): number => {
@@ -23,25 +24,37 @@ export const useNow = (active: boolean): number => {
 }
 
 export const useBranches = () =>
-  useQuery({ queryKey: ["branches"], queryFn: () => api("/branches", z.array(branchSchema)) })
+  useQuery({
+    queryKey: queryKeys.branches(),
+    queryFn: () => api("/branches", z.array(branchSettingsSchema))
+  })
+
+const onlyActive = <T extends { isActive: boolean }>(rows: T[]): T[] =>
+  rows.filter((row) => row.isActive)
 
 export const useDentists = () =>
   useQuery({
-    queryKey: ["staff", "dentist"],
+    queryKey: queryKeys.staff.byRole("dentist"),
     queryFn: () => api("/staff", z.array(staffMemberSchema), { query: { role: "dentist" } }),
-    select: (staff) => staff.filter((s) => s.isActive)
+    select: onlyActive
+  })
+
+export const useStaff = () =>
+  useQuery({
+    queryKey: queryKeys.staff.all(),
+    queryFn: () => api("/staff", z.array(staffMemberSchema))
   })
 
 export const useServices = () =>
   useQuery({
-    queryKey: ["services"],
+    queryKey: queryKeys.services(),
     queryFn: () => api("/services", z.array(serviceSummarySchema)),
-    select: (services) => services.filter((s) => s.isActive)
+    select: onlyActive
   })
 
 export const useChairs = (branchId: string | undefined, enabled: boolean) =>
   useQuery({
-    queryKey: ["resources", branchId, "chair"],
+    queryKey: queryKeys.resources.chairs(branchId),
     enabled: enabled && branchId !== undefined,
     queryFn: () =>
       api("/resources", z.array(resourceSchema), { query: { branchId, type: "chair" } })
@@ -54,7 +67,7 @@ const dayQuery = (dayStart: number) => ({
 
 export const useShifts = (branchId: string | undefined, dayStart: number, enabled = true) =>
   useQuery({
-    queryKey: ["shifts", branchId, dayStart],
+    queryKey: queryKeys.shifts.day(branchId, dayStart),
     enabled: enabled && branchId !== undefined,
     queryFn: () =>
       api("/shifts", z.array(shiftSchema), { query: { branchId, ...dayQuery(dayStart) } })
@@ -62,7 +75,7 @@ export const useShifts = (branchId: string | undefined, dayStart: number, enable
 
 export const useAppointments = (branchId: string | undefined, dayStart: number, enabled = true) =>
   useQuery({
-    queryKey: ["appointments", branchId, dayStart],
+    queryKey: queryKeys.appointments.day(branchId, dayStart),
     enabled: enabled && branchId !== undefined,
     queryFn: () =>
       api("/appointments", z.array(appointmentSchema), {
@@ -77,7 +90,7 @@ const weekQuery = (weekStart: string) => {
 
 export const useWeekShifts = (branchId: string | undefined, weekStart: string, enabled = true) =>
   useQuery({
-    queryKey: ["shifts", branchId, "week", weekStart],
+    queryKey: queryKeys.shifts.week(branchId, weekStart),
     enabled: enabled && branchId !== undefined,
     queryFn: () =>
       api("/shifts", z.array(shiftSchema), { query: { branchId, ...weekQuery(weekStart) } })
@@ -85,7 +98,7 @@ export const useWeekShifts = (branchId: string | undefined, weekStart: string, e
 
 export const useWeekAppointments = (branchId: string | undefined, weekStart: string, enabled = true) =>
   useQuery({
-    queryKey: ["appointments", branchId, "week", weekStart],
+    queryKey: queryKeys.appointments.week(branchId, weekStart),
     enabled: enabled && branchId !== undefined,
     queryFn: () =>
       api("/appointments", z.array(appointmentSchema), {

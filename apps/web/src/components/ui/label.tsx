@@ -3,7 +3,7 @@ import { cn } from "../../lib/cn"
 
 export const Label = ({ className, ...props }: LabelHTMLAttributes<HTMLLabelElement>) => (
   <label
-    className={cn("text-xs font-medium uppercase tracking-wide text-muted-foreground", className)}
+    className={cn("type-ui font-medium text-foreground", className)}
     {...props}
   />
 )

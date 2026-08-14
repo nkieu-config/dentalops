@@ -70,11 +70,19 @@ jobs:
       - run: pnpm build
       - run: pnpm --filter @dentalops/web exec playwright install --with-deps chromium
       - run: pnpm --filter @dentalops/web e2e:visual:update
-      - uses: peter-evans/create-pull-request@v7
-        with:
-          add-paths: apps/web/e2e/visual.spec.ts-snapshots
-          branch: chore/refresh-visual-baselines
-          delete-branch: true
-          commit-message: "test(web): refresh visual baselines"
-          title: "test(web): refresh visual baselines"
-          body: "Generated Linux visual snapshots for intentional review."
+      - name: Push the refreshed snapshots for review
+        run: |
+          if git diff --quiet -- apps/web/e2e/visual.spec.ts-snapshots; then
+            echo "The Linux snapshots already match this commit; nothing to push." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout -B chore/refresh-visual-baselines
+          git add apps/web/e2e/visual.spec.ts-snapshots
+          git commit -m "test(web): refresh visual baselines"
+          git push --force-with-lease origin chore/refresh-visual-baselines
+          {
+            echo "Refreshed Linux snapshots are on \`chore/refresh-visual-baselines\`, taken from \`$GITHUB_SHA\`."
+            echo "Open a pull request from that branch to review them."
+          } >> "$GITHUB_STEP_SUMMARY"

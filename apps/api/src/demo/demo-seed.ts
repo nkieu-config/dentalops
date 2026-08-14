@@ -544,7 +544,16 @@ export async function seedDemoTenant(client: PrismaClient, audit?: AuditService)
       : null
   let secondSeriesCount = 0
 
-  const violationDentistId = dentistIds[4]
+  const violationDentistIndex = 4
+  const violationDentistId = dentistIds[violationDentistIndex]
+  const violationWeekdays = SHIFT_PATTERNS[violationDentistIndex]?.weekdays ?? []
+  const violationOffset = (() => {
+    for (let back = 0; back < 7; back++) {
+      const weekday = new Date(midnightUtc - back * DAY_MS).getUTCDay()
+      if (violationWeekdays.includes(weekday)) return -back
+    }
+    return 0
+  })()
   let violationInjected = false
 
   for (let offset = -SEED_WINDOW_DAYS; offset <= SEED_WINDOW_DAYS; offset++) {
@@ -744,7 +753,7 @@ export async function seedDemoTenant(client: PrismaClient, audit?: AuditService)
       // validation isn't a permanently clean, unexercised feature in the demo: a shift
       // that leaves too little rest before the regular one, and a confirmed appointment
       // booked outside any rostered shift.
-      if (!violationInjected && dentistId === violationDentistId && offset >= 1) {
+      if (!violationInjected && dentistId === violationDentistId && offset === violationOffset) {
         const restStart = shiftStart - 180 * MINUTE_MS
         const restEnd = shiftStart - 60 * MINUTE_MS
         const outsideService = pickPlainService()

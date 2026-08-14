@@ -121,7 +121,7 @@ describe("demo seed", () => {
 
   it("plants a real roster violation near today instead of a permanently clean roster", async () => {
     const sukhumvit = await prisma.branch.findFirstOrThrow({ where: { tenantId, name: "Sukhumvit" } })
-    const from = new Date(Date.now() - 24 * 60 * 60 * 1000)
+    const from = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)
     const to = new Date(Date.now() + 14 * 24 * 60 * 60 * 1000)
 
     const { violations } = await tenantContext.run(

@@ -24,7 +24,7 @@ DentalOps treats tests as evidence for specific guarantees, not as a generic cov
 | A dentist cannot read or mutate another dentist's schedule | [dentist-scope.spec.ts](../apps/api/test/dentist-scope.spec.ts) tests list filtering and NOT_YOUR_APPOINTMENT refusal. |
 | Sixty patients racing for one slot yield one booking | [booking-contention.js](../apps/api/scripts/load/booking-contention.js) is a CI gate against the production image and real dependencies. |
 | A patient manage link cannot act as staff | [token-scope.spec.ts](../apps/api/test/token-scope.spec.ts) rejects each token purpose in the wrong authentication boundary. |
-| Audit failure cannot break a booking | [audit.spec.ts](../apps/api/test/audit.spec.ts) covers write path, TTL, tenant scope, and cursor behavior. |
+| Audit failure cannot break a booking | [booking-without-mongo.spec.ts](../apps/api/test/booking-without-mongo.spec.ts) books and rejects a duplicate with the audit log down; [audit.spec.ts](../apps/api/test/audit.spec.ts) covers write path, TTL, tenant scope, and cursor behavior. |
 | A new clinic can reach its first booked appointment | [signup-journey.spec.ts](../apps/api/test/signup-journey.spec.ts) performs signup, staffing, rostering, booking, and dentist login over HTTP. |
 
 ## Test layers

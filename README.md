@@ -3,14 +3,6 @@
 [![CI](https://github.com/nkieu-config/dentalops/actions/workflows/ci.yml/badge.svg)](https://github.com/nkieu-config/dentalops/actions/workflows/ci.yml)
 [![Try the demo](https://img.shields.io/badge/demo-try%20it-2563EB?logo=vercel&logoColor=white)](https://trydentalops.vercel.app)
 
-![React 19](https://img.shields.io/badge/React_19-149ECA?logo=react&logoColor=white)
-![NestJS 11](https://img.shields.io/badge/NestJS_11-E0234E?logo=nestjs&logoColor=white)
-![PostgreSQL 16](https://img.shields.io/badge/PostgreSQL_16-4169E1?logo=postgresql&logoColor=white)
-![Redis 7](https://img.shields.io/badge/Redis_7-DC382D?logo=redis&logoColor=white)
-![MongoDB 7](https://img.shields.io/badge/MongoDB_7-47A248?logo=mongodb&logoColor=white)
-![TypeScript](https://img.shields.io/badge/TypeScript_strict-3178C6?logo=typescript&logoColor=white)
-![Docker](https://img.shields.io/badge/Docker-2496ED?logo=docker&logoColor=white)
-
 **A multi-tenant dental scheduling system, built solo.** It prevents a dentist, chair, or required procedure resource from being double-booked by making conflicting bookings impossible in PostgreSQL.
 
 **Live demo:** https://trydentalops.vercel.app · **API health:** https://dentalops-api.onrender.com/api/v1/health
@@ -92,7 +84,7 @@ flowchart LR
 | A public booking reaches staff in realtime | [Two browser contexts](apps/web/e2e/public-booking.spec.ts) verify the timeline updates without reload. |
 | Redis failure cannot break integrity | [Dead Redis](apps/api/test/booking-without-redis.spec.ts) still permits an end-to-end booking while conflicting patients cannot both win. |
 | The production image survives contention | [60 patients, one slot](apps/api/scripts/load/booking-contention.js) produces exactly one booking in CI against Postgres, Redis, and MongoDB. |
-| The audit log cannot fill up or slow down | [Audit tests](apps/api/test/audit.spec.ts) prove a 30-day expiry index, cursor paging that never sorts, tenant scope, and an owner-only read boundary. |
+| Audit failure cannot break a booking | [Dead MongoDB](apps/api/test/booking-without-mongo.spec.ts) still confirms a booking and rejects its duplicate; [audit tests](apps/api/test/audit.spec.ts) add a 30-day expiry, cursor paging that never sorts, and an owner-only tenant boundary. |
 
 The complete [testing evidence matrix](docs/testing.md) covers every headline guarantee, quality gate, and CI boundary.
 

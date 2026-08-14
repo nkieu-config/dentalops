@@ -28,6 +28,7 @@ const bkkClock = new Intl.DateTimeFormat("en-GB", {
 })
 
 const DAY_MS = 86_400_000
+const HOUR_MS = 3_600_000
 
 export const apiUrl = (path: string): string => `${API_ORIGIN}/api/v1${path}`
 
@@ -209,6 +210,35 @@ export const firstBranch = async (request: APIRequestContext, token: string): Pr
   const branch = branches[0]
   if (!branch) throw new Error("the demo tenant has no branches")
   return branch
+}
+
+export const branchWithSpareChair = async (
+  request: APIRequestContext,
+  token: string,
+  date: string,
+  fromHour: number,
+  toHour: number
+): Promise<Branch> => {
+  const dayStart = Date.parse(`${date}T00:00:00+07:00`)
+  const from = dayStart + fromHour * HOUR_MS
+  const to = dayStart + toHour * HOUR_MS
+  const [branches, chairs, shifts] = await Promise.all([
+    getJson<Branch[]>(request, token, "/branches"),
+    getJson<{ branchId: string }[]>(request, token, "/resources?type=chair"),
+    getJson<Shift[]>(request, token, `/shifts?${dayWindow(date)}`)
+  ])
+  const spare = branches.find((branch) => {
+    const rostered = shifts.filter(
+      (s) => s.branchId === branch.id && Date.parse(s.startsAt) < to && Date.parse(s.endsAt) > from
+    )
+    return rostered.length < chairs.filter((chair) => chair.branchId === branch.id).length
+  })
+  if (!spare) {
+    throw new Error(
+      `every branch runs every chair on ${date} between ${fromHour}:00 and ${toHour}:00, so a reschedule has nowhere to land`
+    )
+  }
+  return spare
 }
 
 export const firstPatient = async (request: APIRequestContext, token: string) => {

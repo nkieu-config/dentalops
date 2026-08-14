@@ -1,12 +1,12 @@
 import type { Appointment } from "@dentalops/contracts"
 import { expect, test } from "@playwright/test"
 import {
+  branchWithSpareChair,
   clearColumn,
   dayWindow,
   demoLogin,
   findFreeDentist,
   findSixtyMinuteService,
-  firstBranch,
   firstPatient,
   getJson,
   nextMonday,
@@ -20,7 +20,7 @@ test("J2: drag to reschedule, then a beaten-to-slot drag snaps back", async ({ p
   const token = await demoLogin(request)
   const monday = nextMonday()
   const dayStart = Date.parse(`${monday}T00:00:00+07:00`)
-  const branch = await firstBranch(request, token)
+  const branch = await branchWithSpareChair(request, token, monday, 9, 14)
   const dentist = await findFreeDentist(request, token, monday)
   const service = await findSixtyMinuteService(request, token)
   const patient = await firstPatient(request, token)
@@ -47,12 +47,15 @@ test("J2: drag to reschedule, then a beaten-to-slot drag snaps back", async ({ p
   await expect(card).toContainText("09:00–10:00")
 
   const dragBy = async (pixels: number) => {
+    await card.scrollIntoViewIfNeeded()
     const box = await card.boundingBox()
     expect(box).not.toBeNull()
     if (!box) return
-    await page.mouse.move(box.x + box.width / 2, box.y + 8)
+    const grabX = box.x + box.width / 2
+    const grabY = box.y + box.height / 2
+    await page.mouse.move(grabX, grabY)
     await page.mouse.down()
-    await page.mouse.move(box.x + box.width / 2, box.y + 8 + pixels, { steps: 12 })
+    await page.mouse.move(grabX, grabY + pixels, { steps: 12 })
     await page.mouse.up()
   }
 

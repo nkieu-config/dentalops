@@ -11,13 +11,13 @@
 ![TypeScript](https://img.shields.io/badge/TypeScript_strict-3178C6?logo=typescript&logoColor=white)
 ![Docker](https://img.shields.io/badge/Docker-2496ED?logo=docker&logoColor=white)
 
-**A multi-tenant dental scheduling system, built solo.** It prevents a dentist, chair, or required procedure resource from being double-booked by making conflicting bookings impossible in PostgreSQL.
+**A multi-tenant dental scheduling system, built solo.** An appointment claims a dentist, a chair, and sometimes equipment at once, and PostgreSQL exclusion constraints make an overlapping claim impossible to store.
 
 **Live demo:** https://trydentalops.vercel.app · **API health:** https://dentalops-api.onrender.com/api/v1/health
 
 ## Product tour
 
-DentalOps keeps the front desk schedule and patient booking flow in one calm command center. Every screenshot below is regenerated from the running app by `pnpm --filter @dentalops/web e2e:readme` against a clock-pinned demo seed, so refreshing them after a UI change is one command rather than a screenshot session. All names and appointments are synthetic.
+The tour goes from the desk where staff work the day to the phone a patient books from. Every screenshot below is regenerated from the running app by `pnpm --filter @dentalops/web e2e:readme` against a clock-pinned demo seed, so refreshing them after a UI change is one command rather than a screenshot session. All names and appointments are synthetic.
 
 <p align="center">
   <img src="docs/assets/readme/timeline-desktop.png" alt="DentalOps timeline showing four dentist columns of appointments for one branch on one day, each column headed by its booked and free hours" width="100%" />
@@ -59,7 +59,7 @@ DentalOps keeps the front desk schedule and patient booking flow in one calm com
 
 ## The problem and the design
 
-A dental appointment claims more than time: it needs a dentist, a chair, and sometimes equipment, while patients can book online at the same time staff are rescheduling at the desk. I built DentalOps to make a conflicting appointment impossible to persist, rather than merely unlikely.
+Bookings arrive from two directions at once, patients online and staff at the desk, so the same dentist, chair, or piece of equipment can be claimed twice in the same instant. I built DentalOps to make a conflicting appointment impossible to persist, rather than merely unlikely.
 
 1. A shared TypeScript availability engine gives the browser instant feedback from opening hours, shifts, appointments, blocks, and holds.
 2. The NestJS API recomputes availability authoritatively and claims all required resources in one transaction.
@@ -90,7 +90,7 @@ flowchart LR
 | Conflicting bookings cannot persist | [20 concurrent requests](apps/api/test/booking-race.spec.ts) produce one row and nineteen 409 responses. |
 | Tenant routes cannot leak data | [Route discovery](apps/api/test/tenant-isolation.spec.ts) fails the build when a route is absent from the isolation registry. |
 | A public booking reaches staff in realtime | [Two browser contexts](apps/web/e2e/public-booking.spec.ts) verify the timeline updates without reload. |
-| Redis failure cannot break integrity | [Dead Redis](apps/api/test/booking-without-redis.spec.ts) still permits an end-to-end booking while conflicting patients cannot both win. |
+| Redis failure cannot break integrity | [Dead Redis](apps/api/test/booking-without-redis.spec.ts) still permits an end-to-end booking while two patients racing for one slot cannot both win. |
 | The production image survives contention | [60 patients, one slot](apps/api/scripts/load/booking-contention.js) produces exactly one booking in CI against Postgres, Redis, and MongoDB. |
 | Audit failure cannot break a booking | [Dead MongoDB](apps/api/test/booking-without-mongo.spec.ts) still confirms a booking and rejects its duplicate; [audit tests](apps/api/test/audit.spec.ts) add a 30-day expiry, cursor paging that never sorts, and an owner-only tenant boundary. |
 
@@ -137,7 +137,8 @@ The web app starts at http://localhost:5173, health is at http://localhost:3001/
 
 - The product is intentionally single-timezone and currently operates in Asia/Bangkok; its fixed-offset implementation is unsuitable for daylight-saving regions.
 - Payments, insurance claims, and clinical records are outside this scheduling-focused scope.
-- Free-tier cold starts can delay the first request; audit logging degrades visibly when MongoDB is unavailable, while booking correctness remains intact.
+- Free-tier hosting delays the first request after the demo has been idle.
+- When MongoDB is unavailable the activity log stops recording and the page says so; bookings are unaffected.
 
 ## About
 

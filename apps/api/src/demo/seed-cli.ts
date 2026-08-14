@@ -1,5 +1,6 @@
 import { PrismaClient } from "@prisma/client"
-import { DEMO_SLUG, seedDemoTenant } from "./demo-seed"
+import { DEMO_SLUG } from "./demo-seed"
+import { seedDemoTenantWithActivity } from "./seed-runner"
 
 const prisma = new PrismaClient()
 
@@ -9,7 +10,7 @@ async function main() {
     console.log(`Demo tenant ${DEMO_SLUG} already exists, skipping seed`)
     return
   }
-  await seedDemoTenant(prisma)
+  await seedDemoTenantWithActivity(prisma)
 }
 
 main()

@@ -1,9 +1,9 @@
 import { PrismaClient } from "@prisma/client"
-import { seedDemoTenant } from "../src/demo/demo-seed"
+import { seedDemoTenantWithActivity } from "../src/demo/seed-runner"
 
 const prisma = new PrismaClient()
 
-seedDemoTenant(prisma)
+seedDemoTenantWithActivity(prisma)
   .catch((e: unknown) => {
     console.error(e)
     process.exit(1)

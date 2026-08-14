@@ -17,7 +17,7 @@
 
 ## Product tour
 
-DentalOps keeps the front desk schedule and patient booking flow in one calm command center. Every screenshot below is regenerated from the running app by `pnpm --filter @dentalops/web e2e:readme` against a clock-pinned demo seed, so it cannot drift from the UI it documents. All names and appointments are synthetic.
+DentalOps keeps the front desk schedule and patient booking flow in one calm command center. Every screenshot below is regenerated from the running app by `pnpm --filter @dentalops/web e2e:readme` against a clock-pinned demo seed, so refreshing them after a UI change is one command rather than a screenshot session. All names and appointments are synthetic.
 
 <p align="center">
   <img src="docs/assets/readme/timeline-desktop.png" alt="DentalOps timeline showing four dentist columns of appointments for one branch on one day, each column headed by its booked and free hours" width="100%" />
@@ -81,7 +81,7 @@ flowchart LR
 - **The database is the final authority.** GiST exclusion constraints over `tstzrange` make conflicting claims unrepresentable. [Database design](docs/database.md).
 - **One availability engine runs in browser and server.** Instant feedback and server authority share the same scheduling rules. [Availability design](docs/availability.md).
 - **Tenant isolation is enforced, not remembered.** An `AsyncLocalStorage` context and Prisma extension inject tenant filters; an unclassified route fails the isolation test. [Security model](docs/security.md).
-- **The audit trail is deliberately not a Postgres table.** Audit events are append-only and carry a `before`/`after` payload with no fixed shape, so they get their own store: writes are fire-and-forget and can never fail the booking that triggered them, a 30-day TTL index keeps a free-tier cluster from filling, and reads walk `_id` backwards so paging never sorts as the log grows. [Architecture](docs/architecture.md).
+- **The audit log cannot take a booking down with it.** It gets its own store rather than a table beside the bookings it records: writes are fire-and-forget, a 30-day TTL expires them, and reads walk `_id` backwards so paging never sorts. [Architecture](docs/architecture.md).
 
 ## Evidence
 
@@ -104,7 +104,7 @@ I predicted that caching availability would improve p50/p95 latency by 2.5–3×
 
 | Layer | Stack | Why it matters |
 | --- | --- | --- |
-| **Frontend** | React 19, Vite, TanStack Query, Tailwind CSS | Public booking and staff scheduling stay responsive; Socket.IO updates the timeline without a reload. |
+| **Frontend** | React 19, Vite, TanStack Query, Tailwind CSS | Public booking and staff scheduling stay responsive, and the timeline re-renders from realtime events without a reload. |
 | **Backend** | NestJS 11, Prisma, Socket.IO, BullMQ | Clear domain boundaries, an authoritative booking flow, realtime events, and asynchronous work. |
 | **Scheduling data** | PostgreSQL 16, GiST exclusion constraints | The source of truth: conflicting claims for time and resources cannot persist. |
 | **Coordination** | Redis 7 | Slot holds, the availability cache, BullMQ queues, and idempotency keys. |
@@ -141,6 +141,6 @@ The web app starts at http://localhost:5173, health is at http://localhost:3001/
 
 ## About
 
-Built solo by [Natthachak (@nkieu-config)](https://github.com/nkieu-config): product design, schema, backend, frontend, automated tests, CI, and deployment. I learned to put correctness-critical rules in database constraints and build enforcement rather than developer memory.
+Built solo by [Natthachak (@nkieu-config)](https://github.com/nkieu-config): product design, schema, backend, frontend, automated tests, CI, and deployment. I learned to put correctness-critical rules in database constraints and build-time enforcement rather than in developer memory.
 
 📫 natthachak.config@gmail.com · [LinkedIn](https://www.linkedin.com/in/natthachak)

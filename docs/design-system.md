@@ -13,7 +13,7 @@ A scheduler shows **8 columns of colored blocks at once**. If the brand color is
 
 > **Chrome is quiet. Data carries the color. Status is reserved.**
 
-- **Brand primary** appears only on chrome: buttons, active nav, links, focus rings. Never on an appointment card. Since W11 the primary *is* ink, so chrome spends no hue at all.
+- **Brand primary** appears only on chrome: buttons, active nav, links, focus rings. Never on an appointment card — enforced by the `--hue0-border` / `--primary` pair in the verifier, which exists because hue 0 was byte-identical to the primary until §3 moved it.
 - **Appointment cards** use a low-saturation tinted surface with a saturated 3px left border. The border carries the hue; the fill stays readable.
 - **Semantic status colors** (red / amber / emerald) are reserved for meaning and never used decoratively — so when red appears, it always means a violation or conflict.
 - **Off-shift regions** are neutral hatch only. They must recede, never compete.
@@ -55,173 +55,113 @@ mark, marketing accents on the public pages. It never touches a button, a status
 | Amber, emerald | Locked to warning and success. |
 | **Teal `#0F766E`** | **Chosen.** The only hue not spoken for once it vacated chrome, and it keeps a thread back to the old identity. |
 
+### Identity now — "sea glass" (`3eb20d3`), which superseded the ink-on-porcelain identity above
+
+**The two sections above are history, not the current palette.** Ink-on-porcelain shipped in `17a218d`
+and was replaced three commits later by `3eb20d3 feat(web): establish sea glass tokens`. Primary is a
+desaturated teal again — `#237C78` light, `#7FC4B9` dark — on a cool near-white ground `#F8FBFA`, and the
+stone neutrals went with it: every neutral is now green-biased rather than warm.
+
+**The rationale was never recorded.** `3eb20d3` carries a one-line message and no design note, so the
+argument that overturned "the brand stopped spending a hue" is not written down anywhere. That argument
+is worth reconstructing before the next identity change, because the W11 reasoning above is still on the
+page and still reads as current if you stop at the previous heading.
+
+What did survive the change: chrome is still quiet relative to data, status hues are still reserved, and
+the personality still comes from shape and motion rather than from saturation.
+
 ### Deliberate deviations from the ui-ux-pro-max recommendation
 
 | Tool suggested | We use | Why |
 |---|---|---|
 | Fira Code (heading) + Fira Sans | **Plus Jakarta Sans** everywhere | A monospace heading reads "developer tool" on the staff app and "unfinished" on the patient booking page. Plus Jakarta Sans is a single variable file with genuine tabular figures, and its rounder terminals supply the friendliness the ink palette deliberately gives up. |
-| Primary `#2563EB` (calendar blue) | **Ink `#1C1917`** | Blue is the most useful hue for categorical appointment data — spending it on chrome would cost *two* data hues (sky and indigo) and leave no good sixth. Ink costs none. |
-| Soft UI Evolution's shadow-led depth | **Borders separate, shadows float** | Kept from W4. Shadows are still forbidden inside the grid; the softer shadow scale applies only to surfaces that genuinely float above the page. |
+| Primary `#2563EB` (calendar blue) | **Sea-glass teal `#237C78`** | Blue is the most useful hue for categorical appointment data — spending it on chrome would cost *two* data hues and leave no good sixth. Teal costs one, and W11's attempt to spend none (ink) was reverted by `3eb20d3`. |
+| Soft UI Evolution's shadow-led depth | **Borders separate, shadows float** | Kept from W4. Inside the grid only two shadows exist — hover and drag — and both are named tokens; the rest of the scale applies only to surfaces that genuinely float above the page. |
 
 ---
 
 ## 2. Tokens
 
-Paste into `apps/web/src/app.css` in W4. Values are Tailwind palette stops, so contrast ratios are already known-good.
+**`apps/web/src/app.css` is the source of truth for token values. This section documents the rules the
+stylesheet cannot state, not the values it already holds.** An earlier revision of this document carried
+a full paste-in CSS block; by the time anyone checked, 56 of its 57 light-mode declarations disagreed
+with the shipped stylesheet, and the block was the only place a reader would have looked. Duplicating a
+stylesheet in prose guarantees exactly one thing, which is that the prose goes stale. It is gone.
 
-```css
-@import "tailwindcss";
-@custom-variant dark (&:is(.dark *));
+To read the current values, open `app.css`: `:root` for light, `.dark` for dark, `@theme inline` for the
+Tailwind bindings that turn `--surface-band` into the `bg-surface-band` utility.
 
-:root {
-  --radius: 0.625rem;
+### Rules that hold regardless of the values
 
-  --background: #faf9f7;
-  --foreground: #1c1917;
-  --card: #ffffff;
-  --card-foreground: #1c1917;
-  --popover: #ffffff;
-  --popover-foreground: #1c1917;
+- **Every token pair is verified by script, never by eye.** `apps/web/scripts/verify-contrast.mjs` walks
+  the stylesheet and fails the build on any pair below its minimum. Add a token, add its pair — a colour
+  that no pair names is a colour nobody is checking.
+- **Text minimums are WCAG's:** 4.5:1 for body, 3:1 for non-text (borders, focus rings, hue stripes).
+- **Two surfaces that meet must be told apart.** `SURFACE_SEPARATION` is 1.05. This rule exists because a
+  section band shipped at **1.026** against the page ground — technically a different colour, visually a
+  single flat sheet — and nothing in the verifier had an opinion about it, since every rule it knew was a
+  *minimum for legibility* and none was a *floor for distinguishability*.
+- **A surface token is tuned for the ground it actually sits on.** `--surface-subtle` reads 1.069 against
+  `--card` and 1.026 against `--background`. That is not a defect: 29 of its 30 usages are inset panels
+  inside cards, which is the pair the verifier checks. Full-width page bands are a different job and use
+  `--surface-band`, whose pair is checked against `--background`.
+- **A primary-tinted surface cannot carry `--muted-foreground`.** `--spotlight` is the patient detail
+  page's "next appointment" highlight — a primary tint over `--background`, checked narrowly like
+  `--surface-subtle`/`--surface-band` rather than swept into the general `SURFACES` list. It was nearly
+  added to that list, which immediately failed: `--muted-foreground` and `--primary` sit at almost the same
+  luminance in light mode, so any tint dark enough to separate from `--background` and from a `--secondary`
+  badge sitting on it pulls muted text below 4.5:1 — there is no single alpha that satisfies both. The fix
+  was the component, not the token: `NextAppointmentSpotlight` uses `--foreground` throughout, and only
+  `--foreground`/`--spotlight` is a checked pair, matching what the component actually does rather than
+  every combination it theoretically could.
+- **Separation is required where a border cannot do the work.** A sticky surface has content scrolling
+  underneath it and needs its own fill step — `--timeline-header` is checked against `--timeline-canvas`
+  for exactly that reason, and was de-aliased from `--surface-subtle` to get one in light mode. A static
+  bordered band does not: the time gutter and the canvas sit at 1.041 with a hairline between them and
+  are not a checked pair, because nothing ever passes under the gutter.
+- **The verifier resolves `var()` chains before comparing.** It used to keep only literal hex, which
+  silently skipped all six `--timeline-*` surface aliases — so the densest screen in the product had zero
+  contrast coverage while the report still said every pair passed. A gate that cannot see a token is
+  indistinguishable from no gate.
+- **The inverted surface is `--surface-inverse`, and it is dark in both themes.** It closes long public
+  pages. Light-theme `--ring` measures 2.67:1 on it — below the 3:1 floor — so controls on that surface
+  ring with `--surface-inverse-foreground` and offset against `--surface-inverse`, not the page defaults.
+- **"Closes the page" is a stronger claim than `SURFACE_SEPARATION` can make, so it has its own floor.**
+  The dark-theme footer shipped at `#121615`, which is **1.093** against `--background` — comfortably past
+  1.05, and therefore green in the verifier, while reading on screen as no footer at all. The threshold was
+  answering *are these two colours distinguishable*, and the design rule is *does this surface invert*. Those
+  are different questions, and only the first had a number. `SURFACE_INVERSION` is now 1.15 and the footer
+  is `#040706`, which measures **1.212**; light mode is unchanged at 15.288. Note the ceiling this exposes:
+  the darkest possible footer, pure `#000000`, only reaches 1.259 against the dark ground, so a dark theme
+  cannot buy inversion the way a light one can — 1.15 is most of the headroom that exists, not a soft target.
+- **A hairline on the inverted surface needs its own token.** `--border` is themed for the page grounds and
+  is wrong on a surface that stays dark in both themes; the footer's rule was first written as
+  `border-surface-inverse-foreground/20`, which is exactly the ad-hoc alpha this section exists to prevent —
+  no pair names it, so nothing checks it. `--surface-inverse-border` is checked against `--surface-inverse`
+  at `SURFACE_SEPARATION` and measures 1.464 light / 1.496 dark.
+- **A tint is only band-safe if some pair says so.** `--decorative-surface` against `--surface-band` is
+  **1.028** in light mode — below the floor — and the landing page's capability grid was filling half its
+  cards with exactly that, with `border-transparent` so no hairline compensated. It passed CI because the
+  verifier checked `--decorative-surface` against its own ink and `--decorative` against `--background`, but
+  never the tint against the band it was actually sitting on. The pair a component creates is the pair that
+  has to be named: `--decorative-surface`/`--background` (1.062) and `--card`/`--surface-band` (1.136) are
+  both checked now, and `--decorative-surface` is not to be used as a fill on `--surface-band`.
 
-  --primary: #1c1917;
-  --primary-foreground: #fafaf9;
-  --secondary: #f0eeea;
-  --secondary-foreground: #1c1917;
-  --muted: #f5f4f1;
-  --muted-foreground: #6b645e;
-  --accent: #edeae5;
-  --accent-foreground: #1c1917;
+### Token families
 
-  --destructive: #dc2626;
-  --destructive-foreground: #ffffff;
-  --destructive-surface: #fef2f2;
-  --destructive-on-surface: #991b1b;
-  --warning: #b45309;
-  --warning-foreground: #ffffff;
-  --warning-surface: #fffbeb;
-  --warning-on-surface: #92400e;
-  --success: #047857;
-  --success-foreground: #ffffff;
-  --success-surface: #ecfdf5;
-  --success-on-surface: #065f46;
+| Family | Holds |
+|---|---|
+| Ground | `--background`, `--card`, `--popover`, `--surface-subtle`, `--surface-band`, `--spotlight`, `--surface-inverse`, `--surface-inverse-border` |
+| Ink | `--foreground`, `--muted-foreground`, `--appointment-muted`, `--surface-inverse-foreground` |
+| Chrome | `--primary`, `--secondary`, `--accent`, `--border`, `--input`, `--ring`, `--selection` |
+| Status | `--destructive`, `--warning`, `--success`, each with `-foreground` / `-surface` / `-on-surface` |
+| Non-reporting accent | `--decorative`, `--warm`, each with `-surface` / `-on-surface` |
+| Grid | `--grid-line`, `--grid-line-hour`, `--offshift`, `--now-line`, and the `--timeline-*` aliases |
+| Data | `--hue0`…`--hue5`, each `-bg` / `-border` (see §3) |
 
-  --decorative: #0f766e;
-  --decorative-surface: #f0fdfa;
-  --decorative-on-surface: #115e59;
+Status, decorative and warm all carry an `-on-surface` ink because their `-surface` tints are too light to
+take `--foreground` at 4.5:1. Reach for `-on-surface` whenever you use the matching `-surface`.
 
-  --border: #e4e0db;
-  --input: #948d86;
-  --ring: #1c1917;
-
-  --grid-line: #e7e4e0;
-  --grid-line-hour: #d6d1ca;
-  --offshift: #f5f4f1;
-  --offshift-stripe: #e7e4e0;
-  --now-line: #dc2626;
-  --overlay: rgb(28 25 23 / 0.45);
-  --appointment-muted: #57534e;
-}
-
-.dark {
-  --background: #121110;
-  --foreground: #f2f0ed;
-  --card: #1c1a18;
-  --card-foreground: #f2f0ed;
-  --popover: #1c1a18;
-  --popover-foreground: #f2f0ed;
-
-  --primary: #fafaf9;
-  --primary-foreground: #1c1917;
-  --secondary: #262321;
-  --secondary-foreground: #f2f0ed;
-  --muted: #1c1a18;
-  --muted-foreground: #a8a29e;
-  --accent: #2e2b28;
-  --accent-foreground: #f2f0ed;
-
-  --destructive: #f87171;
-  --destructive-foreground: #450a0a;
-  --destructive-surface: #341b1a;
-  --destructive-on-surface: #fca5a5;
-  --warning: #fbbf24;
-  --warning-foreground: #451a03;
-  --warning-surface: #2a1f0f;
-  --warning-on-surface: #fcd34d;
-  --success: #34d399;
-  --success-foreground: #022c22;
-  --success-surface: #0d2620;
-  --success-on-surface: #6ee7b7;
-
-  --decorative: #2dd4bf;
-  --decorative-surface: #0c2624;
-  --decorative-on-surface: #5eead4;
-
-  --border: #2e2b28;
-  --input: #78716c;
-  --ring: #fafaf9;
-
-  --grid-line: #2e2b28;
-  --grid-line-hour: #403b37;
-  --offshift: #191716;
-  --offshift-stripe: #2e2b28;
-  --now-line: #f87171;
-  --overlay: rgb(12 10 9 / 0.7);
-  --appointment-muted: #d6d3d1;
-}
-
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --color-card: var(--card);
-  --color-card-foreground: var(--card-foreground);
-  --color-popover: var(--popover);
-  --color-popover-foreground: var(--popover-foreground);
-  --color-primary: var(--primary);
-  --color-primary-foreground: var(--primary-foreground);
-  --color-secondary: var(--secondary);
-  --color-secondary-foreground: var(--secondary-foreground);
-  --color-muted: var(--muted);
-  --color-muted-foreground: var(--muted-foreground);
-  --color-accent: var(--accent);
-  --color-accent-foreground: var(--accent-foreground);
-  --color-destructive: var(--destructive);
-  --color-destructive-foreground: var(--destructive-foreground);
-  --color-warning: var(--warning);
-  --color-warning-foreground: var(--warning-foreground);
-  --color-success: var(--success);
-  --color-success-foreground: var(--success-foreground);
-  --color-decorative: var(--decorative);
-  --color-decorative-surface: var(--decorative-surface);
-  --color-decorative-on-surface: var(--decorative-on-surface);
-  --color-border: var(--border);
-  --color-input: var(--input);
-  --color-ring: var(--ring);
-
-  --radius-xs: 0.25rem;
-  --radius-sm: calc(var(--radius) - 4px);
-  --radius-md: var(--radius);
-  --radius-lg: calc(var(--radius) + 4px);
-  --radius-xl: calc(var(--radius) + 10px);
-
-  --font-sans: "Plus Jakarta Sans Variable", ui-sans-serif, system-ui, sans-serif;
-
-  --spacing-slot: 1rem;
-  --spacing-hour: 4rem;
-  --spacing-timegutter: 3.5rem;
-  --spacing-col-min: 11rem;
-  --spacing-topbar: 3.5rem;
-  --spacing-bottomnav: 3.5rem;
-}
-
-html { font-feature-settings: "tnum"; }
-
-@media (prefers-reduced-motion: reduce) {
-  *, *::before, *::after {
-    animation-duration: 0.01ms !important;
-    transition-duration: 0.01ms !important;
-  }
-}
-```
 
 `cv11` was an Inter character variant and does nothing in Plus Jakarta Sans; it was dropped rather than
 carried over as decoration. `tnum` stays and is the load-bearing one — it was verified present in the
@@ -267,32 +207,71 @@ Single family: **Plus Jakarta Sans** (variable, `wght 200..800`), self-hosted fr
 > saw `system-ui` instead. The bundle paid for a font it did not render. Verify the name against the
 > package's own `index.css` whenever the family changes — this is a silent failure with no console error.
 
-| Role | Size / line-height | Weight |
+Sizes are `@utility type-*` classes in `app.css`, not raw Tailwind sizes. Always reach for the role, never
+for `text-sm` — the role is what a later scale change can move.
+
+| Utility | Size / line-height | Role |
 |---|---|---|
-| Display (public hero) | `1.875rem / 2.25rem` | 600 |
-| H1 page title | `1.5rem / 2rem` | 600 |
-| H2 section | `1.125rem / 1.75rem` | 600 |
-| Body | `0.875rem / 1.375rem` | 400 |
-| Body (public pages) | `1rem / 1.5rem` | 400 |
-| Label / table header | `0.75rem / 1rem`, `tracking-wide`, uppercase | 500 |
-| Time & numeric | inherit + `tabular-nums` | 500 |
+| `type-display-lg` | `3rem / 3.5rem` | Public hero h1 at `lg` and up |
+| `type-display` | `2.25rem / 2.75rem` | Public hero h1 below `lg` |
+| `type-page-title` | `1.5rem / 2rem` | Staff page h1 |
+| `type-section-title` | `1.25rem / 1.75rem` | Section h2 |
+| `type-subsection-title` | `1.125rem / 1.625rem` | Subsection h3, hero sub-headline |
+| `type-dialog-title` | `1.125rem / 1.625rem` | Dialog and sheet titles |
+| `type-card-title` | `1rem / 1.5rem` | Card and list-row titles |
+| `type-body` | `1rem / 1.5rem` | Public-page running text |
+| `type-ui` | `0.875rem / 1.25rem` | Staff app default — set on `body` |
+| `type-supporting` | `0.875rem / 1.25rem` | Secondary prose under a title |
+| `type-meta` | `0.75rem / 1rem` | Labels, captions, footer |
+| `type-dense` | `0.75rem / 1rem` | Inside the grid, where rows are 16px tall |
 
-Rules: staff app body is 14px (density); **public booking body is never below 16px** (iOS auto-zoom on focus). Any element rendering a time, duration, count, or price gets `tabular-nums` — non-negotiable, it prevents column jitter.
+Rules: staff app body is 14px (`type-ui`, set on `body`) for density; **public booking body is never below
+16px** (`type-body` — iOS auto-zooms on focus below that). Any element rendering a time, duration, count, or
+price gets `tabular-nums` — non-negotiable, it prevents column jitter. Display sizes carry `tracking-tight`;
+at 48px that is about −1.2px, which is the tracking the geometric display face needs to stop looking loose.
 
-**Thai renders in the system face, by design.** Plus Jakarta Sans covers Latin, Latin-Extended and Vietnamese — no Thai. Clinic names and any other Thai content fall through to `ui-sans-serif` / `system-ui`, which resolves to a real Thai face on every target platform. The UI is English; adding a Thai webfont would cost bundle weight for content that is incidental. If Thai ever becomes UI language rather than data, this decision gets revisited, not patched.
+**Thai now has its own webfont, which reverses an earlier decision recorded here.** `main.tsx` imports both
+`@fontsource-variable/plus-jakarta-sans` and `@fontsource-variable/noto-sans-thai`, and `--font-sans` stacks
+them in that order, so Latin resolves to Plus Jakarta Sans and Thai — which Plus Jakarta Sans does not cover
+— resolves to Noto Sans Thai rather than falling through to `system-ui`. This document previously argued the
+opposite ("Thai renders in the system face, by design… adding a Thai webfont would cost bundle weight for
+content that is incidental"). **The argument that overturned it was not recorded**, so the cost it accepted —
+a second variable font in the bundle — is currently unjustified in writing. Both families are self-hosted;
+there is still no Google Fonts network call.
+
+`apps/web/src/lib/font.test.ts` asserts that `--font-sans` names, in order, the family each imported
+fontsource package actually registers. That test is why the stack cannot silently drift the way the Inter
+stack did through W4–W10.
 
 ### Radius, elevation, motion
 
-- **Radius:** `--radius: 0.625rem` (10px), raised from 6px in W11 — this is a large part of where the
-  softness comes from now that the palette is monochrome. Buttons, inputs, cards, dialogs use `md`.
-  Containers and sheets use `lg`/`xl`. **Appointment cards stay `xs` (4px)** — a 15-minute block is
-  16px tall, and a 10px radius on a 16px block eats the block. Full-round only for avatars, status
-  dots, and the active-nav pill.
-- **Elevation:** data-dense means **borders separate, shadows float**. Four levels, no others:
-  - `shadow-none` — everything in the grid, all cards, all table rows
+- **Radius:** the single `--radius` scale is gone; radii are now named for what they wrap, so a control
+  and a card can move independently. `--radius-control` `0.5rem` (buttons, inputs, chips) ·
+  `--radius-card` `0.875rem` (cards, dialogs, sheets) · `--radius-hero` `1.375rem` (every floating workspace
+  surface: sidebar, rail, header, page toolbars, and the public hero artifact) · `--radius-timeline-shell` `1rem` · `--radius-timeline-header` `0.75rem` ·
+  `--radius-timeline-appointment` `0.25rem`. Full-round only for avatars, status dots, and the
+  active-nav pill. These named tokens govern anything that *is* a surface — a card, a sheet, a control, a
+  page shell. Ornaments nested inside one (a swatch, a chip in a record row, a preview thumbnail) may use
+  stock `rounded-sm` / `rounded-md`; they are not surfaces and do not need to move when a surface does.
+  Reach for a named token the moment the thing has its own border or background and sits directly on the
+  page. **A skeleton is the exception among ornaments**: its whole job is to stand in for the control that
+  replaces it, so it takes `--radius-control`. It shipped at `rounded-md` until W12, which put a 6px
+  placeholder where an 8px input was about to appear. The appointment radius is the one number here that is not a taste call: `durationMin`
+  admits 15 (`packages/contracts/src/directory.ts`), a 15-minute block renders at the 16px floor
+  `AppointmentCard` clamps to, and this token had drifted to `0.625rem` — 10px of rounding on a 16px
+  block is 62% of its height, which is the "eats the block" case the rule was written to prevent. Even
+  the shortest service in the default catalogue (Ortho, 30 min → 32px) was spending a third of its
+  height per corner.
+- **Elevation:** data-dense means **borders separate, shadows float**. Five levels, no others:
+  - `shadow-none` — everything resting in the grid, all cards, all table rows
   - `shadow-xs` — resting buttons and inputs only; a 1px hairline of depth, not a visible shadow
+  - `--shadow-appointment-hover` — an appointment card under the pointer. Added when the Timeline
+    redesign asked hover to read as "reachable" without moving the card; the earlier rule allowed no
+    shadow inside the grid except on drag, and the code had already followed the newer rule with an
+    inline arbitrary value that no token named and no verifier could see. It is a token now, and it is
+    deliberately lighter than `shadow-md` — dozens of cards share one screen and this fires on one.
   - `shadow-md` — popover, dropdown, drawer, dialog
-  - `shadow-lg` — the card currently being dragged (the only shadow permitted inside the grid, and it means "lifted")
+  - `shadow-lg` — the card currently being dragged, which is the only shadow that means "lifted off the grid"
 - **Motion:** 150ms micro-interactions, 200ms drawer/dialog, exit at ~70% of enter. `transform`/`opacity`
   only. Press feedback is `scale(0.97)` on buttons and tappable cards. List and grid entrances stagger
   30–50ms per item. Realtime arrival = 250ms fade + one subtle scale pulse `0.98 → 1`. Spring easing
@@ -303,18 +282,31 @@ Rules: staff app body is 14px (density); **public booking body is never below 16
 
 ## 3. Data color scale (appointment cards)
 
-Six hues, deliberately *not* including teal (reserved for chrome) and *not* including red/amber/emerald at saturation (reserved for status).
+Six hues, held as `--hue0`…`--hue5` with a `-bg` fill and a `-border` stripe each. The sea-glass rework
+desaturated all six so they sit under the new ground instead of on top of the old one.
 
-| # | Hue | Light: bg / border | Dark: bg / border |
+| Index | Reads as | Light: bg / border | Dark: bg / border |
 |---|---|---|---|
-| 1 | sky | `#f0f9ff` / `#0284c7` | `#082f49` / `#38bdf8` |
-| 2 | violet | `#f5f3ff` / `#7c3aed` | `#2e1065` / `#a78bfa` |
-| 3 | fuchsia | `#fdf4ff` / `#c026d3` | `#4a044e` / `#e879f9` |
-| 4 | indigo | `#eef2ff` / `#4f46e5` | `#1e1b4b` / `#818cf8` |
-| 5 | lime | `#f7fee7` / `#4d7c0f` | `#1a2e05` / `#a3e635` |
-| 6 | orange | `#fff7ed` / `#c2410c` | `#431407` / `#fb923c` |
+| 0 | teal | `#DDF3EE` / `#1B5F5B` | `#1C4943` / `#9BE3D6` |
+| 1 | violet | `#EEE8F8` / `#8066AE` | `#3C3554` / `#C2B1E6` |
+| 2 | blue | `#E4F0F8` / `#397A9E` | `#294352` / `#8EC4E3` |
+| 3 | gold | `#FFF3D5` / `#9E7014` | `#4A3C20` / `#E8C56B` |
+| 4 | rose | `#F9E6EC` / `#A85470` | `#4A303A` / `#E7A8B9` |
+| 5 | green | `#E7F0DD` / `#527A40` | `#33452C` / `#A6C98F` |
 
-Assignment: hue is derived from `service.colorIndex` (stored, not hashed at render — stable across sessions). Card text is always `--card-foreground`, never the hue.
+Assignment: hue is derived from `service.colorIndex` (stored, not hashed at render — stable across sessions), resolved by `apps/web/src/lib/appointment-hue.ts`. Card text is always `--card-foreground`, never the hue. Indices are 0-based in code; this table is too.
+
+**Hue 0 was byte-identical to `--primary` and has been moved off it.** §1 promises the brand colour never
+lands on an appointment card, and by construction it did — for `Cleaning`, which is `DEFAULT_SERVICES[0]`
+and the most frequent card on a dental schedule. Hue 0 now sits a clear luminance step away from chrome in
+both themes, in the direction of its own card fill: darker in light, brighter in dark, so the data reads
+louder than the chrome exactly as §1 asks. `["--hue0-border", "--primary", HUE_OFF_CHROME]` holds it there.
+
+> **Still open — hues 3 and 4 sit near reserved status colours.** Gold `#9E7014` is in `--warning`'s
+> family and rose `#A85470` in `--destructive`'s, while §1 promises those colours only ever mean status.
+> Nothing is broken: both pass contrast, and the desaturation keeps them well clear of the saturated
+> status tones. But `HUE_OFF_CHROME` only compares luminance, and two colours can be a full hue apart at
+> identical lightness, so no check can currently express this one. It needs a decision, not a threshold.
 
 ### Status is expressed by treatment, not by hue
 
@@ -339,18 +331,32 @@ Breakpoints are Tailwind defaults: `sm 640 / md 768 / lg 1024 / xl 1280`. Refere
 
 | Range | Navigation | Topbar |
 |---|---|---|
-| `< 768` | bottom nav, 4 items, 56px, labels + icons | 56px: date picker + branch switcher only |
-| `768–1023` | left icon rail, 56px wide, tooltips on hover | full: branch, date, search, theme, user |
-| `≥ 1024` | left sidebar 240px, collapsible to rail (persisted) | full |
+| `< 768` | bottom nav, up to 5 items, 56px, labels + icons | clinic identity + account only |
+| `768–1023` | left icon rail, 72px wide (`--spacing-navrail`), tooltips on hover | clinic identity, demo state, theme, account |
+| `≥ 1024` | left sidebar 224px (`--spacing-sidebar`), always expanded | same, with account name and role |
 
 ### Per screen
 
 | Screen | `< 768` | `768–1023` | `≥ 1024` |
 |---|---|---|---|
 | **Timeline** | single dentist (segmented switch) **or** agenda list; **no drag** — tap → drawer → "Move" → slot picker | 2–3 columns, horizontal scroll-snap, sticky time gutter, column picker; drag enabled | all columns (virtualize > 10 dentists); full drag / resize / keyboard |
-| **Booking wizard** | full-bleed single column, sticky footer CTA | same, `max-w-md` centered | same, centered, with clinic info sidebar |
-| **Roster editor** | per-staff day list; add/edit via drawer | 3-day window, scroll-snap | full week grid + violations panel docked right (320px) |
+| **Booking wizard** | full-bleed single column, sticky footer CTA | same, `max-w-md` centered | same, `max-w-xl` centered — no sidebar |
+| **Roster editor** | per-staff day list; add/edit via drawer | 3-day window, scroll-snap (through `1279`) | `≥ 1280` only: full week grid + violations panel docked right (320px) |
 | **Settings / Patients** | stacked cards | 2-col form grid | 2-col + `max-w-4xl` |
+
+The topbar carries only what is true on every screen — clinic identity, demo state, theme, account. Anything
+scoped to one screen (branch, date, view, search) belongs to that screen's own command surface, so Timeline and
+Roster each own their branch and date controls rather than sharing a global one.
+
+Roster is the one screen whose mode boundary is not `lg`. Its full week needs `--spacing-rostername` plus seven
+`--spacing-rosterday` columns — 1016px — which does not fit beside the 224px sidebar until the viewport reaches
+`1280`. Below that it shows a 3-day window and moves the review queue into a bottom sheet.
+
+The booking wizard and the manage-booking page are patient-facing and deliberately stay a single centred
+column at every width — patients book from phones, and a desktop sidebar would be chrome nobody asked for.
+They also carry their own clinic-branded header rather than `PublicNav`: that nav sells "Create a clinic" and
+"Sign in", which are for clinic owners, not for a patient halfway through booking. Public controls run one
+step larger than the staff app — reach for `<Button size="lg">` rather than overriding type per call site.
 
 **Hard rules at every width:** no horizontal scroll on `body` (scroll lives inside the grid container only); touch targets ≥ 44px; the timeline is the *only* element allowed its own horizontal scroll.
 
@@ -492,7 +498,15 @@ While dragging, `POST /roster/validate` fires debounced (250ms) and the panel up
 
 ## 6. Component inventory (layer 3 of the hierarchy)
 
-Built for `/dev/ui` gallery in W4, each with every state rendered:
+`/dev/ui` shows **every component in `components/ui` and `components/shell`**, every colour token, and the composites below. Until W12 it showed the composites and roughly half the primitives — no shell chrome at all, seven kit components missing, and 10 of 54 tokens — while closing with the line *"Every component in MASTER §6 is on this page — nothing outstanding."* That sentence was true of the table below and read as a claim about the system, and a test asserted it, which gave it authority it had not earned.
+
+Two things keep it honest now. `dev-ui-page.test.tsx` walks `components/{ui,shell}` on disk and fails if any file is not imported by the page, with a short exemption list for providers and non-visual helpers; and the page states its own limit — it shows components, not screens, because screens are compositions the visual suite already covers at four widths in both themes.
+
+The gallery earns its keep as a *finder*, not a catalogue. Rendering all 54 tokens is what surfaced `--warm-*`: four values in each theme, three pairs in the contrast gate, and zero consumers anywhere in the app. It is deleted. The shell section points its first nav item at `/dev/ui` itself, so the current-destination pill on the page is the real one rather than a copy that can drift — the same reason the offline section mounts the shell's own banner.
+
+`/dev/ui` is built into `pnpm dev` and into the Playwright build (`VITE_DEV_UI=1`), and is absent from a plain production build.
+
+The composites, each with every state rendered:
 
 | Component | States to render in the gallery |
 |---|---|
@@ -504,12 +518,47 @@ Built for `/dev/ui` gallery in W4, each with every state rendered:
 | `ShiftBlock` | {saved, dragging, recurring, conflicting} |
 | `EmptyState` / `ErrorState` | {no data, 409 conflict, 5xx, offline} |
 
+### 6.1 Forms — one system, and the two places it is deliberately not used
+
+Every labelled control in the product is a `Field` from `components/ui/form-field.tsx`. `Field` owns the label association, `aria-invalid`, the `aria-describedby` chain (error before hint), and the error's icon-plus-hue treatment; `FormError` owns the form-level box; `SubmitButton` owns the pending label. They lived in `features/auth/auth-form.tsx` until W12, which meant settings, the staff sheet and the **public booking wizard** each reached into the auth feature to get a label — and pulled `AuthCard`, which mounts `PublicNav`, into their chunk graph. Only `AuthCard` and `PasswordStrengthHint` are auth's now.
+
+`useAuthForm` is the validation half: a Zod schema, errors cleared on change, focus moved to the first invalid field by `name`, and API error codes mapped onto fields via `fieldForErrorCode`. Nine forms use it. Two do not, on purpose:
+
+- **`CreateDrawer`** has no validation to run — it disables the submit button and names what is still missing ("Choose a service and patient to continue"), which is better than letting someone submit and be told no.
+- **`ShiftDialog`** holds its draft in the roster page, because a draft shift is validated by the server on every keystroke and drawn on the grid while you edit it.
+
+Both still use `Field` and `FormError`, so they look identical to the nine.
+
+**Control scale.** One height for everything you can type in or pick from: `h-11` at every width up to `sm`, `sm:h-10` above it — 44px on touch, 40px on the desktop. `Input` and `AppSelect`'s `field` variant both encode it, so a select and a text input sitting in the same grid row line up. This is the corrected form of a rule that used to be split three ways: `Input` defaulted to `sm:h-9` (36px, matching nothing), an opt-in `publicScale` prop gave the correct 40px under a name that implied it was for public pages only, and eleven call sites bolted `min-h-11` on top to get 44px back. When most call sites override a default, the default is wrong.
+
+**Text scale in controls.** Text you *type* is `type-body` (16px) at every width, because iOS Safari zooms the viewport on focus below 16px and it does that in landscape too. Text you *pick* is `type-ui` (14px), because a select trigger is a button and never takes focus-zoom. That is why an input and a select are the same height but not the same type size.
+
+**Validation is the app's, never the browser's.** Every `<form>` sets `noValidate`. A native constraint bubble is browser-styled, browser-language, and vanishes on blur — it cannot be `role="alert"`, cannot persist, and cannot be tested. The public booking form was the last one missing the attribute, so a patient who mistyped their optional email got a bubble where every staff form gives an inline error.
+
+**Rules that outlive a single form live in `lib/`.** `lib/phone.ts` holds the phone pattern, the normaliser and the message, because the same number used to be judged twice: staff could paste `081 234 5678` and the patient booking themselves could not, with two different error strings for one server rule (`/^0\d{8,9}$/`, in both `CreatePatientDto` and `ConfirmBookingDto`). Both paths now normalise before validating and send the API a clean value.
+
+### 6.2 The control contract
+
+Five rules the kit had never agreed on. `components/ui/control-contract.test.tsx` holds them; `components/ui/focus-ring.ts` holds the two strings they share.
+
+**One height.** `h-11 · sm:h-10 · [@media(pointer:coarse)]:h-11` — 44px on touch at any width, 40px on a mouse. `Button` (default and icon), `Input`, `AppSelect`, the `Sheet` close and the `SegmentedControl` items all encode it, so anything that can share a form row lines up. `size="sm"` is the one deliberate exception: 36px on a mouse for toolbar chips, still bumped to 44px on touch. Before W12 the default was `sm:h-9` and **40 of the app's 116 buttons wrote their own height on top of it — 36 of them `min-h-11`.** When a third of the call sites override a default, the default is wrong; the overrides are gone.
+
+**One focus ring.** `focusRing` — `ring-2` + `ring-ring` + `ring-offset-2` + `ring-offset-background`. Seven of the ten kit components with a ring were missing the offset, so tabbing from an input to the select beside it changed the ring's geometry.
+
+**One way to say disabled.** `disabledControl` — `disabled:cursor-not-allowed disabled:opacity-50`. Note what is *not* there: `disabled:pointer-events-none`, which `Button` carried until W12. Native `disabled` already blocks the click; all `pointer-events-none` added was suppressing hover — and several buttons are disabled *with a `title` that explains why* (`OFFLINE_MESSAGE` on the roster and staff sheets). The explanation could never appear. There is a test for exactly this.
+
+**One radius vocabulary.** Controls take `--radius-control`; see §2. Buttons, chips, `kbd`, skip links, slot buttons and skeletons had drifted onto stock `rounded-md`.
+
+**No alpha on anything that must be read.** `verify-contrast.mjs` resolves tokens, not opacity, so an alpha-tinted colour is invisible to the gate by construction. The calendar's adjacent-month days were `text-muted-foreground/40` — about 1.9:1, and those days are *selectable*, not disabled. Alpha stays legal for hover and open-state decoration on non-text.
+
 ---
 
 ## 7. Verification checklist (ties to the spec's Definition of Done)
 
 - [x] Contrast ≥ 4.5:1 body / ≥ 3:1 large — enforced by `apps/web/e2e/a11y.spec.ts`, which fails the build on any `serious` or `critical` axe violation at 390px and 1440px. This checklist item was **asserted rather than verified** until W8: the original `--primary` (teal-600 `#0d9488`) gives white text only **3.74:1**, so every primary button in the app was failing AA. Corrected to teal-700 `#0f766e` (**5.47:1**).
-- [x] **Every token pair verified by script, not by eye** — W11 added `apps/web/scripts/verify-contrast.mjs`, which walks the token table and checks all 90 foreground/background combinations across both themes: body text on all five surfaces, every button label, every semantic chip, input borders against WCAG 1.4.11's 3:1, focus ring against its offset, and card text plus hue stripes against all six data hues. It exits non-zero on any failure and runs in CI. Three real failures were caught and fixed *before* any code changed: `--muted-foreground` at stone-500 fell to 4.36:1 on the muted surface, and `--input` at hairline weight was 1.17:1 where 1.4.11 wants 3:1 in both themes.
+- [x] **Every token pair verified by script, not by eye** — W11 added `apps/web/scripts/verify-contrast.mjs`, which reads `app.css` directly and checks **144** pairs across both themes: body text on all five surfaces, every button label, every semantic chip, input borders against WCAG 1.4.11's 3:1, focus ring against its offset, card text plus hue stripes against all six data hues, and every pair of surfaces that meet, against `SURFACE_SEPARATION`. It exits non-zero on any failure and runs in CI. Three real failures were caught and fixed *before* any code changed: `--muted-foreground` at stone-500 fell to 4.36:1 on the muted surface, and `--input` at hairline weight was 1.17:1 where 1.4.11 wants 3:1 in both themes.
+- [x] **Surfaces that meet are distinguishable** — the rule the previous line did *not* cover. `--surface-band` shipped at 1.026 against `--background`, which is a different colour by definition and a single flat sheet to a reader; the page's band rhythm existed only in the markup. Caught by comparing our surface steps against a reference system's, not by any check we owned. The gate now owns it.
+- [x] **Aliased tokens are checked, not skipped** — the gate above shipped blind to `var()`. Every `--timeline-*` surface is an alias, so the Timeline — the densest screen in the product — had zero coverage while the run still reported that all pairs passed. Resolving aliases immediately surfaced `--timeline-header` at 1.026 against the canvas in light mode (dark was 1.303, so the layering was intended and only light failed to deliver it) and `--hue0-border` at 1.00 against `--primary`. Both are fixed; both are now checked.
 - [x] **Font family name asserted** — a unit test reads the resolved `font-family` and fails if it is not the fontsource-registered `… Variable` name. This exists because W4–W10 silently rendered in `system-ui` while shipping an unused Inter file.
 - [ ] Visual regression: every screen at 375 / 768 / 1024 / 1440 × light/dark has an approved baseline screenshot
 - [ ] No status conveyed by color alone (icon or text always present)
@@ -523,4 +572,4 @@ Built for `/dev/ui` gallery in W4, each with every state rendered:
 
 ### Anti-patterns, project-specific
 
-Never: saturated fills on appointment cards · teal anywhere except `--decorative` (never a button, never a status, never a card) · red/amber/emerald for anything but status · a hue on chrome · shadows inside the grid (except the dragged card) · a 10px radius on an appointment card · touch drag below 768px · greyed-out unavailable slots · a spinner where a skeleton belongs · `100vh` (use `100dvh`).
+Never: saturated fills on appointment cards · saturated red/amber/emerald for anything but status · shadows inside the grid (except the dragged card) · a card-sized radius on an appointment card · touch drag below 768px · greyed-out unavailable slots · a spinner where a skeleton belongs · `100vh` (use `100dvh`) · a raw Tailwind size where a `type-*` role exists · a colour that no verifier pair names · two surfaces meeting below `SURFACE_SEPARATION`.

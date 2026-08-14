@@ -71,6 +71,8 @@ Element.prototype.scrollTo ??= () => {}
 window.scrollTo = () => {}
 Element.prototype.setPointerCapture ??= () => {}
 Element.prototype.releasePointerCapture ??= () => {}
+Element.prototype.hasPointerCapture ??= () => false
+Element.prototype.scrollIntoView ??= () => {}
 window.matchMedia ??= ((query: string) =>
   new JsdomMediaQueryList(query) as unknown as MediaQueryList) as typeof window.matchMedia
 
@@ -79,11 +81,11 @@ beforeAll(() => {
 })
 
 afterEach(() => {
+  resetNetwork()
   cleanup()
   server.resetHandlers()
   setSession(null)
   resetViewport()
-  resetNetwork()
 })
 
 afterAll(() => {

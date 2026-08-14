@@ -1,4 +1,5 @@
 import { AppointmentStatus, ClaimStatus, Prisma, PrismaClient } from "@prisma/client"
+import { createHash } from "node:crypto"
 import * as argon2 from "argon2"
 import { DEFAULT_OPENING_HOURS, DEFAULT_SERVICES } from "../tenant/defaults"
 import { AuditEntry, AuditService } from "../audit/audit.service"
@@ -19,6 +20,14 @@ function mulberry32(seed: number) {
 }
 
 const rand = mulberry32(20260801)
+
+function stableUuid(key: string): string {
+  const bytes = createHash("sha1").update(`${DEMO_SLUG}:${key}`).digest().subarray(0, 16)
+  bytes[6] = ((bytes[6] as number) & 0x0f) | 0x50
+  bytes[8] = ((bytes[8] as number) & 0x3f) | 0x80
+  const hex = bytes.toString("hex")
+  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`
+}
 
 function randomInt(max: number) {
   return Math.floor(rand() * max)
@@ -402,6 +411,7 @@ export async function seedDemoTenant(client: PrismaClient, audit?: AuditService)
     const isActive = "isActive" in person ? (person.isActive ?? true) : true
     const user = await prisma.user.create({
       data: {
+        id: stableUuid(person.email),
         tenantId: tenant.id,
         email: person.email,
         passwordHash,

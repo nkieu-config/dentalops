@@ -9,7 +9,7 @@ export default defineConfig({
   },
   build: {
     commonjsOptions: {
-      include: [/packages\/contracts/, /packages\/availability/, /node_modules/]
+      include: [/packages\/availability/, /node_modules/]
     }
   },
   test: {

@@ -516,7 +516,7 @@ The composites, each with every state rendered:
 | `ViolationList` | {clean, warnings only, blocking, mixed} |
 | `CountdownBanner` | {>2min, <60s urgent, expired} |
 | `ShiftBlock` | {saved, dragging, recurring, conflicting} |
-| `EmptyState` / `ErrorState` | {no data, 409 conflict, 5xx, offline} |
+| `EmptyState` / `StatusCallout` | {no data, 409 conflict, 5xx, offline} |
 
 ### 6.1 Forms — one system, and the two places it is deliberately not used
 

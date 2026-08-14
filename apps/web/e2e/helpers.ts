@@ -32,6 +32,14 @@ const HOUR_MS = 3_600_000
 
 export const apiUrl = (path: string): string => `${API_ORIGIN}/api/v1${path}`
 
+export const pinnedNow = (): number => {
+  const pinned = process.env.E2E_NOW
+  if (!pinned) return Date.now()
+  const parsed = Date.parse(pinned)
+  if (Number.isNaN(parsed)) throw new Error(`E2E_NOW is not a date this runtime can parse: ${pinned}`)
+  return parsed
+}
+
 export const demoLogin = async (request: APIRequestContext): Promise<string> => {
   const res = await request.post(apiUrl("/auth/demo-login"), { data: { role: "owner" } })
   if (!res.ok()) throw new Error(`demo-login failed ${res.status()}: ${await res.text()}`)

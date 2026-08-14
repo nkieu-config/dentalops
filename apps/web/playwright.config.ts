@@ -8,8 +8,9 @@ const apiOrigin = `http://localhost:${apiPort}`
 export default defineConfig({
   testDir: "./e2e",
   projects: [
-    { name: "functional", testIgnore: /visual\.spec\.ts/ },
-    { name: "visual", testMatch: /visual\.spec\.ts/ }
+    { name: "functional", testIgnore: /(visual|readme)\.spec\.ts/ },
+    { name: "visual", testMatch: /visual\.spec\.ts/ },
+    { name: "readme", testMatch: /readme\.spec\.ts/ }
   ],
   timeout: 60_000,
   retries: 0,

@@ -1,5 +1,5 @@
 import { expect, test, type Page } from "@playwright/test"
-import { demoLogin, firstPatient, getJson, nextMonday } from "./helpers"
+import { demoLogin, firstPatient, getJson, nextMonday, pinnedNow } from "./helpers"
 import {
   APP_SCREENS,
   PUBLIC_SCREENS,
@@ -9,14 +9,6 @@ import {
   type Screen,
   type Theme
 } from "./screens"
-
-const visualNow = () => {
-  const pinned = process.env.E2E_NOW
-  if (!pinned) return Date.now()
-  const parsed = Date.parse(pinned)
-  if (Number.isNaN(parsed)) throw new Error(`E2E_NOW is not a date this runtime can parse: ${pinned}`)
-  return parsed
-}
 
 const applyTheme = async (page: Page, theme: Theme) => {
   await page.addInitScript(
@@ -68,7 +60,7 @@ for (const theme of THEMES) {
         const branches = await getJson<Array<{ id: string }>>(request, token, "/branches")
         const branchId = branches[0]?.id
         expect(branchId, "the demo tenant has no branches").toBeDefined()
-        const monday = nextMonday(visualNow())
+        const monday = nextMonday(pinnedNow())
         const patient = await firstPatient(request, token)
 
         const deepLink: Record<string, string> = {

@@ -39,25 +39,14 @@ DentalOps keeps the front desk schedule and patient booking flow in one calm com
 
 <table>
   <tr>
-    <td width="60%" valign="top"><img src="docs/assets/readme/chairs-desktop-dark.png" alt="The same DentalOps day in dark theme, with columns grouped by chair instead of by dentist" width="100%" /></td>
-    <td width="40%" valign="top"><img src="docs/assets/readme/public-booking-mobile.png" alt="DentalOps public mobile booking flow showing branch and service choices with durations" width="100%" /></td>
+    <td width="78%" valign="middle"><img src="docs/assets/readme/chairs-desktop-dark.png" alt="The same DentalOps day in dark theme, with columns grouped by chair instead of by dentist" width="100%" /></td>
+    <td width="22%" valign="middle"><img src="docs/assets/readme/public-booking-mobile.png" alt="DentalOps public mobile booking flow showing branch and service choices with durations" width="100%" /></td>
   </tr>
   <tr>
     <td align="center"><em>The same day by chair — the second resource axis, in the dark theme.</em></td>
     <td align="center"><em>Public booking — the patient path, on a phone.</em></td>
   </tr>
 </table>
-
-```mermaid
-flowchart LR
-  Patient["Public booking"] --> API["NestJS API"]
-  Staff["Staff workspace"] --> API
-  API --> Rules["Shared availability rules"]
-  Rules --> Postgres[("PostgreSQL constraints")]
-  API --> Redis[("Redis cache")]
-  API --> Realtime["Socket.IO events"]
-  Realtime --> Staff
-```
 
 ## Try it in 60 seconds
 
@@ -76,11 +65,23 @@ A dental appointment claims more than time: it needs a dentist, a chair, and som
 2. The NestJS API recomputes availability authoritatively and claims all required resources in one transaction.
 3. PostgreSQL range exclusion constraints reject any remaining race; the successful booking then reaches staff through Socket.IO.
 
-## Three decisions I'd defend in an interview
+```mermaid
+flowchart LR
+  Patient["Public booking"] --> API["NestJS API"]
+  Staff["Staff workspace"] --> API
+  API --> Rules["Shared availability rules"]
+  Rules --> Postgres[("PostgreSQL constraints")]
+  API --> Redis[("Redis cache")]
+  API --> Realtime["Socket.IO events"]
+  Realtime --> Staff
+```
+
+## Decisions I'd defend in an interview
 
 - **The database is the final authority.** GiST exclusion constraints over `tstzrange` make conflicting claims unrepresentable. [Database design](docs/database.md).
 - **One availability engine runs in browser and server.** Instant feedback and server authority share the same scheduling rules. [Availability design](docs/availability.md).
 - **Tenant isolation is enforced, not remembered.** An `AsyncLocalStorage` context and Prisma extension inject tenant filters; an unclassified route fails the isolation test. [Security model](docs/security.md).
+- **The audit trail is deliberately not a Postgres table.** Audit events are append-only and carry a `before`/`after` payload with no fixed shape, so they get their own store: writes are fire-and-forget and can never fail the booking that triggered them, a 30-day TTL index keeps a free-tier cluster from filling, and reads walk `_id` backwards so paging never sorts as the log grows. [Architecture](docs/architecture.md).
 
 ## Evidence
 
@@ -91,6 +92,7 @@ A dental appointment claims more than time: it needs a dentist, a chair, and som
 | A public booking reaches staff in realtime | [Two browser contexts](apps/web/e2e/public-booking.spec.ts) verify the timeline updates without reload. |
 | Redis failure cannot break integrity | [Dead Redis](apps/api/test/booking-without-redis.spec.ts) still permits an end-to-end booking while conflicting patients cannot both win. |
 | The production image survives contention | [60 patients, one slot](apps/api/scripts/load/booking-contention.js) produces exactly one booking in CI against Postgres, Redis, and MongoDB. |
+| The audit log cannot fill up or slow down | [Audit tests](apps/api/test/audit.spec.ts) prove a 30-day expiry index, cursor paging that never sorts, tenant scope, and an owner-only read boundary. |
 
 The complete [testing evidence matrix](docs/testing.md) covers every headline guarantee, quality gate, and CI boundary.
 
@@ -105,7 +107,8 @@ I predicted that caching availability would improve p50/p95 latency by 2.5–3×
 | **Frontend** | React 19, Vite, TanStack Query, Tailwind CSS | Public booking and staff scheduling stay responsive; Socket.IO updates the timeline without a reload. |
 | **Backend** | NestJS 11, Prisma, Socket.IO, BullMQ | Clear domain boundaries, an authoritative booking flow, realtime events, and asynchronous work. |
 | **Scheduling data** | PostgreSQL 16, GiST exclusion constraints | The source of truth: conflicting claims for time and resources cannot persist. |
-| **Supporting data** | Redis 7, MongoDB 7 | Redis supports holds, cache, queues, and idempotency; MongoDB stores append-only audit events. |
+| **Coordination** | Redis 7 | Slot holds, the availability cache, BullMQ queues, and idempotency keys. |
+| **Audit trail** | MongoDB 7 | Append-only events with an open payload shape, expired by a TTL index and read by cursor. |
 | **Quality & delivery** | Vitest, Jest, Playwright, Docker, GitHub Actions | Evidence runs from shared scheduling rules to browser journeys and production-image contention. |
 
 ## Quick start
@@ -127,6 +130,7 @@ The web app starts at http://localhost:5173, health is at http://localhost:3001/
 - [Booking](docs/booking.md) — locking, holds, idempotency, and recovery.
 - [Security](docs/security.md) — authentication, token boundaries, protected fields, and tenant isolation.
 - [Rostering](docs/rostering.md) — shift validation rules, series edits, and the nightly horizon job.
+- [Design system](docs/design-system.md) — tokens, the appointment colour scale, breakpoints, and the component inventory.
 - [Benchmarks](docs/benchmarks/latency.md) — availability and load-test method, results, and caveats.
 
 ## Limitations

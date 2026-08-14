@@ -690,11 +690,15 @@ export async function seedDemoTenant(client: PrismaClient, audit?: AuditService)
         const patientId = pickFreePatientId(cursor, endsAt)
         if (!patientId) break
 
-        let status: AppointmentStatus = "confirmed"
-        if (endsAt < now.getTime()) {
-          const roll = rand()
-          status = roll < 0.8 ? "completed" : roll < 0.9 ? "no_show" : "cancelled"
-        }
+        const roll = rand()
+        const status: AppointmentStatus =
+          endsAt < now.getTime()
+            ? roll < 0.8
+              ? "completed"
+              : roll < 0.9
+                ? "no_show"
+                : "cancelled"
+            : "confirmed"
         const claimStatus: ClaimStatus = status === "cancelled" ? "released" : "active"
 
         const appointmentId = randomUuid()
@@ -709,7 +713,7 @@ export async function seedDemoTenant(client: PrismaClient, audit?: AuditService)
           endsAt: new Date(endsAt),
           status
         })
-        if (status !== "cancelled") reserve(patientBusy, patientId, cursor, endsAt)
+        reserve(patientBusy, patientId, cursor, endsAt)
         batch.claims.push({
           tenantId: tenant.id,
           appointmentId,
@@ -740,7 +744,7 @@ export async function seedDemoTenant(client: PrismaClient, audit?: AuditService)
       // validation isn't a permanently clean, unexercised feature in the demo: a shift
       // that leaves too little rest before the regular one, and a confirmed appointment
       // booked outside any rostered shift.
-      if (!violationInjected && dentistId === violationDentistId && offset >= 0) {
+      if (!violationInjected && dentistId === violationDentistId && offset >= 1) {
         const restStart = shiftStart - 180 * MINUTE_MS
         const restEnd = shiftStart - 60 * MINUTE_MS
         const outsideService = pickPlainService()
@@ -749,7 +753,7 @@ export async function seedDemoTenant(client: PrismaClient, audit?: AuditService)
         const outsideChairEnd = outsideEnd + outsideService.bufferMin * MINUTE_MS
         const outsidePatientId = pickFreePatientId(outsideStart, outsideEnd)
 
-        if (outsideStart > now.getTime() && outsidePatientId) {
+        if (outsidePatientId) {
           violationInjected = true
           shiftRows.push({
             id: randomUuid(),

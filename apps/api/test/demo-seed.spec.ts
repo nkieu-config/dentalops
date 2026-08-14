@@ -80,10 +80,12 @@ describe("demo seed", () => {
       })
     ])
 
+    const minutes = (rows: { startsAt: Date; endsAt: Date }[]) =>
+      rows.reduce((total, row) => total + (row.endsAt.getTime() - row.startsAt.getTime()) / 60_000, 0)
+
     expect(chairs).toBe(4)
     expect(new Set(shifts.map((shift) => shift.staffId)).size).toBe(4)
-    expect(appointments.length).toBeGreaterThanOrEqual(20)
-    expect(appointments.length).toBeLessThanOrEqual(28)
+    expect(minutes(appointments) / minutes(shifts)).toBeGreaterThan(0.45)
     expect(appointments.every((appointment) => appointment.status === "confirmed")).toBe(true)
   })
 

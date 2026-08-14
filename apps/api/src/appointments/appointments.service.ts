@@ -63,7 +63,7 @@ export class AppointmentsService {
         endsAt: query.from ? { gt: new Date(query.from) } : undefined
       },
       include: APPOINTMENT_INCLUDE,
-      orderBy: { startsAt: "asc" }
+      orderBy: [{ startsAt: "asc" }, { id: "asc" }]
     })
   }
 

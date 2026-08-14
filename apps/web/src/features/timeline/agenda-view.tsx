@@ -58,7 +58,10 @@ export const AgendaView = ({
     () =>
       appointments
         .filter((a) => dentistFilter === ALL_DENTISTS || a.dentistId === dentistFilter)
-        .sort((a, b) => Date.parse(a.startsAt) - Date.parse(b.startsAt)),
+        .sort(
+          (a, b) =>
+            Date.parse(a.startsAt) - Date.parse(b.startsAt) || a.id.localeCompare(b.id)
+        ),
     [appointments, dentistFilter]
   )
   const selectedDentistName = dentists.find((dentist) => dentist.id === dentistFilter)?.name

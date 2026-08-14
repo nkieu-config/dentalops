@@ -81,6 +81,7 @@ jobs:
           git checkout -B chore/refresh-visual-baselines
           git add apps/web/e2e/visual.spec.ts-snapshots
           git commit -m "test(web): refresh visual baselines"
+          git fetch origin chore/refresh-visual-baselines || true
           git push --force-with-lease origin chore/refresh-visual-baselines
           {
             echo "Refreshed Linux snapshots are on \`chore/refresh-visual-baselines\`, taken from \`$GITHUB_SHA\`."

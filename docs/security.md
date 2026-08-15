@@ -82,8 +82,10 @@ colleague's whole book could be read one patient at a time.
 ## Error contract
 
 Every error response is `{ statusCode, errorCode, message, details?,
-requestId }`. Machine-readable codes seen so far: `VALIDATION_ERROR`,
-`INVALID_CREDENTIALS`, `SLUG_TAKEN`, `SLOT_CONFLICT`, `NOT_FOUND`,
-`FORBIDDEN`, `NOT_YOUR_APPOINTMENT`, `EMAIL_TAKEN`, `HOLD_EXPIRED`,
-`INTERNAL`. The `requestId` matches the `x-request-id` response
+requestId }`. Around thirty `errorCode` values exist; enumerating them here
+only produces a list that rots, so grep `AppException(` in `apps/api/src` for
+the current set. The ones the web client branches on rather than merely
+displays are `SLOT_CONFLICT`, `SLOT_HELD`, `STALE_VERSION`, `SERIES_CONFLICT`,
+`HOLD_EXPIRED`, `INVALID_CREDENTIALS` and `NOT_FOUND`; everything else reaches
+the user as its message. The `requestId` matches the `x-request-id` response
 header and the Sentry event for 5xx responses.

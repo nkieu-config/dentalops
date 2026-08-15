@@ -304,7 +304,9 @@ export async function seedDemoTenant(client: PrismaClient, audit?: AuditService)
   prisma = client
   const now = anchorTime()
 
+  const previous = await prisma.tenant.findUnique({ where: { slug: DEMO_SLUG } })
   await prisma.tenant.deleteMany({ where: { slug: DEMO_SLUG } })
+  if (previous && audit) await audit.purgeTenant(previous.id)
 
   const tenant = await prisma.tenant.create({
     data: { slug: DEMO_SLUG, name: "Bright Smile Dental Clinic" }

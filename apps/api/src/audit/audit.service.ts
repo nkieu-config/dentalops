@@ -90,6 +90,18 @@ export class AuditService implements OnModuleInit, OnModuleDestroy {
     }
   }
 
+  async purgeTenant(tenantId: string): Promise<number> {
+    const collection = this.collection
+    if (!collection) return 0
+    try {
+      const { deletedCount } = await collection.deleteMany({ tenantId })
+      return deletedCount
+    } catch (error) {
+      Sentry.captureException(error)
+      return 0
+    }
+  }
+
   async list(input: {
     cursor?: string
     limit: number

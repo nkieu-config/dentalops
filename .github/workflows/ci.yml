@@ -12,7 +12,7 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  ci:
+  verify:
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     services:
@@ -159,7 +159,7 @@ jobs:
       - uses: actions/upload-artifact@v4
         if: failure()
         with:
-          name: visual-regression-artifacts
+          name: visual-regression-diffs
           path: |
             apps/web/test-results/
             apps/web/playwright-report/

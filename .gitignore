@@ -3,6 +3,7 @@ node_modules/
 dist/
 .turbo/
 .superpowers/
+docs/superpowers/
 coverage/
 playwright-report/
 test-results/

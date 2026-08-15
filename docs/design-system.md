@@ -1,7 +1,7 @@
 # DentalOps Design System
 
 Source of truth for all UI work.
-Implements the UX decisions in [superpowers/specs/2026-07-31-product-design.md](superpowers/specs/2026-07-31-product-design.md) §6.
+Implements the UX decisions from the product design spec, which is kept outside the repository.
 
 Stack: React 19 + Tailwind CSS v4 + shadcn/ui. Light and dark are both first-class.
 

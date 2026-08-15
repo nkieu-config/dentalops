@@ -17,6 +17,7 @@ import { THEME_STORAGE_KEY, type Theme } from "./screens"
 
 const DESKTOP = { width: 1440, height: 900 }
 const PHONE = { width: 375, height: 812 }
+const SOCIAL_CARD = { width: 1280, height: 640 }
 const NEIGHBOUR_WINDOW_MS = 2 * 3_600_000
 
 interface Clip {
@@ -213,4 +214,19 @@ test("public booking on a phone", async ({ page }) => {
   await settle(page)
 
   await shoot(page, "public-booking-mobile")
+})
+
+test("the card GitHub shows when the repository is shared", async ({ page, request }) => {
+  await page.setViewportSize(SOCIAL_CARD)
+  await useTheme(page, "light")
+  const token = await demoLogin(request)
+  const branch = await branchNamed(request, token, "Ladprao")
+  const date = nextMonday(pinnedNow())
+
+  await signIn(page)
+  await page.goto(`/app/timeline?d=${date}&b=${branch.id}`)
+  await expect(page.getByTestId("timeline-canvas")).toBeVisible()
+  await settle(page)
+
+  await shoot(page, "social-preview")
 })

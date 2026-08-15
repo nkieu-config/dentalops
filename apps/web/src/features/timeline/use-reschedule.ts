@@ -4,6 +4,7 @@ import { useRef } from "react"
 import { toast } from "sonner"
 import { api, ApiError } from "../../lib/api"
 import { fmtTime } from "./lib/geometry"
+import { UNDO_MS } from "../../lib/undo"
 
 export interface RescheduleInput {
   id: string
@@ -18,8 +19,6 @@ interface RescheduleOptions {
   onConflict?: (conflictingAppointmentId: string | null) => void
   onAnnounce?: (message: string) => void
 }
-
-const UNDO_MS = 8000
 
 const durationMinOf = (appointment: Appointment): number =>
   Math.round((Date.parse(appointment.endsAt) - Date.parse(appointment.startsAt)) / 60_000)

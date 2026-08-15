@@ -40,9 +40,9 @@ import { ShiftDialog } from "./shift-dialog"
 import { useShiftDrag, type ShiftDraft } from "./use-shift-drag"
 import { ViolationList, type ViolationLink } from "./violation-list"
 import { queryKeys } from "../../lib/query-keys"
+import { UNDO_MS } from "../../lib/undo"
 
 const MD_WINDOW_DAYS = 3
-const UNDO_MS = 8000
 
 type RosterMode = "sm" | "md" | "lg"
 

@@ -10,6 +10,15 @@ export default defineConfig({
   build: {
     commonjsOptions: {
       include: [/packages\/availability/, /node_modules/]
+    },
+    rollupOptions: {
+      output: {
+        manualChunks: (id) => {
+          if (!id.includes("node_modules")) return undefined
+          if (id.includes("socket.io") || id.includes("engine.io")) return "realtime"
+          return "vendor"
+        }
+      }
     }
   },
   test: {

@@ -33,6 +33,13 @@ export const schedulePreviewRows: ScheduleRow[] = [
       { start: 4, width: 16, hue: 5 },
       { start: 50, width: 32, hue: 3 }
     ]
+  },
+  {
+    chair: "Chair 4",
+    blocks: [
+      { start: 24, width: 20, hue: 3 },
+      { start: 64, width: 14, hue: 0 }
+    ]
   }
 ]
 

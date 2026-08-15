@@ -69,7 +69,7 @@ const capabilities = [
   {
     icon: Clock,
     title: "Real-Time Booking",
-    description: "Double-booking blocked at the database, with every slot held automatically."
+    description: "Double-booking blocked at the database, with online slots held while a patient books."
   },
   {
     icon: Users,
@@ -167,15 +167,15 @@ export const LandingPage = () => {
               >
                 <div>
                   <p className="type-meta font-semibold uppercase tracking-wider text-muted-foreground">
-                    Bangkok Central Branch
+                    Ladprao Branch
                   </p>
-                  <p className="type-card-title font-semibold">A Tuesday, three chairs</p>
+                  <p className="type-card-title font-semibold">A Tuesday, four chairs</p>
                 </div>
 
                 <SchedulePreview className="mt-5" />
 
                 <p className="mt-4 type-supporting text-muted-foreground">
-                  Each color is a booked service. Empty space is open.
+                  Each colour is a booked service. Empty space is open.
                 </p>
 
                 <div className="mt-6 border-t border-border pt-5">
@@ -361,7 +361,7 @@ export const LandingPage = () => {
           </div>
 
           <p className="mt-10 border-t border-surface-inverse-border pt-6 type-meta">
-            © 2026 DentalOps. All rights reserved.
+            © {new Date().getFullYear()} DentalOps. All rights reserved.
           </p>
         </div>
       </footer>

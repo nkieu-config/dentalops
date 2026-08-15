@@ -8,5 +8,7 @@ playwright-report/
 test-results/
 .env
 .env.local
+apps/*/.env
+apps/*/.env.local
 *.local
 .DS_Store

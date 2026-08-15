@@ -9,8 +9,13 @@ import { fileURLToPath } from "node:url"
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..")
 const pnpm = process.platform === "win32" ? "pnpm.cmd" : "pnpm"
 
+export const envFiles = [
+  ["apps/api/.env.example", "apps/api/.env"],
+  ["apps/web/.env.example", "apps/web/.env"]
+]
+
 export const messages = {
-  missingEnv: "Missing .env. Run pnpm setup to create it from .env.example.",
+  missingEnv: "Missing apps/api/.env. Run pnpm setup to create it from apps/api/.env.example.",
   docker: "Docker Compose is unavailable. Start Docker Desktop, then run pnpm infra:up.",
   usage: "Usage: node scripts/local-workflow.mjs <setup|dev|infra-up|infra-down|infra-logs|demo-seed|db-reset>"
 }
@@ -27,7 +32,7 @@ export const actions = {
 
 export const createWorkflow = ({ run, exists, copy, confirm, pnpmCommand = "pnpm" }) => {
   const requireEnv = () => {
-    if (!exists(".env")) throw new Error(messages.missingEnv)
+    if (!exists("apps/api/.env")) throw new Error(messages.missingEnv)
   }
   const requireDocker = () => run("docker", ["compose", "version"])
   const infraUp = async () => {
@@ -44,7 +49,9 @@ export const createWorkflow = ({ run, exists, copy, confirm, pnpmCommand = "pnpm
     infraDown: () => run("docker", ["compose", "down"]),
     infraLogs: () => run("docker", ["compose", "logs", "--follow"]),
     setup: async () => {
-      if (!exists(".env")) await copy(".env.example", ".env")
+      for (const [example, target] of envFiles) {
+        if (!exists(target)) await copy(example, target)
+      }
       await infraUp()
       await run(pnpmCommand, ["install", "--frozen-lockfile"])
       await run(pnpmCommand, ["--filter", "@dentalops/api", "db:generate"])

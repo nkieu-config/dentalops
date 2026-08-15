@@ -14,6 +14,8 @@ pnpm dev
 
 The web app runs at http://localhost:5173. API health is at http://localhost:3001/api/v1/health and Swagger is at http://localhost:3001/api/docs outside production.
 
+`pnpm setup` writes `apps/api/.env` and `apps/web/.env` from the `.env.example` beside each. They live in the packages rather than the repository root because that is where the tools read them: every API command runs with `apps/api` as its working directory, so Prisma and Nest load `apps/api/.env`, and Vite's env directory is the package holding `vite.config.ts`. A root `.env` is read by nothing.
+
 ## Daily infrastructure
 
 ```bash

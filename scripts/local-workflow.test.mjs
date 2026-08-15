@@ -1,6 +1,6 @@
 import assert from "node:assert/strict"
 import test from "node:test"
-import { actions, createWorkflow, messages } from "./local-workflow.mjs"
+import { actions, createWorkflow, envFiles, messages } from "./local-workflow.mjs"
 
 const harness = ({ envExists = true, confirmed = true } = {}) => {
   const calls = []
@@ -8,7 +8,7 @@ const harness = ({ envExists = true, confirmed = true } = {}) => {
     calls,
     workflow: createWorkflow({
       exists: () => envExists,
-      copy: async () => calls.push(["copy", ".env.example", ".env"]),
+      copy: async (from, to) => calls.push(["copy", from, to]),
       confirm: async () => confirmed,
       run: async (command, args) => calls.push([command, args])
     })
@@ -27,13 +27,13 @@ test("dev waits for Compose health before starting only the API and web", async 
   ])
 })
 
-test("setup copies a missing environment file without seeding data", async () => {
+test("setup gives every app the environment file it reads, without seeding data", async () => {
   const { calls, workflow } = harness({ envExists: false })
 
   await workflow.setup()
 
   assert.deepEqual(calls, [
-    ["copy", ".env.example", ".env"],
+    ...envFiles.map(([example, target]) => ["copy", example, target]),
     ["docker", ["compose", "version"]],
     ["docker", ["compose", "up", "-d", "--wait"]],
     ["pnpm", ["install", "--frozen-lockfile"]],
@@ -50,7 +50,7 @@ test("a declined demo seed does not execute Prisma", async () => {
   assert.deepEqual(calls, [])
 })
 
-test("dev refuses to start when .env is missing", async () => {
+test("dev refuses to start when the API environment file is missing", async () => {
   const { workflow } = harness({ envExists: false })
 
   await assert.rejects(workflow.dev(), { message: messages.missingEnv })

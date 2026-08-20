@@ -1,4 +1,5 @@
 import type { Shift } from "@dentalops/contracts"
+import { nowMs } from "../../../lib/clock"
 
 export const PX_PER_MIN = 16 / 15
 export const DAY_MS = 86_400_000
@@ -38,7 +39,7 @@ const weekdayShortFmt = new Intl.DateTimeFormat("en-GB", {
 
 export const bkkDate = (ms: number): string => dateFmt.format(new Date(ms))
 
-export const bkkToday = (): string => bkkDate(Date.now())
+export const bkkToday = (): string => bkkDate(nowMs())
 
 export const MINUTES_PER_DAY = 1440
 

@@ -21,6 +21,7 @@ import { InitialsAvatar } from "../../components/ui/initials-avatar"
 import { Skeleton } from "../../components/ui/skeleton"
 import { api } from "../../lib/api"
 import { appointmentStatus } from "../../lib/appointment-status"
+import { nowMs } from "../../lib/clock"
 import { queryKeys } from "../../lib/query-keys"
 import { useCanBook } from "../../lib/session"
 import { bkkDate, fmtDay, fmtTime } from "../timeline/lib/geometry"
@@ -294,7 +295,7 @@ export const PatientDetail = () => {
           ) : (
             <div className="mt-6 space-y-7">
               {(() => {
-                const now = Date.now()
+                const now = nowMs()
                 const upcoming = patient.appointments
                   .filter((appointment) => appointment.status === "confirmed" && Date.parse(appointment.startsAt) >= now)
                   .toSorted((a, b) => Date.parse(a.startsAt) - Date.parse(b.startsAt))

@@ -10,14 +10,15 @@ import { useQuery } from "@tanstack/react-query"
 import { useEffect, useState } from "react"
 import { z } from "zod"
 import { api } from "../../lib/api"
+import { nowMs } from "../../lib/clock"
 import { queryKeys } from "../../lib/query-keys"
 import { DAY_MS, WEEK_DAYS, bkkDayStart } from "./lib/geometry"
 
 export const useNow = (active: boolean): number => {
-  const [now, setNow] = useState(() => Date.now())
+  const [now, setNow] = useState(() => nowMs())
   useEffect(() => {
     if (!active) return
-    const timer = setInterval(() => setNow(Date.now()), 60_000)
+    const timer = setInterval(() => setNow(nowMs()), 60_000)
     return () => clearInterval(timer)
   }, [active])
   return now

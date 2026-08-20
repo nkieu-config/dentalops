@@ -30,7 +30,7 @@ export default defineConfig({
       env: { PORT: String(apiPort), WEB_ORIGIN: webOrigin }
     },
     {
-      command: `VITE_API_URL=${apiOrigin} VITE_DEV_UI=1 pnpm --filter @dentalops/web build && pnpm --filter @dentalops/web preview --port ${webPort} --strictPort`,
+      command: `VITE_API_URL=${apiOrigin} VITE_DEV_UI=1 VITE_E2E_NOW=${process.env.E2E_NOW ?? ""} pnpm --filter @dentalops/web build && pnpm --filter @dentalops/web preview --port ${webPort} --strictPort`,
       url: webOrigin,
       reuseExistingServer: !process.env.CI,
       timeout: 60_000

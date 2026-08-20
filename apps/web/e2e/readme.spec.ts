@@ -3,6 +3,7 @@ import { expect, test, type APIRequestContext, type Page } from "@playwright/tes
 import { mkdir } from "node:fs/promises"
 import { resolve } from "node:path"
 import {
+  THEME_STORAGE_KEY,
   bkkClockLabel,
   dayWindow,
   demoLogin,
@@ -11,9 +12,9 @@ import {
   pinnedNow,
   postJson,
   recentWeekday,
-  weekWindow
+  weekWindow,
+  type Theme
 } from "./helpers"
-import { THEME_STORAGE_KEY, type Theme } from "./screens"
 
 const DESKTOP = { width: 1440, height: 900 }
 const PHONE = { width: 375, height: 812 }

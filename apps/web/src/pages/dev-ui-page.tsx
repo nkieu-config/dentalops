@@ -987,7 +987,7 @@ export const DevUiPage = () => (
         This page shows every component in <code>components/ui</code> and{" "}
         <code>components/shell</code>, plus the seven composites in MASTER §6. It does not show
         whole screens — Timeline, Roster, Settings, Patients, Activity and the booking wizard are
-        compositions, and the visual suite covers those at four widths in both themes.
+        compositions, and the e2e suite covers those against a real API.
       </p>
       <p className="type-ui text-muted-foreground">
         Anything shared that is not on this page is unreviewed by definition. A component with no

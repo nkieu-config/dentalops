@@ -255,3 +255,7 @@ export const firstPatient = async (request: APIRequestContext, token: string) =>
   if (!patient) throw new Error("the demo tenant has no patients")
   return patient
 }
+
+export type Theme = "light" | "dark"
+
+export const THEME_STORAGE_KEY = "dentalops-theme"

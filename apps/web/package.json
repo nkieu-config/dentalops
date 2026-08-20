@@ -10,8 +10,6 @@
     "test": "vitest run",
     "e2e": "playwright test --project=functional --workers=1",
     "e2e:a11y": "playwright test e2e/a11y.spec.ts",
-    "e2e:visual": "DEMO_SEED_NOW=2026-08-03T00:00:00+07:00 pnpm --filter @dentalops/api db:seed && CI=1 DEMO_SEED_NOW=2026-08-03T00:00:00+07:00 E2E_API_PORT=5391 E2E_WEB_PORT=5392 E2E_NOW=2026-08-03T00:00:00+07:00 playwright test --project=visual",
-    "e2e:visual:update": "DEMO_SEED_NOW=2026-08-03T00:00:00+07:00 pnpm --filter @dentalops/api db:seed && CI=1 DEMO_SEED_NOW=2026-08-03T00:00:00+07:00 E2E_API_PORT=5391 E2E_WEB_PORT=5392 E2E_NOW=2026-08-03T00:00:00+07:00 playwright test --project=visual --update-snapshots",
     "e2e:readme": "DEMO_SEED_NOW=2026-08-03T00:00:00+07:00 pnpm --filter @dentalops/api db:seed && CI=1 DEMO_SEED_NOW=2026-08-03T00:00:00+07:00 E2E_API_PORT=5391 E2E_WEB_PORT=5392 E2E_NOW=2026-08-03T00:00:00+07:00 playwright test --project=readme --workers=1",
     "verify:contrast": "node scripts/verify-contrast.mjs",
     "lint": "eslint ."

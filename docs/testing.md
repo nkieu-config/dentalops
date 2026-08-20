@@ -37,8 +37,7 @@ migrations, tests, build, and seeded Playwright e2e. A separate Docker job build
 image, starts it against real Postgres/Redis/MongoDB, verifies health and audit connectivity, and
 runs two k6 gates: 60-patient contention and a sustained availability read.
 
-Visual regression starts only after Linux baseline snapshots exist; a manual workflow refreshes
-them. The README screenshots come from the same harness — `pnpm --filter @dentalops/web e2e:readme`
+The README screenshots are generated, not taken by hand — `pnpm --filter @dentalops/web e2e:readme`
 seeds the demo tenant at a pinned instant and drives the real UI; the conflict screenshot is a
 rejected drag, not a mock — the suite fails if the database accepts the move.
 

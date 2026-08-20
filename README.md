@@ -1,7 +1,6 @@
 # DentalOps
 
 [![CI](https://github.com/nkieu-config/dentalops/actions/workflows/ci.yml/badge.svg)](https://github.com/nkieu-config/dentalops/actions/workflows/ci.yml)
-[![Try the demo](https://img.shields.io/badge/demo-try%20it-2563EB?logo=vercel&logoColor=white)](https://trydentalops.vercel.app)
 
 ![React 19](https://img.shields.io/badge/React_19-149ECA?logo=react&logoColor=white)
 ![NestJS 11](https://img.shields.io/badge/NestJS_11-E0234E?logo=nestjs&logoColor=white)
@@ -11,31 +10,29 @@
 ![TypeScript](https://img.shields.io/badge/TypeScript_strict-3178C6?logo=typescript&logoColor=white)
 ![Docker](https://img.shields.io/badge/Docker-2496ED?logo=docker&logoColor=white)
 
-**A multi-tenant dental scheduling system, built solo.** An appointment claims a dentist, a chair, and sometimes equipment at once, and PostgreSQL exclusion constraints make an overlapping claim impossible to store.
+**A multi-tenant dental scheduling system, built solo.** Patients book online while staff book at the desk, so the same dentist, chair, or equipment can be claimed twice for one slot. PostgreSQL exclusion constraints make that overlap impossible to store, not just unlikely.
 
-**Live demo:** https://trydentalops.vercel.app · **API health:** https://dentalops-api.onrender.com/api/v1/health
+**Live demo:** https://trydentalops.vercel.app
 
-## Product tour
-
-The tour goes from the desk where staff work the day to the phone a patient books from. Every screenshot below is regenerated from the running app by `pnpm --filter @dentalops/web e2e:readme` against a clock-pinned demo seed, so refreshing them after a UI change is one command rather than a screenshot session. All names and appointments are synthetic.
+## Screenshots
 
 <p align="center">
   <img src="docs/assets/readme/timeline-desktop.png" alt="DentalOps timeline showing four dentist columns of appointments for one branch on one day, each column headed by its booked and free hours" width="100%" />
 </p>
 
-<p align="center"><em>Timeline — one branch, one day, four dentists. Each column header carries its own booked-versus-free load.</em></p>
+<p align="center"><em>Timeline — one branch, one day, four dentists.</em></p>
 
 <p align="center">
   <img src="docs/assets/readme/conflict-desktop.png" alt="The DentalOps timeline after an appointment was dragged onto a taken slot: a red toast names the appointment that blocked the move, and the dragged card has returned to its original time" width="100%" />
 </p>
 
-<p align="center"><em>The guarantee, on screen — a drag onto a taken slot is refused by the database, the optimistic move rolls back, and the toast names the appointment that blocked it.</em></p>
+<p align="center"><em>A drag onto a taken slot: the database refuses it, the move rolls back, and the toast names the conflict.</em></p>
 
 <p align="center">
   <img src="docs/assets/readme/roster-violations-desktop.png" alt="DentalOps roster for a week with a review queue panel listing one blocking coverage issue and one rest-period warning" width="100%" />
 </p>
 
-<p align="center"><em>Roster — the review queue separates coverage that blocks bookings from coverage that is merely worth checking.</em></p>
+<p align="center"><em>Roster — the review queue separates coverage that blocks a booking from coverage that is only worth checking.</em></p>
 
 <table>
   <tr>
@@ -43,8 +40,8 @@ The tour goes from the desk where staff work the day to the phone a patient book
     <td width="22%" valign="middle"><img src="docs/assets/readme/public-booking-mobile.png" alt="DentalOps public mobile booking flow showing branch and service choices with durations" width="100%" /></td>
   </tr>
   <tr>
-    <td align="center"><em>The same day by chair — the second resource axis, in the dark theme.</em></td>
-    <td align="center"><em>Public booking — the patient path, on a phone.</em></td>
+    <td align="center"><em>The same day, by chair — dark theme.</em></td>
+    <td align="center"><em>Public booking, on a phone.</em></td>
   </tr>
 </table>
 
@@ -55,63 +52,51 @@ The tour goes from the desk where staff work the day to the phone a patient book
 3. On a phone, open [public booking](https://trydentalops.vercel.app/book/demo-clinic), book a slot, then watch it reach the desktop timeline without a reload.
 
 > [!NOTE]
-> The demo uses free-tier hosting. Its first API request after inactivity can take about a minute, and the seeded clinic resets every six hours.
+> Free-tier hosting: the first API request after inactivity can take about a minute, and the demo clinic resets every six hours.
 
-## The problem and the design
-
-Bookings arrive from two directions at once, patients online and staff at the desk, so the same dentist, chair, or piece of equipment can be claimed twice in the same instant. I built DentalOps to make a conflicting appointment impossible to persist, rather than merely unlikely.
-
-1. A shared TypeScript availability engine gives the browser instant feedback from opening hours, shifts, appointments, blocks, and holds.
-2. The NestJS API recomputes availability authoritatively and claims all required resources in one transaction.
-3. PostgreSQL range exclusion constraints reject any remaining race; the successful booking then reaches staff through Socket.IO.
+## How it works
 
 ```mermaid
 flowchart LR
-  Patient["Public booking"] --> API["NestJS API"]
-  Staff["Staff workspace"] --> API
-  API --> Rules["Shared availability rules"]
-  Rules --> Postgres[("PostgreSQL constraints")]
+  Patient["Public booking"] --> Web["Browser"]
+  Staff["Staff workspace"] --> Web
+  Web -. "instant feedback" .-> Rules["Shared availability rules"]
+  Web --> API["NestJS API"]
+  API -->|"authoritative"| Rules
+  API --> Postgres[("PostgreSQL constraints")]
   API --> Redis[("Redis cache")]
-  API --> Realtime["Socket.IO events"]
-  Realtime --> Staff
+  API -. "Socket.IO" .-> Web
 ```
 
-## Decisions I'd defend in an interview
-
-- **The database is the final authority.** GiST exclusion constraints over `tstzrange` make conflicting claims unrepresentable. [Database design](docs/database.md).
-- **One availability engine runs in browser and server.** Instant feedback and server authority share the same scheduling rules. [Availability design](docs/availability.md).
+- **The database is the final authority.** One transaction claims every resource an appointment needs, and application code can't forget a rule that lives in a GiST constraint. [Database design](docs/database.md).
+- **One availability engine runs in browser and server.** Instant feedback and server authority share the same scheduling rules. [Scheduling engine](docs/scheduling-engine.md).
 - **Tenant isolation is enforced, not remembered.** An `AsyncLocalStorage` context and Prisma extension inject tenant filters; an unclassified route fails the isolation test. [Security model](docs/security.md).
-- **The audit log cannot take a booking down with it.** It gets its own store rather than a table beside the bookings it records: writes are fire-and-forget, a 30-day TTL expires them, and reads walk `_id` backwards so paging never sorts. [Architecture](docs/architecture.md).
+- **The audit log can't take a booking down with it.** It lives in its own store rather than a table beside the bookings it records, and its writes are fire-and-forget. [Architecture](docs/architecture.md).
 
 ## Evidence
 
 | Guarantee | Proof |
 | --- | --- |
-| Conflicting bookings cannot persist | [20 concurrent requests](apps/api/test/booking-race.spec.ts) produce one row and nineteen 409 responses. |
-| Tenant routes cannot leak data | [Route discovery](apps/api/test/tenant-isolation.spec.ts) fails the build when a route is absent from the isolation registry. |
-| A public booking reaches staff in realtime | [Two browser contexts](apps/web/e2e/public-booking.spec.ts) verify the timeline updates without reload. |
-| Redis failure cannot break integrity | [Dead Redis](apps/api/test/booking-without-redis.spec.ts) still permits an end-to-end booking while two patients racing for one slot cannot both win. |
-| The production image survives contention | [60 patients, one slot](apps/api/scripts/load/booking-contention.js) produces exactly one booking in CI against Postgres, Redis, and MongoDB. |
-| Audit failure cannot break a booking | [Dead MongoDB](apps/api/test/booking-without-mongo.spec.ts) still confirms a booking and rejects its duplicate; [audit tests](apps/api/test/audit.spec.ts) add a 30-day expiry, cursor paging that never sorts, and an owner-only tenant boundary. |
+| Conflicting bookings cannot persist | [20 concurrent requests](apps/api/test/booking-race.spec.ts) produce one booking and nineteen 409s; four dentists racing for three chairs leave three winners on distinct chairs. [60 patients, one slot](apps/api/scripts/load/booking-contention.js) produce exactly one booking against the production image in CI. |
+| Tenant routes cannot leak data | [Route discovery](apps/api/test/tenant-isolation.spec.ts) fails the build when a route is missing from the isolation registry, and a cross-tenant id returns 404 rather than the 403 that would confirm the row exists. |
+| A public booking reaches staff in realtime | [Two browser contexts](apps/web/e2e/public-booking.spec.ts) confirm the timeline updates without reload. |
+| Correctness survives a dead Redis | [With Redis unreachable](apps/api/test/booking-without-redis.spec.ts) a hold stops being a lock and becomes a signed token, so two patients can hold one slot, and PostgreSQL still lets exactly one of them book it. |
+| A cache hit answers 2.6× faster | Predicted 2.5–3×, measured **2.6×** — p50 3.84 ms → 1.47 ms, p95 4.99 ms → 1.94 ms on all-hit traffic. [Method and caveats](docs/benchmarks/latency.md). |
 
 The complete [testing evidence matrix](docs/testing.md) covers every headline guarantee, quality gate, and CI boundary.
 
-## Measured, then optimised
+## Tech stack
 
-I predicted that caching availability would improve p50/p95 latency by 2.5–3× because database round trips dominated. The measured result was **2.6×**: p50 **3.84 ms → 1.47 ms** and p95 **4.99 ms → 1.94 ms**. [Method, caveats, and reproduction](docs/benchmarks/latency.md).
+| Layer | Stack |
+| --- | --- |
+| **Frontend** | React 19, Vite, TanStack Query, Tailwind CSS |
+| **Backend** | NestJS 11, Prisma, Socket.IO, BullMQ |
+| **Scheduling data** | PostgreSQL 16 with GiST exclusion constraints |
+| **Coordination** | Redis 7 — slot holds, availability cache, queues, idempotency keys |
+| **Audit trail** | MongoDB 7 — append-only events behind a TTL index |
+| **Quality & delivery** | Vitest, Jest, Playwright, Docker, GitHub Actions |
 
-## Stack
-
-| Layer | Stack | Why it matters |
-| --- | --- | --- |
-| **Frontend** | React 19, Vite, TanStack Query, Tailwind CSS | Public booking and staff scheduling stay responsive, and the timeline re-renders from realtime events without a reload. |
-| **Backend** | NestJS 11, Prisma, Socket.IO, BullMQ | Clear domain boundaries, an authoritative booking flow, realtime events, and asynchronous work. |
-| **Scheduling data** | PostgreSQL 16, GiST exclusion constraints | The source of truth: conflicting claims for time and resources cannot persist. |
-| **Coordination** | Redis 7 | Slot holds, the availability cache, BullMQ queues, and idempotency keys. |
-| **Audit trail** | MongoDB 7 | Append-only events with an open payload shape, expired by a TTL index and read by cursor. |
-| **Quality & delivery** | Vitest, Jest, Playwright, Docker, GitHub Actions | Evidence runs from shared scheduling rules to browser journeys and production-image contention. |
-
-## Quick start
+## Run it locally
 
 Requires Node 22, pnpm 10, and Docker.
 
@@ -121,27 +106,23 @@ pnpm demo:seed
 pnpm dev
 ```
 
-The web app starts at http://localhost:5173, health is at http://localhost:3001/api/v1/health, and local Swagger is at http://localhost:3001/api/docs. Daily infrastructure commands, reset safety, and local email inspection are in [development notes](docs/development.md).
+The web app starts at http://localhost:5173, health is at http://localhost:3001/api/v1/health (the deployed API answers the same route at [dentalops-api.onrender.com](https://dentalops-api.onrender.com/api/v1/health)), and local Swagger is at http://localhost:3001/api/docs. Daily infrastructure commands, reset safety, and local email inspection are in [setup notes](docs/setup.md).
 
-## Further reading
+## Documentation
 
-- [Architecture](docs/architecture.md) — system boundaries, data ownership, resilience, and deployment.
-- [Testing](docs/testing.md) — full evidence matrix, browser journeys, and CI gates.
-- [Booking](docs/booking.md) — locking, holds, idempotency, and recovery.
-- [Security](docs/security.md) — authentication, token boundaries, protected fields, and tenant isolation.
-- [Rostering](docs/rostering.md) — shift validation rules, series edits, and the nightly horizon job.
-- [Design system](docs/design-system.md) — tokens, the appointment colour scale, breakpoints, and the component inventory.
-- [Benchmarks](docs/benchmarks/latency.md) — availability and load-test method, results, and caveats.
+- [Architecture](docs/architecture.md) — boundaries, data ownership, and the one rule that decides which layer may say a booking exists.
+- [Booking](docs/booking.md) — transactions, lock ordering, and why a receptionist may take a slot a patient is still holding.
+- [Security](docs/security.md) — tokens, tenant isolation, and a privilege escalation this project found in its own code and fixed.
+- [Latency](docs/benchmarks/latency.md) — the prediction recorded before the cache was built, the method, and the caveats.
+- [Load tests](docs/benchmarks/load.md) — sixty patients racing for one slot, and a cache benchmark that missed every request until it was rewritten.
 
 ## Limitations
 
-- The product is intentionally single-timezone and currently operates in Asia/Bangkok; its fixed-offset implementation is unsuitable for daylight-saving regions.
-- Payments, insurance claims, and clinical records are outside this scheduling-focused scope.
-- Free-tier hosting delays the first request after the demo has been idle.
-- When MongoDB is unavailable the activity log stops recording and the page says so; bookings are unaffected.
+- Single-timezone by design (Asia/Bangkok); the fixed-offset implementation is unsuitable for daylight-saving regions.
+- Payments, insurance claims, and clinical records are out of scope.
+- When MongoDB is unavailable the activity log stops recording and says so; bookings are unaffected.
+- The hosted demo logs confirmation emails rather than sending them; the manage link is reachable from the booking confirmation screen.
 
-## About
+## License
 
-Built solo by [Natthachak (@nkieu-config)](https://github.com/nkieu-config): product design, schema, backend, frontend, automated tests, CI, and deployment. I learned to put correctness-critical rules in database constraints and build-time enforcement rather than in developer memory.
-
-📫 natthachak.config@gmail.com · [LinkedIn](https://www.linkedin.com/in/natthachak)
+MIT — see [LICENSE](LICENSE).

@@ -153,7 +153,7 @@ if (failures.length > 0) {
   console.error(`Contrast failures (${failures.length} of ${checked} pairs checked):`)
   for (const failure of failures) console.error(`  ${failure}`)
   console.error("")
-  console.error("See docs/design-system.md section 2 for the rules these pairs enforce.")
+  console.error("Every colour must be named by a pair; see the token definitions in apps/web/src/app.css.")
   process.exit(1)
 }
 

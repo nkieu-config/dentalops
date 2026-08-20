@@ -5,7 +5,7 @@ import test from "node:test"
 test("portfolio README and development notes document the supported local workflow commands", async () => {
   const [readme, development] = await Promise.all([
     readFile("README.md", "utf8"),
-    readFile("docs/development.md", "utf8")
+    readFile("docs/setup.md", "utf8")
   ])
 
   for (const command of ["pnpm setup", "pnpm demo:seed", "pnpm dev"]) {
